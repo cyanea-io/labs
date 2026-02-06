@@ -8,7 +8,11 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-cyanea-core = { path = "../cyanea-core", default-features = false }
-cyanea-seq = { path = "../cyanea-seq", default-features = false }
-cyanea-io = { path = "../cyanea-io", default-features = false }
-cyanea-align = { path = "../cyanea-align", default-features = false }
+cyanea-core  = { path = "../cyanea-core",  default-features = false, features = ["serde"] }
+cyanea-seq   = { path = "../cyanea-seq",   default-features = false, features = ["serde"] }
+cyanea-io    = { path = "../cyanea-io",    default-features = false }
+cyanea-align = { path = "../cyanea-align", default-features = false, features = ["serde"] }
+cyanea-stats = { path = "../cyanea-stats", default-features = false }
+cyanea-ml    = { path = "../cyanea-ml",    default-features = false }
+serde        = { workspace = true, features = ["derive"] }
+serde_json   = { workspace = true }

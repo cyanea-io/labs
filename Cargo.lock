@@ -240,7 +240,11 @@ dependencies = [
  "cyanea-align",
  "cyanea-core",
  "cyanea-io",
+ "cyanea-ml",
  "cyanea-seq",
+ "cyanea-stats",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
