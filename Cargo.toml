@@ -6,6 +6,13 @@ members = [
     "cyanea-align",
     "cyanea-omics",
     "cyanea-stats",
+    "cyanea-ml",
+    "cyanea-chem",
+    "cyanea-struct",
+    "cyanea-phylo",
+    "cyanea-gpu",
+    "cyanea-wasm",
+    "cyanea-py",
 ]
 resolver = "2"
 
@@ -14,7 +21,7 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/cyanea-io/cyanea"
-rust-version = "1.75"
+rust-version = "1.93"
 
 [workspace.dependencies]
 # Error handling

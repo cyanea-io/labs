@@ -1,0 +1,14 @@
+[package]
+name = "cyanea-py"
+description = "Python bindings (PyO3) for the Cyanea bioinformatics ecosystem"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+cyanea-core = { path = "../cyanea-core", default-features = false }
+cyanea-seq = { path = "../cyanea-seq", default-features = false }
+cyanea-io = { path = "../cyanea-io", default-features = false }
+cyanea-align = { path = "../cyanea-align", default-features = false }

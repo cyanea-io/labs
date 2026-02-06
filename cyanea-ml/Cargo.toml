@@ -1,0 +1,16 @@
+[package]
+name = "cyanea-ml"
+description = "ML primitives for bio (embeddings, etc.) for the Cyanea bioinformatics ecosystem"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[features]
+default = ["std"]
+std = []
+wasm = []
+
+[dependencies]
+cyanea-core = { path = "../cyanea-core", default-features = false }

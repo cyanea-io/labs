@@ -1,0 +1,16 @@
+[package]
+name = "cyanea-gpu"
+description = "GPU compute abstraction (CUDA/Metal) for the Cyanea bioinformatics ecosystem"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[features]
+default = []
+cuda = []
+metal = []
+
+[dependencies]
+cyanea-core = { path = "../cyanea-core", default-features = false }
