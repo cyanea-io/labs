@@ -177,6 +177,7 @@ name = "cyanea-ml"
 version = "0.1.0"
 dependencies = [
  "cyanea-core",
+ "serde",
 ]
 
 [[package]]
@@ -192,6 +193,8 @@ name = "cyanea-phylo"
 version = "0.1.0"
 dependencies = [
  "cyanea-core",
+ "cyanea-ml",
+ "serde",
 ]
 
 [[package]]
