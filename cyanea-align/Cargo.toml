@@ -11,6 +11,10 @@ rust-version.workspace = true
 default = ["std"]
 std = []
 wasm = []
+serde = ["dep:serde", "cyanea-core/serde"]
+cuda = []
+metal = []
 
 [dependencies]
 cyanea-core = { path = "../cyanea-core", default-features = false }
+serde = { workspace = true, optional = true }
