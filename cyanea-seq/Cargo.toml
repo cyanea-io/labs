@@ -1,0 +1,22 @@
+[package]
+name = "cyanea-seq"
+description = "Sequence I/O and manipulation for the Cyanea bioinformatics ecosystem"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[features]
+default = ["std"]
+std = []
+wasm = []
+serde = ["dep:serde", "cyanea-core/serde"]
+
+[dependencies]
+cyanea-core = { path = "../cyanea-core", default-features = false }
+needletail = { workspace = true }
+serde = { workspace = true, optional = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

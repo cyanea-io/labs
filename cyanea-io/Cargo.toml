@@ -1,0 +1,22 @@
+[package]
+name = "cyanea-io"
+description = "File format parsing for the Cyanea bioinformatics ecosystem"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[features]
+default = ["csv"]
+csv = ["dep:csv", "dep:serde", "dep:serde_json"]
+wasm = []
+
+[dependencies]
+cyanea-core = { path = "../cyanea-core", default-features = false }
+csv = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
