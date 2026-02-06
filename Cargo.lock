@@ -184,6 +184,7 @@ name = "cyanea-omics"
 version = "0.1.0"
 dependencies = [
  "cyanea-core",
+ "serde",
 ]
 
 [[package]]
