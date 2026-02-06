@@ -219,6 +219,7 @@ name = "cyanea-stats"
 version = "0.1.0"
 dependencies = [
  "cyanea-core",
+ "serde",
 ]
 
 [[package]]
