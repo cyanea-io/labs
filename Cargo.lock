@@ -177,6 +177,7 @@ version = "0.1.0"
 dependencies = [
  "csv",
  "cyanea-core",
+ "cyanea-omics",
  "serde",
  "serde_json",
  "tempfile",
