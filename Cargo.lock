@@ -138,6 +138,9 @@ name = "cyanea-chem"
 version = "0.1.0"
 dependencies = [
  "cyanea-core",
+ "hex",
+ "serde",
+ "sha2",
 ]
 
 [[package]]
@@ -231,6 +234,9 @@ name = "cyanea-struct"
 version = "0.1.0"
 dependencies = [
  "cyanea-core",
+ "hex",
+ "serde",
+ "sha2",
 ]
 
 [[package]]
