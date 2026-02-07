@@ -8,13 +8,13 @@ Last updated: 2026-02-07
 
 ## P0 — Foundation gaps blocking real-world use
 
-### Sequence types (`cyanea-seq`)
-- [ ] `DnaSequence`, `RnaSequence`, `ProteinSequence` types implementing `Sequence` trait
-- [ ] Reverse complement, transcription (DNA→RNA), translation (RNA→Protein with codon table)
-- [ ] K-mer iterator (lazy, zero-alloc where possible)
-- [ ] Quality score representation (Phred33/64) and FASTQ record type
-- [ ] FASTQ parsing (via needletail, already a dep)
-- [ ] Sequence validation (IUPAC alphabets)
+### ~~Sequence types (`cyanea-seq`)~~ ✓
+- [x] `DnaSequence`, `RnaSequence`, `ProteinSequence` types implementing `Sequence` trait
+- [x] Reverse complement, transcription (DNA→RNA), translation (RNA→Protein with codon table)
+- [x] K-mer iterator (lazy, zero-alloc where possible)
+- [x] Quality score representation (Phred33/64) and FASTQ record type
+- [x] FASTQ parsing (via needletail, already a dep)
+- [x] Sequence validation (IUPAC alphabets)
 
 ### File format I/O (`cyanea-io`)
 - [ ] VCF parser (at minimum: header, INFO/FORMAT fields, genotype extraction)
@@ -115,7 +115,7 @@ Last updated: 2026-02-07
 - [ ] Add NIF bindings for chem (SMILES parsing, properties, fingerprints, substructure search)
 - [ ] Add NIF bindings for struct (PDB parsing, superposition, contact maps)
 - [ ] Add NIF bindings for phylo (Newick I/O, tree construction, comparison)
-- [ ] Add NIF bindings for new seq types once they exist
+- [ ] Add NIF bindings for seq types (DnaSequence, RnaSequence, ProteinSequence, FASTQ parsing)
 - [ ] Dirty scheduler annotations for long-running computations (alignment, fingerprint bulk)
 - [ ] Resource types for large objects (Molecule, Structure, PhyloTree) to avoid repeated serialization
 
@@ -160,4 +160,5 @@ Last updated: 2026-02-07
 | cyanea-struct | Complete | 36 |
 | cyanea-phylo | Core complete (tree, newick, distance, compare, construct) | 53 |
 | cyanea-gpu | CPU backend complete | 43 |
+| cyanea-seq | Core complete (alphabet, sequence types, codon, k-mer, quality, FASTQ) | 44 |
 | cyanea-wasm | Functions complete, needs wasm-bindgen | 35 |
