@@ -107,6 +107,11 @@ impl IntervalSet {
         }
     }
 
+    /// Consume the set and return the inner intervals.
+    pub fn into_intervals(self) -> Vec<GenomicInterval> {
+        self.intervals
+    }
+
     /// Total bases covered on a given chromosome (after merging overlaps).
     pub fn coverage(&self, chrom: &str) -> u64 {
         let chrom_intervals: Vec<GenomicInterval> = self

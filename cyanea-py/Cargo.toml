@@ -7,8 +7,14 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[lib]
+name = "cyanea"
+crate-type = ["cdylib"]
+
 [dependencies]
-cyanea-core = { path = "../cyanea-core", default-features = false }
-cyanea-seq = { path = "../cyanea-seq", default-features = false }
-cyanea-io = { path = "../cyanea-io", default-features = false }
-cyanea-align = { path = "../cyanea-align", default-features = false }
+pyo3 = { version = "0.23", features = ["extension-module"] }
+cyanea-core  = { path = "../cyanea-core",  features = ["std"] }
+cyanea-seq   = { path = "../cyanea-seq",   features = ["std"] }
+cyanea-io    = { path = "../cyanea-io",    default-features = false }
+cyanea-align = { path = "../cyanea-align", features = ["std"] }
+cyanea-stats = { path = "../cyanea-stats", features = ["std"] }
