@@ -42,3 +42,5 @@ pub use kmer::{KmerCounter, KmerCounts};
 pub use normalize::{
     l2_normalize, l2_normalize_columns, min_max, min_max_columns, z_score, z_score_columns,
 };
+pub use reduction::{pca, tsne, PcaConfig, PcaResult, TsneConfig, TsneResult};
+pub use inference::{KnnConfig, KnnModel, LinearRegression};

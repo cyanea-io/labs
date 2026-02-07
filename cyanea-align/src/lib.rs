@@ -22,7 +22,6 @@ pub mod batch;
 pub mod simd;
 pub mod msa;
 
-#[cfg(any(feature = "cuda", feature = "metal"))]
 pub mod gpu;
 
 pub use types::{AlignmentMode, AlignmentResult, CigarOp};
