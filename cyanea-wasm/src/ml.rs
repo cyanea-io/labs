@@ -12,6 +12,9 @@ use cyanea_ml::kmer::KmerCounter;
 
 use crate::error::{wasm_err, wasm_ok};
 
+#[cfg(feature = "wasm")]
+use wasm_bindgen::prelude::*;
+
 // ── Wrapper types ────────────────────────────────────────────────────────
 
 /// Serializable k-mer counts with string keys (instead of `Vec<u8>`).
@@ -32,6 +35,7 @@ fn parse_f64_array(json: &str) -> Result<Vec<f64>, String> {
 /// Count k-mers in a nucleotide/protein sequence string.
 ///
 /// Returns JSON `JsKmerCounts` with string keys.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub fn kmer_count(seq: &str, k: usize) -> String {
     let counter = match KmerCounter::new(k) {
         Ok(c) => c,
@@ -51,6 +55,7 @@ pub fn kmer_count(seq: &str, k: usize) -> String {
 }
 
 /// Euclidean distance between two JSON arrays of numbers.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub fn euclidean_distance(a_json: &str, b_json: &str) -> String {
     let a = match parse_f64_array(a_json) {
         Ok(d) => d,
@@ -67,6 +72,7 @@ pub fn euclidean_distance(a_json: &str, b_json: &str) -> String {
 }
 
 /// Manhattan distance between two JSON arrays of numbers.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub fn manhattan_distance(a_json: &str, b_json: &str) -> String {
     let a = match parse_f64_array(a_json) {
         Ok(d) => d,
@@ -83,6 +89,7 @@ pub fn manhattan_distance(a_json: &str, b_json: &str) -> String {
 }
 
 /// Hamming distance between two raw strings (byte-level comparison).
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub fn hamming_distance(a: &str, b: &str) -> String {
     match distance::hamming(a.as_bytes(), b.as_bytes()) {
         Ok(d) => wasm_ok(&d),
@@ -91,6 +98,7 @@ pub fn hamming_distance(a: &str, b: &str) -> String {
 }
 
 /// Cosine similarity between two JSON arrays of numbers.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub fn cosine_similarity(a_json: &str, b_json: &str) -> String {
     let a = match parse_f64_array(a_json) {
         Ok(d) => d,

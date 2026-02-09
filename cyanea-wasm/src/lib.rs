@@ -31,6 +31,7 @@ pub mod seq;
 pub mod align;
 pub mod stats;
 pub mod ml;
+pub mod core_utils;
 
 /// Crate version (set from Cargo.toml at compile time).
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -38,19 +39,29 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 // ── Re-exports ───────────────────────────────────────────────────────────
 
 // seq
-pub use seq::{parse_fasta, parse_fasta_bytes, gc_content, gc_content_json};
+pub use seq::{
+    parse_fasta, parse_fasta_bytes, gc_content, gc_content_json,
+    reverse_complement, transcribe, translate, validate, parse_fastq,
+};
 
 // align
-pub use align::{align_dna, align_dna_custom, align_protein};
+pub use align::{align_dna, align_dna_custom, align_protein, align_batch};
 
 // stats
-pub use stats::{describe, pearson, t_test, JsDescriptiveStats, JsTestResult};
+pub use stats::{
+    describe, pearson, spearman, t_test, t_test_two_sample,
+    mann_whitney_u, bonferroni, benjamini_hochberg,
+    JsDescriptiveStats, JsTestResult,
+};
 
 // ml
 pub use ml::{
     kmer_count, euclidean_distance, manhattan_distance, hamming_distance, cosine_similarity,
     JsKmerCounts,
 };
+
+// core
+pub use core_utils::{sha256, zstd_compress, zstd_decompress};
 
 #[cfg(test)]
 mod tests {
@@ -68,5 +79,12 @@ mod tests {
         let _ = align_dna("A", "A", "global");
         let _ = describe("[1,2,3]");
         let _ = kmer_count("ACGT", 2);
+        let _ = reverse_complement("ACGT");
+        let _ = transcribe("ACGT");
+        let _ = translate("ATGAAA");
+        let _ = validate("ACGT", "dna");
+        let _ = sha256("hello");
+        let _ = spearman("[1,2,3]", "[1,2,3]");
+        let _ = bonferroni("[0.01,0.04]");
     }
 }

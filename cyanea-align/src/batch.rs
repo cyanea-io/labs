@@ -5,9 +5,10 @@
 
 use crate::needleman_wunsch::needleman_wunsch;
 use crate::scoring::ScoringScheme;
+use crate::semi_global::semi_global;
 use crate::smith_waterman::smith_waterman;
 use crate::types::{AlignmentMode, AlignmentResult};
-use cyanea_core::{CyaneaError, Result};
+use cyanea_core::Result;
 
 /// Align a batch of sequence pairs using the specified mode and scoring scheme.
 ///
@@ -15,25 +16,18 @@ use cyanea_core::{CyaneaError, Result};
 ///
 /// # Errors
 ///
-/// Returns an error if any individual alignment fails, or if `SemiGlobal` mode
-/// is requested (not yet implemented).
+/// Returns an error if any individual alignment fails.
 pub fn align_batch(
     pairs: &[(&[u8], &[u8])],
     mode: AlignmentMode,
     scoring: &ScoringScheme,
 ) -> Result<Vec<AlignmentResult>> {
-    if mode == AlignmentMode::SemiGlobal {
-        return Err(CyaneaError::Other(
-            "semi-global alignment is not yet implemented".into(),
-        ));
-    }
-
     pairs
         .iter()
         .map(|(query, target)| match mode {
             AlignmentMode::Local => smith_waterman(query, target, scoring),
             AlignmentMode::Global => needleman_wunsch(query, target, scoring),
-            AlignmentMode::SemiGlobal => unreachable!(),
+            AlignmentMode::SemiGlobal => semi_global(query, target, scoring),
         })
         .collect()
 }
@@ -76,8 +70,11 @@ mod tests {
     }
 
     #[test]
-    fn semi_global_not_implemented() {
-        let pairs: Vec<(&[u8], &[u8])> = vec![(b"ACGT", b"ACGT")];
-        assert!(align_batch(&pairs, AlignmentMode::SemiGlobal, &dna_scheme()).is_err());
+    fn batch_semi_global() {
+        let pairs: Vec<(&[u8], &[u8])> = vec![(b"ACGT", b"ACGT"), (b"CGT", b"AACGTAA")];
+        let results = align_batch(&pairs, AlignmentMode::SemiGlobal, &dna_scheme()).unwrap();
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].score, 8);
+        assert_eq!(results[1].score, 6);
     }
 }

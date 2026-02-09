@@ -48,6 +48,24 @@ pub fn banded_sw(
     banded_align(query, target, scoring, bandwidth, AlignmentMode::Local)
 }
 
+/// Banded semi-global alignment.
+///
+/// Free leading and trailing gaps within the band. Useful for overlap
+/// detection and adapter trimming with bounded edit distance.
+///
+/// # Errors
+///
+/// Returns an error if either sequence is empty or bandwidth is zero.
+pub fn banded_semi_global(
+    query: &[u8],
+    target: &[u8],
+    scoring: &ScoringScheme,
+    bandwidth: usize,
+) -> Result<AlignmentResult> {
+    validate_inputs(query, target, bandwidth)?;
+    banded_align(query, target, scoring, bandwidth, AlignmentMode::SemiGlobal)
+}
+
 /// Score-only banded alignment (no traceback). Uses O(bandwidth) memory.
 pub fn banded_score_only(
     query: &[u8],
@@ -83,16 +101,11 @@ fn banded_align(
     bandwidth: usize,
     mode: AlignmentMode,
 ) -> Result<AlignmentResult> {
-    if mode == AlignmentMode::SemiGlobal {
-        return Err(CyaneaError::Other(
-            "semi-global alignment is not yet implemented".into(),
-        ));
-    }
-
     let m = query.len();
     let n = target.len();
     let w = bandwidth;
     let is_local = mode == AlignmentMode::Local;
+    let is_semi_global = mode == AlignmentMode::SemiGlobal;
     let band_width = 2 * w + 1;
     let rows = m + 1;
 
@@ -113,7 +126,7 @@ fn banded_align(
     if let Some(bi) = band_idx(0, 0) {
         h[0][bi] = 0;
     }
-    if !is_local {
+    if !is_local && !is_semi_global {
         for j in 1..=w.min(n) {
             if let Some(bi) = band_idx(0, j) {
                 h[0][bi] = scoring.gap_open() + (j as i32 - 1) * scoring.gap_extend();
@@ -129,7 +142,7 @@ fn banded_align(
     }
 
     // Column 0
-    if !is_local {
+    if !is_local && !is_semi_global {
         for i in 1..=w.min(m) {
             if let Some(bi) = band_idx(i, 0) {
                 h[i][bi] = scoring.gap_open() + (i as i32 - 1) * scoring.gap_extend();
@@ -202,6 +215,36 @@ fn banded_align(
 
     let (end_i, end_j) = if is_local {
         (best_i, best_j)
+    } else if is_semi_global {
+        // Semi-global: find max in last row OR last column (free trailing gaps)
+        best_score = i32::MIN;
+        best_i = m;
+        best_j = n;
+        // Scan last row (i = m)
+        let j_min_last = if m > w { m - w } else { 0 };
+        let j_max_last = (m + w).min(n);
+        for j in j_min_last..=j_max_last {
+            if let Some(bi) = band_idx(m, j) {
+                if h[m][bi] > best_score {
+                    best_score = h[m][bi];
+                    best_i = m;
+                    best_j = j;
+                }
+            }
+        }
+        // Scan last column (j = n)
+        let i_min_last = if n > w { n - w } else { 0 };
+        let i_max_last = (n + w).min(m);
+        for i in i_min_last..=i_max_last {
+            if let Some(bi) = band_idx(i, n) {
+                if h[i][bi] > best_score {
+                    best_score = h[i][bi];
+                    best_i = i;
+                    best_j = n;
+                }
+            }
+        }
+        (best_i, best_j)
     } else {
         if let Some(bi) = band_idx(m, n) {
             best_score = h[m][bi];
@@ -218,6 +261,10 @@ fn banded_align(
 
     loop {
         if ci == 0 && cj == 0 {
+            break;
+        }
+        // Semi-global: stop at border (free leading gaps)
+        if is_semi_global && (ci == 0 || cj == 0) {
             break;
         }
         let bi = match band_idx(ci, cj) {
@@ -264,8 +311,8 @@ fn banded_align(
     ops.reverse();
 
     let cigar = merge_cigar(ops);
-    let (query_start, query_end) = if is_local { (ci, end_i) } else { (0, m) };
-    let (target_start, target_end) = if is_local { (cj, end_j) } else { (0, n) };
+    let (query_start, query_end) = if is_local || is_semi_global { (ci, end_i) } else { (0, m) };
+    let (target_start, target_end) = if is_local || is_semi_global { (cj, end_j) } else { (0, n) };
 
     Ok(AlignmentResult {
         score: best_score,
@@ -360,5 +407,37 @@ mod tests {
             banded_score_only(b"AAACGTAAA", b"TTTCGTTTT", &dna_scheme(), 5, AlignmentMode::Local)
                 .unwrap();
         assert!(score > 0);
+    }
+
+    #[test]
+    fn banded_semi_global_identical() {
+        let r = banded_semi_global(b"ACGT", b"ACGT", &dna_scheme(), 3).unwrap();
+        assert_eq!(r.score, 8);
+        assert_eq!(r.cigar_string(), "4=");
+    }
+
+    #[test]
+    fn banded_semi_global_query_in_target() {
+        let r = banded_semi_global(b"CGT", b"AACGTAA", &dna_scheme(), 5).unwrap();
+        assert_eq!(r.score, 6); // 3 matches * 2
+    }
+
+    #[test]
+    fn banded_semi_global_overlap() {
+        let r = banded_semi_global(b"AAAACGT", b"CGTTTTT", &dna_scheme(), 5).unwrap();
+        assert_eq!(r.score, 6); // CGT = 3 matches * 2
+    }
+
+    #[test]
+    fn banded_score_only_semi_global() {
+        let score = banded_score_only(
+            b"CGT",
+            b"AACGTAA",
+            &dna_scheme(),
+            5,
+            AlignmentMode::SemiGlobal,
+        )
+        .unwrap();
+        assert_eq!(score, 6);
     }
 }

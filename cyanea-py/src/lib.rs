@@ -10,6 +10,7 @@
 mod align;
 mod core_utils;
 mod error;
+mod ml;
 mod seq;
 mod stats;
 
@@ -21,12 +22,19 @@ fn cyanea(m: &Bound<'_, PyModule>) -> PyResult<()> {
     align::register(m)?;
     stats::register(m)?;
     core_utils::register(m)?;
+    ml::register(m)?;
 
     // Register submodules in sys.modules so `from cyanea.seq import DnaSequence` works.
     let py = m.py();
     let sys = py.import("sys")?;
     let modules = sys.getattr("modules")?;
-    for name in &["cyanea.seq", "cyanea.align", "cyanea.stats", "cyanea.core"] {
+    for name in &[
+        "cyanea.seq",
+        "cyanea.align",
+        "cyanea.stats",
+        "cyanea.core",
+        "cyanea.ml",
+    ] {
         let submod = m.getattr(name.rsplit('.').next().unwrap())?;
         modules.set_item(name, submod)?;
     }

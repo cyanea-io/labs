@@ -18,3 +18,4 @@ cyanea-seq   = { path = "../cyanea-seq",   features = ["std"] }
 cyanea-io    = { path = "../cyanea-io",    default-features = false }
 cyanea-align = { path = "../cyanea-align", features = ["std"] }
 cyanea-stats = { path = "../cyanea-stats", features = ["std"] }
+cyanea-ml    = { path = "../cyanea-ml",    features = ["std"] }
