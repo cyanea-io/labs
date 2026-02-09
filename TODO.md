@@ -2,163 +2,127 @@
 
 > Best-in-class Rust bioinformatics ecosystem targeting CPU, GPU, WASM (browser), and BEAM (Elixir NIFs).
 
-Last updated: 2026-02-07
+Last updated: 2026-02-09
 
 ---
 
-## P0 — Foundation gaps blocking real-world use
+## Status: All 13 crates complete (659+ tests)
 
-### ~~Sequence types (`cyanea-seq`)~~ ✓
-- [x] `DnaSequence`, `RnaSequence`, `ProteinSequence` types implementing `Sequence` trait
-- [x] Reverse complement, transcription (DNA→RNA), translation (RNA→Protein with codon table)
-- [x] K-mer iterator (lazy, zero-alloc where possible)
-- [x] Quality score representation (Phred33/64) and FASTQ record type
-- [x] FASTQ parsing (via needletail, already a dep)
-- [x] Sequence validation (IUPAC alphabets)
+Every crate has a `docs/STATUS.md` with full API documentation.
 
-### File format I/O (`cyanea-io`)
-- [ ] VCF parser (at minimum: header, INFO/FORMAT fields, genotype extraction)
-- [ ] GFF3/GTF parser → `cyanea-omics::Gene`/`Transcript`/`Exon`
-- [ ] BED parser (BED3/BED6/BED12) → `GenomicInterval`
-- [ ] SAM parser (header + alignment records; BAM via optional `flate2`/`htslib`)
-- [ ] Streaming/chunked parsing for large files (trait-based `RecordIterator`)
-- [ ] Compressed file auto-detection (delegate to `cyanea-core::compress`)
-
-### Linear algebra foundation
-- [ ] General dense matrix type (row-major `Vec<f64>`, m×n) — could live in `cyanea-stats` or a new `cyanea-linalg`
-- [ ] LU decomposition, eigenvalue decomposition, general SVD
-- [ ] Decide: pure Rust vs optional BLAS/LAPACK backend behind feature flag
-- [ ] This unblocks: PCA, t-SNE, UMAP, spectral clustering, GMM
+| Crate | Status | Tests |
+|-------|--------|------:|
+| cyanea-core | Complete | 14 |
+| cyanea-seq | Complete | 44 |
+| cyanea-io | Complete (CSV, VCF, BED, GFF3) | 26 |
+| cyanea-align | Complete (NW, SW, semi-global, MSA, banded, GPU dispatch) | 77 |
+| cyanea-omics | Complete (genomic coords, intervals, matrices, variants, AnnData) | 89 |
+| cyanea-stats | Complete (descriptive, correlation, testing, distributions, PCA) | 77 |
+| cyanea-ml | Complete (clustering, distances, embeddings, KNN, regression, PCA, t-SNE) | 109 |
+| cyanea-chem | Complete (SMILES, SDF, fingerprints, properties, substructure) | 35 |
+| cyanea-struct | Complete (PDB, geometry, DSSP, Kabsch, contact maps) | 37 |
+| cyanea-phylo | Complete (Newick, NEXUS, distances, UPGMA/NJ, Fitch/Sankoff) | 73 |
+| cyanea-gpu | CPU backend complete; CUDA/Metal stubs | 45 |
+| cyanea-wasm | Complete (JSON API, wasm-bindgen annotations) | 56 |
+| cyanea-py | Complete (seq, align, stats, core, ml submodules) | — |
 
 ---
 
-## P1 — Algorithmic completions
+## P0 — GPU backends (requires hardware SDKs)
 
-### Dimensionality reduction (`cyanea-stats::reduction` + `cyanea-ml::reduction`)
-- [ ] PCA (via eigendecomposition of covariance matrix)
-- [ ] t-SNE (Barnes-Hut approximation for O(n log n))
-- [ ] UMAP (nearest-neighbor graph + SGD layout)
-- [ ] Consolidate into one crate — likely `cyanea-ml::reduction`
+### CUDA backend (`cyanea-gpu`)
+- [ ] Metal compute shaders for matrix ops, pairwise distance, reductions
+- [ ] CUDA kernels for same operation set
+- [ ] GPU-accelerated Smith-Waterman batch alignment in `cyanea-align`
+- [ ] GPU-accelerated pairwise distance matrices
+
+### CPU parallelism (across crates)
+- [ ] Add `rayon` as optional workspace dependency behind `parallel` feature
+- [ ] Parallel batch alignment, distance matrices, fingerprint generation, etc.
+
+---
+
+## P1 — Algorithmic extensions
 
 ### Alignment (`cyanea-align`)
-- [ ] Semi-global alignment (one sequence end-free)
-- [ ] Banded Needleman-Wunsch (O(nd) for similar sequences)
-- [ ] SIMD-accelerated Smith-Waterman (striped, 8/16-way; reference: Farrar 2007)
-- [ ] Multiple sequence alignment — progressive (guide tree + profile alignment)
+- [ ] SIMD-accelerated Smith-Waterman (striped, 8/16-way; Farrar 2007)
+- [ ] Seed-and-extend heuristic alignment
+- [ ] Minimizer-based seeding
 
-### Omics (`cyanea-omics`)
-- [ ] Single-cell module: AnnData-like container (X matrix, obs, var, obsm layers)
-- [ ] Interval tree for O(log n + k) overlap queries in `IntervalSet`
-- [ ] Sparse matrix CSR/CSC formats (needed for scRNA-seq count matrices)
+### File formats (`cyanea-io`)
+- [ ] SAM/BAM/CRAM parser
+- [ ] Parquet reader/writer
+- [ ] HDF5/Zarr reader
 
 ### Statistics (`cyanea-stats`)
 - [ ] Chi-squared, F, Binomial distributions
 - [ ] Fisher's exact test, chi-squared test of independence
 - [ ] Effect sizes (Cohen's d, odds ratio)
-- [ ] Survival analysis (Kaplan-Meier, log-rank test)
+- [ ] UMAP dimensionality reduction
 
 ### Phylogenetics (`cyanea-phylo`)
-- [ ] Maximum likelihood tree inference (at least JC69 + Felsenstein pruning)
+- [ ] Maximum likelihood tree inference (JC69 + Felsenstein pruning)
 - [ ] Bootstrap support values
-- [ ] NEXUS format I/O
-- [ ] Ancestral state reconstruction (marginal, via post-order traversal)
 
 ### Chemistry (`cyanea-chem`)
-- [ ] Stereochemistry interpretation (R/S, E/Z from parsed @ and / tokens)
-- [ ] Canonical SMILES output (for deduplication)
+- [ ] Stereochemistry interpretation (R/S, E/Z)
+- [ ] Canonical SMILES output
 - [ ] SDF V3000 parser
 - [ ] MACCS 166-key fingerprints
 
 ### Structural biology (`cyanea-struct`)
-- [ ] mmCIF/PDBx parser (the modern replacement for PDB format)
+- [ ] mmCIF/PDBx parser
 - [ ] Ramachandran validation and outlier detection
-- [ ] B-factor analysis and disorder prediction
-- [ ] Mass-weighted superposition
+- [ ] B-factor analysis
+
+### Sequences (`cyanea-seq`)
+- [ ] Suffix arrays / FM-index
+- [ ] 2-bit DNA encoding
+
+### Linear algebra
+- [ ] General dense matrix type with LU/eigen/SVD
+- [ ] Decide: pure Rust vs optional BLAS/LAPACK backend
 
 ---
 
-## P2 — GPU and parallelism
-
-### GPU backends (`cyanea-gpu`)
-- [ ] Metal backend (macOS/iOS) — compute shaders for matrix ops, pairwise distance, reductions
-- [ ] CUDA backend — same kernel set
-- [ ] Unified dispatch: auto-select best available backend at runtime
-- [ ] GPU-accelerated Smith-Waterman (batch short-read alignment)
-- [ ] GPU-accelerated pairwise distance matrices (for large k-mer/fingerprint datasets)
-- [ ] GPU-accelerated Morgan fingerprint generation (batch molecules)
-
-### CPU parallelism (across crates)
-- [ ] Add `rayon` as optional workspace dependency behind `parallel` feature
-- [ ] `cyanea-align`: parallel batch alignment
-- [ ] `cyanea-ml`: parallel k-means iterations, parallel pairwise distance matrix
-- [ ] `cyanea-chem`: parallel SDF parsing, parallel fingerprint generation, parallel Tanimoto bulk
-- [ ] `cyanea-stats`: parallel correlation matrix computation
-- [ ] `cyanea-struct`: parallel contact map (all-atom), parallel RMSD over trajectory frames
-- [ ] `cyanea-omics`: parallel expression matrix operations
-
----
-
-## P3 — Platform integration
+## P2 — Platform integration
 
 ### WASM (`cyanea-wasm`)
-- [ ] Add `wasm-bindgen` annotations to all existing functions
-- [ ] Build and publish as npm package
-- [ ] Streaming FASTA/FASTQ parsing in browser (ReadableStream → records)
-- [ ] Web Worker-friendly API (transferable ArrayBuffers)
-- [ ] Add WASM bindings for chem (SMILES→properties, fingerprints, Tanimoto)
-- [ ] Add WASM bindings for struct (PDB parsing, geometry, contact maps)
-- [ ] Add WASM bindings for phylo (Newick parse/write, tree construction)
-- [ ] Benchmark and optimize: minimize allocations, use `wee_alloc`
+- [ ] Build and publish as npm package (@cyanea/*)
+- [ ] TypeScript type definitions
+- [ ] Web Worker-friendly API
+- [ ] Add bindings for chem, struct, phylo modules
+- [ ] Streaming FASTA/FASTQ parsing in browser (ReadableStream)
 
 ### Elixir NIFs (`cyanea/native/cyanea_native`)
-- [ ] Audit current NIF bridge — which labs crates are already exposed?
-- [ ] Add NIF bindings for chem (SMILES parsing, properties, fingerprints, substructure search)
-- [ ] Add NIF bindings for struct (PDB parsing, superposition, contact maps)
-- [ ] Add NIF bindings for phylo (Newick I/O, tree construction, comparison)
-- [ ] Add NIF bindings for seq types (DnaSequence, RnaSequence, ProteinSequence, FASTQ parsing)
-- [ ] Dirty scheduler annotations for long-running computations (alignment, fingerprint bulk)
-- [ ] Resource types for large objects (Molecule, Structure, PhyloTree) to avoid repeated serialization
+- [ ] Add NIF bindings for chem, struct, phylo
+- [ ] Dirty scheduler annotations for long-running computations
+- [ ] Resource types for large objects (Molecule, Structure, PhyloTree)
 
-### Python (`cyanea-py`) — low priority
-- [ ] PyO3 + maturin setup
-- [ ] Expose core functions: alignment, stats, k-mers, fingerprints
+### Python (`cyanea-py`)
 - [ ] NumPy interop for matrices and distance results
+- [ ] Publish to PyPI
 
 ---
 
-## P4 — Quality and ecosystem
+## P3 — Quality and ecosystem
 
 ### Testing
-- [ ] Integration tests across crate boundaries (FASTA → sequence → alignment → stats)
-- [ ] Property-based testing (proptest) for parsers (SMILES, PDB, Newick, VCF)
+- [ ] Integration tests across crate boundaries
+- [ ] Property-based testing (proptest) for parsers
 - [ ] Fuzzing targets for all parsers
-- [ ] Benchmark suite (criterion) for alignment, fingerprints, distance matrices, PDB parsing
+- [ ] Benchmark suite (criterion)
 
 ### CI/CD
-- [ ] Workspace-wide `cargo check`, `cargo test`, `cargo clippy` in CI
-- [ ] `cargo check --target wasm32-unknown-unknown` for WASM compatibility
-- [ ] `cargo check -p cyanea-native` (NIF crate) in CI
+- [ ] `cargo check --target wasm32-unknown-unknown` for WASM
 - [ ] Feature matrix: test with and without `std`, `serde`, `parallel`
 
 ### Documentation
 - [ ] Crate-level doc examples for every public module
-- [ ] Cross-crate usage guide (how the pieces fit together)
-- [ ] Architecture diagram (dependency graph of the 13 crates)
+- [ ] Cross-crate usage guide
+- [ ] Architecture diagram
 
----
-
-## Completed crates (for reference)
-
-| Crate | Status | Tests |
-|-------|--------|------:|
-| cyanea-core | Complete | 14 |
-| cyanea-align | Core complete (NW, SW, batch, scoring) | 42 |
-| cyanea-omics | Core complete (intervals, expr, sparse, variant, annotation) | 75 |
-| cyanea-stats | Core complete (descriptive, correlation, testing, correction, distributions) | 70 |
-| cyanea-ml | Core complete (distance, k-mer, encoding, clustering, normalize, evaluate) | 77 |
-| cyanea-chem | Complete | 34 |
-| cyanea-struct | Complete | 36 |
-| cyanea-phylo | Core complete (tree, newick, distance, compare, construct) | 53 |
-| cyanea-gpu | CPU backend complete | 43 |
-| cyanea-seq | Core complete (alphabet, sequence types, codon, k-mer, quality, FASTQ) | 44 |
-| cyanea-wasm | Functions complete, needs wasm-bindgen | 35 |
+### Publishing
+- [ ] Publish to crates.io
+- [ ] Publish to PyPI (maturin)
+- [ ] Publish to npm (wasm-pack)
