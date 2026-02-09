@@ -2,9 +2,9 @@
 
 Pairwise sequence alignment with affine gap penalties. Supports DNA, RNA, and protein alignment with standard substitution matrices.
 
-## Status: Mostly Complete
+## Status: Complete
 
-Core alignment algorithms (Needleman-Wunsch, Smith-Waterman) are fully implemented with affine gap scoring, BLOSUM/PAM matrices, and batch alignment. SIMD acceleration, multiple sequence alignment, and GPU backends are stubbed for future work.
+All three alignment modes (global, local, semi-global) are fully implemented with affine gap scoring (Gotoh 3-matrix), BLOSUM/PAM matrices, batch alignment, and banded variants. GPU backends are stubbed pending hardware SDK availability; true SIMD vectorization deferred pending profile-guided benchmarks (scalar banded kernels serve as baseline).
 
 ## Public API
 
@@ -49,18 +49,27 @@ Core alignment algorithms (Needleman-Wunsch, Smith-Waterman) are fully implement
 
 | Function | Description |
 |----------|-------------|
-| `align(query, target, mode, scoring) -> Result<AlignmentResult>` | Dispatcher -- routes to NW or SW based on mode |
-| `needleman_wunsch(query, target, scoring) -> Result<AlignmentResult>` | Global/semiglobal alignment |
-| `smith_waterman(query, target, scoring) -> Result<AlignmentResult>` | Local alignment |
-| `align_batch(pairs, mode, scoring) -> Result<Vec<AlignmentResult>>` | Batch pairwise alignment |
+| `align(query, target, mode, scoring) -> Result<AlignmentResult>` | Dispatcher -- routes to NW, SW, or semi-global based on mode |
+| `needleman_wunsch(query, target, scoring) -> Result<AlignmentResult>` | Global alignment (Gotoh 3-matrix) |
+| `smith_waterman(query, target, scoring) -> Result<AlignmentResult>` | Local alignment (Gotoh 3-matrix) |
+| `semi_global(query, target, scoring) -> Result<AlignmentResult>` | Semi-global alignment (free leading/trailing gaps) |
+| `align_batch(pairs, mode, scoring) -> Result<Vec<AlignmentResult>>` | Batch pairwise alignment (all modes) |
 
-### Planned (stubbed)
+### Banded alignment (`simd.rs`)
+
+| Function | Description |
+|----------|-------------|
+| `banded_nw(query, target, scoring, bandwidth) -> Result<AlignmentResult>` | Banded global alignment |
+| `banded_sw(query, target, scoring, bandwidth) -> Result<AlignmentResult>` | Banded local alignment |
+| `banded_semi_global(query, target, scoring, bandwidth) -> Result<AlignmentResult>` | Banded semi-global alignment |
+| `banded_score_only(query, target, scoring, bandwidth, mode) -> Result<i32>` | Score-only banded alignment (all modes) |
+
+### Stubbed (out of scope)
 
 | Module | Description |
 |--------|-------------|
-| `simd` | SIMD-accelerated DP kernels (striped, banded, AVX2/NEON) |
 | `msa` | Multiple sequence alignment (progressive, profile HMMs, iterative refinement) |
-| `gpu` | GPU-accelerated alignment (CUDA, Metal backends) |
+| `gpu` | GPU-accelerated alignment (CUDA, Metal backends -- requires hardware SDK) |
 
 ## Feature Flags
 
@@ -78,18 +87,19 @@ Core alignment algorithms (Needleman-Wunsch, Smith-Waterman) are fully implement
 
 ## Tests
 
-42 tests across `scoring.rs`, `needleman_wunsch.rs`, `smith_waterman.rs`, `batch.rs`, and `types.rs`.
+75 unit tests + 2 doc tests across all source files.
 
 ## Source Files
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `lib.rs` | 98 | Module declarations, `align()` dispatcher |
+| `lib.rs` | 97 | Module declarations, `align()` dispatcher |
 | `types.rs` | 286 | `AlignmentMode`, `CigarOp`, `AlignmentResult` |
 | `scoring.rs` | 493 | Scoring matrices (simple + BLOSUM/PAM) |
-| `needleman_wunsch.rs` | 270 | Global/semiglobal alignment |
-| `smith_waterman.rs` | 280 | Local alignment |
-| `batch.rs` | 83 | Batch pairwise alignment |
-| `simd.rs` | 29 | Stub |
+| `needleman_wunsch.rs` | 270 | Global alignment (Gotoh 3-matrix) |
+| `smith_waterman.rs` | 280 | Local alignment (Gotoh 3-matrix) |
+| `semi_global.rs` | 313 | Semi-global alignment (free leading/trailing gaps) |
+| `batch.rs` | 80 | Batch pairwise alignment (all modes) |
+| `simd.rs` | 443 | Banded alignment (global, local, semi-global) |
 | `msa.rs` | 28 | Stub |
 | `gpu.rs` | 45 | Stub |

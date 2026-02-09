@@ -4,7 +4,7 @@ Python bindings for the Cyanea bioinformatics ecosystem via PyO3. Installable as
 
 ## Status: Complete
 
-All bindings are implemented and tested. Wraps cyanea-seq, cyanea-align, cyanea-stats, and cyanea-core.
+All bindings are implemented and tested. Wraps cyanea-seq, cyanea-align, cyanea-stats, cyanea-core, and cyanea-ml.
 
 ## Build
 
@@ -88,10 +88,19 @@ The `PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1` flag is needed for Python 3.14+ (PyO
 | `CyaneaError::Parse`, `InvalidInput` | `ValueError` |
 | `CyaneaError::Compression`, `Hash`, `Other` | `RuntimeError` |
 
+### `cyanea.ml`
+
+| Function | Description |
+|----------|-------------|
+| `euclidean_distance(a, b) -> float` | Euclidean distance between two vectors |
+| `manhattan_distance(a, b) -> float` | Manhattan distance between two vectors |
+| `hamming_distance(a, b) -> int` | Hamming distance between two byte sequences |
+| `cosine_similarity(a, b) -> float` | Cosine similarity between two vectors |
+
 ## Dependencies
 
 - `pyo3` 0.23 (extension-module)
-- `cyanea-core`, `cyanea-seq`, `cyanea-io`, `cyanea-align`, `cyanea-stats`
+- `cyanea-core`, `cyanea-seq`, `cyanea-io`, `cyanea-align`, `cyanea-stats`, `cyanea-ml`
 
 ## Tests
 
@@ -101,9 +110,10 @@ No Rust-level tests. Integration tested via Python smoke tests.
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `lib.rs` | 35 | PyO3 module root, submodule registration in `sys.modules` |
+| `lib.rs` | 43 | PyO3 module root, submodule registration in `sys.modules` |
 | `error.rs` | 28 | `CyaneaError` -> `PyErr` mapping, `IntoPyResult` trait |
 | `seq.rs` | 327 | Sequence types and FASTA/FASTQ parsing |
 | `align.rs` | 153 | Alignment functions with keyword-only scoring params |
 | `stats.rs` | 153 | Statistics and hypothesis testing |
 | `core_utils.rs` | 44 | SHA-256 hashing and zstd compression |
+| `ml.rs` | 43 | Distance metrics (euclidean, manhattan, hamming, cosine) |

@@ -1,10 +1,10 @@
 # cyanea-wasm
 
-WebAssembly bindings for browser-based bioinformatics. Wraps cyanea-seq, cyanea-align, cyanea-stats, and cyanea-ml into a JSON-based interface suitable for JavaScript/TypeScript consumption.
+WebAssembly bindings for browser-based bioinformatics. Wraps cyanea-seq, cyanea-align, cyanea-stats, cyanea-ml, and cyanea-core into a JSON-based interface suitable for JavaScript/TypeScript consumption.
 
 ## Status: Complete
 
-All planned bindings are implemented. Functions accept simple types (strings, numbers) and return JSON strings for easy interop. No wasm-bindgen annotations yet -- the crate provides the logic layer that a thin wasm-bindgen shim would wrap.
+All bindings are implemented with full `wasm-bindgen` annotations (behind the `wasm` feature flag). Functions accept simple types (strings, numbers) and return JSON strings. Includes sequence manipulation, alignment (all modes + batch), statistics, ML distance metrics, SHA-256 hashing, and zstd compression.
 
 ## Public API
 
@@ -20,36 +20,55 @@ All planned bindings are implemented. Functions accept simple types (strings, nu
 
 | Function | Description |
 |----------|-------------|
-| `parse_fasta(data: &[u8]) -> String` | Parse FASTA from bytes, return JSON stats |
-| `gc_content_json(seq: &str) -> String` | Compute GC content, return JSON |
+| `parse_fasta(data) -> String` | Parse FASTA from string, return JSON stats |
+| `gc_content_json(seq) -> String` | Compute GC content, return JSON |
+| `reverse_complement(seq) -> String` | DNA reverse complement |
+| `transcribe(seq) -> String` | DNA to RNA transcription |
+| `translate(seq) -> String` | DNA to protein (standard codon table) |
+| `validate(seq, alphabet) -> String` | Validate against "dna"/"rna"/"protein" |
+| `parse_fastq(data) -> String` | Parse FASTQ records from string |
 | `parse_fasta_bytes(data) -> Result<FastaStats>` | Direct Rust-level FASTA parsing |
-| `gc_content(seq: &str) -> f64` | Direct Rust-level GC content |
+| `gc_content(seq) -> f64` | Direct Rust-level GC content |
 
 ### Alignment module (`align.rs`)
 
 | Function | Description |
 |----------|-------------|
-| `align_dna(query, target, mode) -> String` | DNA alignment with default scoring, JSON result |
+| `align_dna(query, target, mode) -> String` | DNA alignment with default scoring |
 | `align_dna_custom(query, target, mode, match, mismatch, gap_open, gap_extend) -> String` | Custom scoring |
-| `align_protein(query, target, mode, matrix) -> String` | Protein alignment, JSON result |
+| `align_protein(query, target, mode, matrix) -> String` | Protein alignment |
+| `align_batch(pairs_json, mode, match, mismatch, gap_open, gap_extend) -> String` | Batch alignment from JSON pairs |
 
 ### Statistics module (`stats.rs`)
 
 | Function | Description |
 |----------|-------------|
-| `describe(data_json: &str) -> String` | Descriptive statistics from JSON array |
-| `pearson(x_json, y_json) -> String` | Pearson correlation from JSON arrays |
-| `t_test(data_json, mu) -> String` | One-sample t-test from JSON array |
+| `describe(data_json) -> String` | Descriptive statistics from JSON array |
+| `pearson(x_json, y_json) -> String` | Pearson correlation |
+| `spearman(x_json, y_json) -> String` | Spearman rank correlation |
+| `t_test(data_json, mu) -> String` | One-sample t-test |
+| `t_test_two_sample(x_json, y_json, equal_var) -> String` | Two-sample t-test (Student's or Welch's) |
+| `mann_whitney_u(x_json, y_json) -> String` | Mann-Whitney U test |
+| `bonferroni(p_json) -> String` | Bonferroni p-value correction |
+| `benjamini_hochberg(p_json) -> String` | Benjamini-Hochberg FDR correction |
 
 ### ML module (`ml.rs`)
 
 | Function | Description |
 |----------|-------------|
-| `kmer_count(seq, k) -> String` | K-mer counting, JSON result |
-| `euclidean_distance(a_json, b_json) -> String` | Euclidean distance from JSON arrays |
+| `kmer_count(seq, k) -> String` | K-mer counting |
+| `euclidean_distance(a_json, b_json) -> String` | Euclidean distance |
 | `manhattan_distance(a_json, b_json) -> String` | Manhattan distance |
 | `hamming_distance(a, b) -> String` | Byte-level Hamming distance |
 | `cosine_similarity(a_json, b_json) -> String` | Cosine similarity |
+
+### Core utilities module (`core_utils.rs`)
+
+| Function | Description |
+|----------|-------------|
+| `sha256(data) -> String` | SHA-256 hex digest |
+| `zstd_compress(data, level) -> String` | Zstd compression, returns JSON byte array |
+| `zstd_decompress(data_json) -> String` | Zstd decompression from JSON byte array |
 
 ### Constants
 
@@ -60,29 +79,33 @@ All planned bindings are implemented. Functions accept simple types (strings, nu
 ## Design Decisions
 
 - **JSON-based interface**: All functions accept/return JSON strings for maximum JavaScript interop compatibility. Complex types are serialized via serde.
-- **No wasm-bindgen yet**: The crate compiles to a library. A thin wasm-bindgen layer would expose these functions as `#[wasm_bindgen]` exports.
+- **wasm-bindgen ready**: All public functions have `#[cfg_attr(feature = "wasm", wasm_bindgen)]` annotations. Build with `--features wasm` to produce bindgen-compatible exports.
 - **Stateless**: All functions are pure -- no global state or initialization needed.
 
 ## Feature Flags
 
-None.
+| Flag | Default | Description |
+|------|---------|-------------|
+| `wasm` | No | Enables `wasm-bindgen` annotations on all public functions |
 
 ## Dependencies
 
-- `cyanea-core`, `cyanea-seq`, `cyanea-io`, `cyanea-align`, `cyanea-stats`, `cyanea-ml`
+- `cyanea-core` (with `std` for sha256, zstd), `cyanea-seq`, `cyanea-io`, `cyanea-align`, `cyanea-stats`, `cyanea-ml`
 - `serde`, `serde_json` -- JSON serialization
+- `wasm-bindgen` (optional, behind `wasm` feature)
 
 ## Tests
 
-35 tests across 6 source files.
+55 unit tests + 1 doc test across 7 source files.
 
 ## Source Files
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `lib.rs` | 72 | Module declarations, VERSION constant |
+| `lib.rs` | 90 | Module declarations, re-exports, VERSION constant |
 | `error.rs` | 74 | JSON error wrapping |
-| `seq.rs` | 162 | FASTA parsing, GC content |
-| `align.rs` | 156 | DNA/protein alignment |
-| `stats.rs` | 178 | Descriptive statistics, correlation, t-test |
-| `ml.rs` | 167 | K-mer counting, distance metrics |
+| `seq.rs` | 358 | FASTA/FASTQ parsing, GC content, reverse complement, transcribe, translate, validate |
+| `align.rs` | 232 | DNA/protein alignment, batch alignment |
+| `stats.rs` | 305 | Descriptive stats, correlation, hypothesis testing, p-value correction |
+| `ml.rs` | 175 | K-mer counting, distance metrics |
+| `core_utils.rs` | 67 | SHA-256 hashing, zstd compression/decompression |
