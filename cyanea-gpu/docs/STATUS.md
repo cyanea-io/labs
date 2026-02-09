@@ -75,7 +75,7 @@ Note: No default features -- the crate is lightweight by default with only the C
 
 ## Tests
 
-43 tests covering the CPU backend, reduction operations, elementwise operations, distance matrices, and matrix multiplication.
+43 unit tests + 2 doc tests covering the CPU backend, reduction operations, elementwise operations, distance matrices, and matrix multiplication.
 
 ## Source Files
 

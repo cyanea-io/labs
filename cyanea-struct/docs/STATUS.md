@@ -82,7 +82,7 @@ Note: Uses `#![no_std]` with `alloc` -- core algorithms work without std.
 
 ## Tests
 
-36 tests across 8 source files.
+36 unit tests + 1 doc test across 8 source files.
 
 ## Source Files
 

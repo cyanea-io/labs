@@ -4,7 +4,7 @@ Data structures for genomics, transcriptomics, and variant analysis. Provides th
 
 ## Status: Complete
 
-All core omics data structures are implemented. Single-cell AnnData-like container is stubbed for future work.
+All omics data structures are implemented including genomic coordinates, interval operations, expression matrices, sparse matrices, variant types, gene annotations, and an AnnData-like single-cell container.
 
 ## Public API
 
@@ -61,11 +61,31 @@ All core omics data structures are implemented. Single-cell AnnData-like contain
 | `Transcript` | `id`, `exons`, `biotype` |
 | `Gene` | `id`, `symbol`, `transcripts`, `gene_type`, `chrom`, `start`, `end`, `strand` |
 
-### Planned (stubbed)
+### Single-cell container (`single_cell.rs`)
 
-| Module | Description |
+| Type | Description |
+|------|-------------|
+| `MatrixData` | Enum: `Dense(Vec<Vec<f64>>)`, `Sparse(SparseMatrix)` |
+| `QcMetrics` | `total_counts`, `n_features` per observation |
+| `AnnData` | AnnData-like container with obs, var, X, layers, obsm, varm |
+
+**AnnData methods:**
+
+| Method | Description |
 |--------|-------------|
-| `single_cell` | AnnData-like container (obs, var, X, layers, obsm, varm) |
+| `new(x, obs_names, var_names) -> Result<Self>` | Construct with dimension validation |
+| `n_obs() -> usize` | Number of observations |
+| `n_vars() -> usize` | Number of variables |
+| `shape() -> (usize, usize)` | (observations, variables) |
+| `x() -> &MatrixData` | Access expression matrix |
+| `obs_names() / var_names()` | Access observation/variable names |
+| `add_obs(key, values) / get_obs(key)` | Per-observation annotations |
+| `add_var(key, values) / get_var(key)` | Per-variable annotations |
+| `add_obsm(key, data) / get_obsm(key)` | Observation-level embeddings |
+| `add_varm(key, data) / get_varm(key)` | Variable-level embeddings |
+| `add_layer(key, layer) / get_layer(key)` | Alternative matrix layers |
+| `subset_obs(indices) -> Result<AnnData>` | Subset by observation indices |
+| `qc_metrics() -> QcMetrics` | Compute QC metrics (total counts, features per obs) |
 
 ## Feature Flags
 
@@ -81,7 +101,7 @@ All core omics data structures are implemented. Single-cell AnnData-like contain
 
 ## Tests
 
-75 tests across 6 source files: genomic (15), interval (12), expression (18), sparse (10), variant (10), annotation (10).
+87 unit tests + 2 doc tests across 8 source files.
 
 ## Source Files
 
@@ -94,4 +114,4 @@ All core omics data structures are implemented. Single-cell AnnData-like contain
 | `sparse.rs` | 333 | COO sparse matrix |
 | `variant.rs` | 310 | Variant types and filtering |
 | `annotation.rs` | 297 | Gene/Transcript/Exon hierarchy |
-| `single_cell.rs` | 26 | Stub |
+| `single_cell.rs` | 513 | AnnData-like single-cell container |

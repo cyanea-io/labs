@@ -4,7 +4,7 @@ Pairwise sequence alignment with affine gap penalties. Supports DNA, RNA, and pr
 
 ## Status: Complete
 
-All three alignment modes (global, local, semi-global) are fully implemented with affine gap scoring (Gotoh 3-matrix), BLOSUM/PAM matrices, batch alignment, and banded variants. GPU backends are stubbed pending hardware SDK availability; true SIMD vectorization deferred pending profile-guided benchmarks (scalar banded kernels serve as baseline).
+All three alignment modes (global, local, semi-global) are fully implemented with affine gap scoring (Gotoh 3-matrix), BLOSUM/PAM matrices, batch alignment, and banded variants. Progressive MSA is implemented. GPU dispatch exists with CPU fallback; CUDA/Metal backends require hardware SDKs. True SIMD vectorization deferred pending profile-guided benchmarks (scalar banded kernels serve as baseline).
 
 ## Public API
 
@@ -64,12 +64,22 @@ All three alignment modes (global, local, semi-global) are fully implemented wit
 | `banded_semi_global(query, target, scoring, bandwidth) -> Result<AlignmentResult>` | Banded semi-global alignment |
 | `banded_score_only(query, target, scoring, bandwidth, mode) -> Result<i32>` | Score-only banded alignment (all modes) |
 
-### Stubbed (out of scope)
+### Multiple sequence alignment (`msa.rs`)
 
-| Module | Description |
-|--------|-------------|
-| `msa` | Multiple sequence alignment (progressive, profile HMMs, iterative refinement) |
-| `gpu` | GPU-accelerated alignment (CUDA, Metal backends -- requires hardware SDK) |
+| Type/Function | Description |
+|---------------|-------------|
+| `MsaResult` | Aligned sequences, column count, conservation score |
+| `progressive_msa(sequences, scoring) -> Result<MsaResult>` | ClustalW-style progressive alignment |
+
+### GPU batch alignment (`gpu.rs`)
+
+| Type/Function | Description |
+|---------------|-------------|
+| `GpuBackend` | Enum: `Auto`, `Cuda`, `Metal`, `Cpu` |
+| `align_batch_gpu(pairs, mode, scoring, backend) -> Result<Vec<AlignmentResult>>` | Batch alignment with GPU dispatch |
+| `available_backends() -> Vec<GpuBackend>` | List compiled-in backends |
+
+Note: CUDA and Metal backends are feature-gated; CPU fallback is always available.
 
 ## Feature Flags
 
@@ -101,5 +111,5 @@ All three alignment modes (global, local, semi-global) are fully implemented wit
 | `semi_global.rs` | 313 | Semi-global alignment (free leading/trailing gaps) |
 | `batch.rs` | 80 | Batch pairwise alignment (all modes) |
 | `simd.rs` | 443 | Banded alignment (global, local, semi-global) |
-| `msa.rs` | 28 | Stub |
-| `gpu.rs` | 45 | Stub |
+| `msa.rs` | 384 | Progressive multiple sequence alignment |
+| `gpu.rs` | 158 | GPU batch alignment dispatch (CPU fallback) |

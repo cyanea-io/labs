@@ -4,7 +4,7 @@ Statistical methods for life sciences: descriptive statistics, correlation, hypo
 
 ## Status: Complete
 
-All core statistical functionality is implemented. Dimensionality reduction (PCA, t-SNE, UMAP) is stubbed for future work.
+All statistical functionality is implemented including descriptive statistics, correlation, hypothesis testing, distributions, multiple testing correction, and PCA dimensionality reduction.
 
 ## Public API
 
@@ -66,11 +66,12 @@ All core statistical functionality is implemented. Dimensionality reduction (PCA
 | `bonferroni(p_values) -> Result<Vec<f64>>` | Bonferroni correction |
 | `benjamini_hochberg(p_values) -> Result<Vec<f64>>` | BH FDR correction |
 
-### Planned (stubbed)
+### Dimensionality reduction (`reduction.rs`)
 
-| Module | Description |
-|--------|-------------|
-| `reduction` | PCA, t-SNE, UMAP dimensionality reduction |
+| Type/Function | Description |
+|---------------|-------------|
+| `PcaResult` | `components`, `explained_variance`, `explained_variance_ratio`, `transformed`, `mean` |
+| `pca(data, n_components) -> Result<PcaResult>` | Principal Component Analysis |
 
 ## Feature Flags
 
@@ -86,7 +87,7 @@ All core statistical functionality is implemented. Dimensionality reduction (PCA
 
 ## Tests
 
-70 tests across 6 source files: descriptive (20), correlation (12), testing (15), distribution (10), correction (8), rank (5).
+76 unit tests + 1 doc test across 8 source files.
 
 ## Source Files
 
@@ -99,4 +100,4 @@ All core statistical functionality is implemented. Dimensionality reduction (PCA
 | `distribution.rs` | 365 | Normal, Poisson, erf, gamma, beta |
 | `correction.rs` | 161 | Bonferroni, Benjamini-Hochberg |
 | `rank.rs` | 141 | Rank computation with tie-breaking |
-| `reduction.rs` | 20 | Stub |
+| `reduction.rs` | 274 | PCA dimensionality reduction |

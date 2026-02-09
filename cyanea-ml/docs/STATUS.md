@@ -2,9 +2,9 @@
 
 Machine learning primitives for bioinformatics: clustering, distance metrics, sequence encoding, normalization, and evaluation.
 
-## Status: Mostly Complete
+## Status: Complete
 
-Core ML primitives are implemented (clustering, distances, encoding, evaluation, normalization, k-mer counting). Neural embeddings, ONNX inference, and dimensionality reduction are stubbed.
+All ML primitives are implemented including clustering, distance metrics, sequence encoding, evaluation, normalization, k-mer counting, sequence embeddings, KNN/linear regression, and dimensionality reduction (PCA, t-SNE).
 
 ## Public API
 
@@ -83,13 +83,55 @@ Core ML primitives are implemented (clustering, distances, encoding, evaluation,
 | `z_score_columns(data, n_cols)` | Column-wise z-score |
 | `l2_normalize_columns(data, n_cols)` | Column-wise L2 |
 
-### Planned (stubbed)
+### Sequence embeddings (`embedding.rs`)
 
-| Module | Description |
-|--------|-------------|
-| `embedding` | Neural embeddings (ESM, ProtTrans, DNA/RNA language models) |
-| `inference` | ONNX model inference |
-| `reduction` | Dimensionality reduction (PCA, t-SNE, UMAP) |
+| Type/Function | Description |
+|---------------|-------------|
+| `EmbeddingConfig` | `k`, `alphabet`, `normalize` |
+| `SequenceEmbedding` | `vector`, `dim` |
+| `kmer_embedding(seq, config) -> Result<SequenceEmbedding>` | K-mer frequency embedding |
+| `composition_vector(seq, alphabet) -> Result<SequenceEmbedding>` | Nucleotide/amino acid composition |
+| `batch_embed(sequences, config) -> Result<Vec<SequenceEmbedding>>` | Batch embedding |
+| `pairwise_cosine_distances(embeddings) -> Result<Vec<f64>>` | Pairwise cosine distance matrix |
+
+### Inference models (`inference.rs`)
+
+**K-Nearest Neighbors:**
+
+| Type/Function | Description |
+|---------------|-------------|
+| `KnnConfig` | `k`, `metric` |
+| `KnnModel::fit(data, n_features, config) -> Result<Self>` | Fit KNN model |
+| `KnnModel::neighbors(query) -> Result<Vec<(usize, f64)>>` | Find k nearest neighbors |
+| `KnnModel::classify(query, labels) -> Result<i32>` | KNN classification (majority vote) |
+| `KnnModel::regress(query, targets) -> Result<f64>` | KNN regression (weighted average) |
+
+**Linear Regression:**
+
+| Type/Function | Description |
+|---------------|-------------|
+| `LinearRegression::fit(data, n_features, targets) -> Result<Self>` | Fit via normal equation |
+| `LinearRegression::predict(query) -> Result<f64>` | Predict single sample |
+| `LinearRegression::predict_batch(queries) -> Result<Vec<f64>>` | Predict batch |
+| Fields: `weights`, `bias`, `n_features`, `r_squared` | Model parameters |
+
+### Dimensionality reduction (`reduction.rs`)
+
+**PCA:**
+
+| Type/Function | Description |
+|---------------|-------------|
+| `PcaConfig` | `n_components`, `max_iter`, `tolerance` |
+| `PcaResult` | `components`, `explained_variance`, `explained_variance_ratio`, `transformed`, `mean`, `n_features`, `n_components` |
+| `pca(data, n_features, config) -> Result<PcaResult>` | Principal Component Analysis |
+
+**t-SNE:**
+
+| Type/Function | Description |
+|---------------|-------------|
+| `TsneConfig` | `n_components`, `perplexity`, `learning_rate`, `n_iter`, `seed` |
+| `TsneResult` | `embedding`, `n_samples`, `n_components`, `kl_divergence` |
+| `tsne(data, n_features, config) -> Result<TsneResult>` | t-distributed Stochastic Neighbor Embedding |
 
 ## Feature Flags
 
@@ -105,19 +147,19 @@ Core ML primitives are implemented (clustering, distances, encoding, evaluation,
 
 ## Tests
 
-77 tests across 6 source files.
+108 unit tests + 1 doc test across 10 source files.
 
 ## Source Files
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `lib.rs` | 44 | Module declarations, re-exports |
+| `lib.rs` | 46 | Module declarations, re-exports |
 | `cluster.rs` | 812 | K-means, DBSCAN, hierarchical clustering |
 | `distance.rs` | 309 | Distance metrics and pairwise matrices |
 | `encoding.rs` | 141 | One-hot and label encoding |
 | `evaluate.rs` | 186 | Silhouette score evaluation |
 | `kmer.rs` | 228 | K-mer counting and frequency vectors |
 | `normalize.rs` | 255 | Min-max, z-score, L2 normalization |
-| `embedding.rs` | 8 | Stub |
-| `inference.rs` | 8 | Stub |
-| `reduction.rs` | 8 | Stub |
+| `embedding.rs` | 262 | K-mer and composition vector embeddings |
+| `inference.rs` | 546 | KNN and linear regression |
+| `reduction.rs` | 735 | PCA and t-SNE dimensionality reduction |

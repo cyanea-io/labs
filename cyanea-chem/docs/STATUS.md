@@ -86,7 +86,7 @@ Supports: atoms, bonds, branches, ring closures, aromatic atoms, charges, explic
 
 ## Tests
 
-34 tests across 8 source files.
+34 unit tests + 1 doc test across 8 source files.
 
 ## Source Files
 

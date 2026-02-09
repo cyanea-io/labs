@@ -109,7 +109,7 @@ All sequence types are `ValidatedSeq<A: Alphabet>` -- validated, uppercase byte 
 
 ## Tests
 
-43 tests across 8 source files.
+43 unit tests + 1 doc test across 8 source files.
 
 ## Source Files
 

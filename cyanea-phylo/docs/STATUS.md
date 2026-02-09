@@ -2,9 +2,9 @@
 
 Phylogenetics: tree data structures, Newick I/O, evolutionary distance models, tree comparison, and tree construction algorithms.
 
-## Status: Mostly Complete
+## Status: Complete
 
-Tree representation, Newick parsing/writing, distance models (p-distance, Jukes-Cantor, Kimura 2-parameter), Robinson-Foulds comparison, and UPGMA/NJ tree construction are implemented. NEXUS format and ancestral reconstruction are stubbed.
+All phylogenetics functionality is implemented including tree representation, Newick and NEXUS I/O, evolutionary distance models (p-distance, Jukes-Cantor, Kimura 2-parameter), Robinson-Foulds comparison, UPGMA/NJ tree construction, and ancestral sequence reconstruction (Fitch and Sankoff parsimony).
 
 ## Public API
 
@@ -59,12 +59,26 @@ Tree representation, Newick parsing/writing, distance models (p-distance, Jukes-
 | `upgma(distances, leaf_names) -> Result<PhyloTree>` | UPGMA clustering |
 | `neighbor_joining(distances, leaf_names) -> Result<PhyloTree>` | Neighbor-joining algorithm |
 
-### Planned (stubbed)
+### NEXUS I/O (`nexus.rs`)
 
-| Module | Description |
-|--------|-------------|
-| `nexus` | NEXUS format parsing and writing |
-| `reconstruct` | Ancestral sequence reconstruction (Fitch, Sankoff, ML) |
+| Type/Function | Description |
+|---------------|-------------|
+| `NexusFile` | `taxa`, `trees: Vec<NamedTree>` |
+| `NamedTree` | `name`, `tree: PhyloTree` |
+| `parse(input) -> Result<NexusFile>` | Parse NEXUS format |
+| `write(taxa, trees) -> String` | Serialize to NEXUS format |
+
+### Ancestral reconstruction (`reconstruct.rs`)
+
+| Type/Function | Description |
+|---------------|-------------|
+| `AncestralStates` | `states: Vec<u8>`, `n_changes: usize` |
+| `CostMatrix` | Cost matrix for Sankoff algorithm |
+| `CostMatrix::uniform(n_states) -> Self` | Equal-cost matrix |
+| `CostMatrix::from_flat(costs, n_states) -> Result<Self>` | Custom cost matrix |
+| `fitch(tree, leaf_states) -> Result<AncestralStates>` | Fitch maximum parsimony |
+| `sankoff(tree, leaf_states, cost_matrix) -> Result<AncestralStates>` | Sankoff weighted parsimony |
+| `reconstruct_sequences(tree, alignment) -> Result<Vec<AncestralStates>>` | Per-site ancestral reconstruction |
 
 ## Feature Flags
 
@@ -82,7 +96,7 @@ Tree representation, Newick parsing/writing, distance models (p-distance, Jukes-
 
 ## Tests
 
-62 tests across 5 source files: tree (15), newick (12), distance (10), compare (10), construct (15).
+71 unit tests + 2 doc tests across 7 source files.
 
 ## Source Files
 
@@ -94,5 +108,5 @@ Tree representation, Newick parsing/writing, distance models (p-distance, Jukes-
 | `distance.rs` | 291 | Evolutionary distance models |
 | `compare.rs` | 230 | Robinson-Foulds and branch score comparison |
 | `construct.rs` | 425 | UPGMA and neighbor-joining |
-| `nexus.rs` | 7 | Stub |
-| `reconstruct.rs` | 7 | Stub |
+| `nexus.rs` | 314 | NEXUS format parser and writer |
+| `reconstruct.rs` | 454 | Fitch and Sankoff ancestral reconstruction |

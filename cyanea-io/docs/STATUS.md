@@ -64,7 +64,7 @@ Coordinate conversion: GFF3 1-based closed coordinates are converted to 0-based 
 
 ## Tests
 
-26 tests across 4 source files: CSV (4), VCF (5), BED (9), GFF3 (8).
+3 tests with default features (CSV only), 26 tests with all features enabled: CSV (4), VCF (5), BED (9), GFF3 (8).
 
 ## Source Files
 
