@@ -146,16 +146,44 @@ impl Backend for CpuBackend {
                 flat.len()
             )));
         }
-        let mut result = vec![0.0_f64; n * n];
-        for i in 0..n {
-            let row_i = &flat[i * dim..(i + 1) * dim];
-            for j in (i + 1)..n {
-                let row_j = &flat[j * dim..(j + 1) * dim];
-                let d = compute_distance(row_i, row_j, metric);
-                result[i * n + j] = d;
-                result[j * n + i] = d;
+        #[cfg(feature = "parallel")]
+        let result = {
+            use rayon::prelude::*;
+            let rows: Vec<Vec<(usize, f64)>> = (0..n)
+                .into_par_iter()
+                .map(|i| {
+                    let row_i = &flat[i * dim..(i + 1) * dim];
+                    ((i + 1)..n)
+                        .map(|j| {
+                            let row_j = &flat[j * dim..(j + 1) * dim];
+                            (j, compute_distance(row_i, row_j, metric))
+                        })
+                        .collect()
+                })
+                .collect();
+            let mut result = vec![0.0_f64; n * n];
+            for (i, row) in rows.into_iter().enumerate() {
+                for (j, d) in row {
+                    result[i * n + j] = d;
+                    result[j * n + i] = d;
+                }
             }
-        }
+            result
+        };
+        #[cfg(not(feature = "parallel"))]
+        let result = {
+            let mut result = vec![0.0_f64; n * n];
+            for i in 0..n {
+                let row_i = &flat[i * dim..(i + 1) * dim];
+                for j in (i + 1)..n {
+                    let row_j = &flat[j * dim..(j + 1) * dim];
+                    let d = compute_distance(row_i, row_j, metric);
+                    result[i * n + j] = d;
+                    result[j * n + i] = d;
+                }
+            }
+            result
+        };
         Ok(Buffer::from_host(result, BackendKind::Cpu))
     }
 
@@ -191,16 +219,38 @@ impl Backend for CpuBackend {
                 k * n
             )));
         }
-        let mut c = vec![0.0_f64; m * n];
-        for i in 0..m {
-            for j in 0..n {
-                let mut sum = 0.0;
-                for p in 0..k {
-                    sum += a_data[i * k + p] * b_data[p * n + j];
+        #[cfg(feature = "parallel")]
+        let c = {
+            use rayon::prelude::*;
+            (0..m)
+                .into_par_iter()
+                .flat_map(|i| {
+                    (0..n)
+                        .map(|j| {
+                            let mut sum = 0.0;
+                            for p in 0..k {
+                                sum += a_data[i * k + p] * b_data[p * n + j];
+                            }
+                            sum
+                        })
+                        .collect::<Vec<f64>>()
+                })
+                .collect::<Vec<f64>>()
+        };
+        #[cfg(not(feature = "parallel"))]
+        let c = {
+            let mut c = vec![0.0_f64; m * n];
+            for i in 0..m {
+                for j in 0..n {
+                    let mut sum = 0.0;
+                    for p in 0..k {
+                        sum += a_data[i * k + p] * b_data[p * n + j];
+                    }
+                    c[i * n + j] = sum;
                 }
-                c[i * n + j] = sum;
             }
-        }
+            c
+        };
         Ok(Buffer::from_host(c, BackendKind::Cpu))
     }
 

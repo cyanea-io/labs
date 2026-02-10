@@ -12,7 +12,9 @@ default = ["std"]
 std = []
 wasm = []
 serde = ["dep:serde", "cyanea-core/serde"]
+parallel = ["dep:rayon"]
 
 [dependencies]
 cyanea-core = { path = "../cyanea-core", default-features = false }
 serde = { workspace = true, optional = true }
+rayon = { workspace = true, optional = true }

@@ -143,6 +143,28 @@ pub fn kmeans(data: &[&[f64]], config: &KMeansConfig) -> Result<KMeansResult> {
         n_iter += 1;
 
         // Assign each point to nearest centroid
+        #[cfg(feature = "parallel")]
+        {
+            use rayon::prelude::*;
+            let new_labels: Vec<usize> = (0..n)
+                .into_par_iter()
+                .map(|i| {
+                    let mut best_dist = f64::INFINITY;
+                    let mut best_c = 0;
+                    for c in 0..k {
+                        let cent = &centroids[c * dim..(c + 1) * dim];
+                        let d = sq_euclidean(data[i], cent);
+                        if d < best_dist {
+                            best_dist = d;
+                            best_c = c;
+                        }
+                    }
+                    best_c
+                })
+                .collect();
+            labels = new_labels;
+        }
+        #[cfg(not(feature = "parallel"))]
         for i in 0..n {
             let mut best_dist = f64::INFINITY;
             let mut best_c = 0;
@@ -277,21 +299,46 @@ pub fn dbscan(data: &[&[f64]], config: &DbscanConfig) -> Result<DbscanResult> {
     }
 
     // Precompute neighborhoods
-    let mut neighborhoods: Vec<Vec<usize>> = Vec::with_capacity(n);
-    for i in 0..n {
-        let mut neighbors = Vec::new();
-        for j in 0..n {
-            if i == j {
-                neighbors.push(j);
-                continue;
+    #[cfg(feature = "parallel")]
+    let neighborhoods: Vec<Vec<usize>> = {
+        use rayon::prelude::*;
+        (0..n)
+            .into_par_iter()
+            .map(|i| {
+                let mut neighbors = Vec::new();
+                for j in 0..n {
+                    if i == j {
+                        neighbors.push(j);
+                        continue;
+                    }
+                    let d = compute_distance(data[i], data[j], config.metric).unwrap();
+                    if d <= config.eps {
+                        neighbors.push(j);
+                    }
+                }
+                neighbors
+            })
+            .collect()
+    };
+    #[cfg(not(feature = "parallel"))]
+    let neighborhoods: Vec<Vec<usize>> = {
+        let mut neighborhoods = Vec::with_capacity(n);
+        for i in 0..n {
+            let mut neighbors = Vec::new();
+            for j in 0..n {
+                if i == j {
+                    neighbors.push(j);
+                    continue;
+                }
+                let d = compute_distance(data[i], data[j], config.metric)?;
+                if d <= config.eps {
+                    neighbors.push(j);
+                }
             }
-            let d = compute_distance(data[i], data[j], config.metric)?;
-            if d <= config.eps {
-                neighbors.push(j);
-            }
+            neighborhoods.push(neighbors);
         }
-        neighborhoods.push(neighbors);
-    }
+        neighborhoods
+    };
 
     let mut labels = vec![-1i32; n];
     let mut cluster_id = 0i32;

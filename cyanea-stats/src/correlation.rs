@@ -114,15 +114,43 @@ impl CorrelationMatrix {
         }
 
         let n = rows.len();
-        let mut data = vec![0.0; n * n];
-        for i in 0..n {
-            data[i * n + i] = 1.0; // diagonal
-            for j in (i + 1)..n {
-                let r = pearson(rows[i], rows[j])?;
-                data[i * n + j] = r;
-                data[j * n + i] = r;
+        #[cfg(feature = "parallel")]
+        let data = {
+            use rayon::prelude::*;
+            let upper: Vec<Vec<(usize, f64)>> = (0..n)
+                .into_par_iter()
+                .map(|i| {
+                    ((i + 1)..n)
+                        .map(|j| {
+                            let r = pearson(rows[i], rows[j]).unwrap();
+                            (j, r)
+                        })
+                        .collect()
+                })
+                .collect();
+            let mut data = vec![0.0; n * n];
+            for i in 0..n {
+                data[i * n + i] = 1.0;
+                for &(j, r) in &upper[i] {
+                    data[i * n + j] = r;
+                    data[j * n + i] = r;
+                }
             }
-        }
+            data
+        };
+        #[cfg(not(feature = "parallel"))]
+        let data = {
+            let mut data = vec![0.0; n * n];
+            for i in 0..n {
+                data[i * n + i] = 1.0;
+                for j in (i + 1)..n {
+                    let r = pearson(rows[i], rows[j])?;
+                    data[i * n + j] = r;
+                    data[j * n + i] = r;
+                }
+            }
+            data
+        };
 
         Ok(Self {
             data,

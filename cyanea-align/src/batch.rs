@@ -22,6 +22,19 @@ pub fn align_batch(
     mode: AlignmentMode,
     scoring: &ScoringScheme,
 ) -> Result<Vec<AlignmentResult>> {
+    #[cfg(feature = "parallel")]
+    {
+        use rayon::prelude::*;
+        pairs
+            .par_iter()
+            .map(|(query, target)| match mode {
+                AlignmentMode::Local => smith_waterman(query, target, scoring),
+                AlignmentMode::Global => needleman_wunsch(query, target, scoring),
+                AlignmentMode::SemiGlobal => semi_global(query, target, scoring),
+            })
+            .collect()
+    }
+    #[cfg(not(feature = "parallel"))]
     pairs
         .iter()
         .map(|(query, target)| match mode {

@@ -353,16 +353,45 @@ pub fn tsne(data: &[f64], n_features: usize, config: &TsneConfig) -> Result<Tsne
     let out_dim = config.n_components;
 
     // Compute pairwise squared distances
-    let mut sq_dists = vec![0.0; n * n];
-    for i in 0..n {
-        let ri = &data[i * n_features..(i + 1) * n_features];
-        for j in (i + 1)..n {
-            let rj = &data[j * n_features..(j + 1) * n_features];
-            let d: f64 = ri.iter().zip(rj).map(|(a, b)| (a - b).powi(2)).sum();
-            sq_dists[i * n + j] = d;
-            sq_dists[j * n + i] = d;
+    #[cfg(feature = "parallel")]
+    let sq_dists = {
+        use rayon::prelude::*;
+        let rows: Vec<Vec<(usize, f64)>> = (0..n)
+            .into_par_iter()
+            .map(|i| {
+                let ri = &data[i * n_features..(i + 1) * n_features];
+                ((i + 1)..n)
+                    .map(|j| {
+                        let rj = &data[j * n_features..(j + 1) * n_features];
+                        let d: f64 = ri.iter().zip(rj).map(|(a, b)| (a - b).powi(2)).sum();
+                        (j, d)
+                    })
+                    .collect()
+            })
+            .collect();
+        let mut sq_dists = vec![0.0; n * n];
+        for (i, row) in rows.into_iter().enumerate() {
+            for (j, d) in row {
+                sq_dists[i * n + j] = d;
+                sq_dists[j * n + i] = d;
+            }
         }
-    }
+        sq_dists
+    };
+    #[cfg(not(feature = "parallel"))]
+    let sq_dists = {
+        let mut sq_dists = vec![0.0; n * n];
+        for i in 0..n {
+            let ri = &data[i * n_features..(i + 1) * n_features];
+            for j in (i + 1)..n {
+                let rj = &data[j * n_features..(j + 1) * n_features];
+                let d: f64 = ri.iter().zip(rj).map(|(a, b)| (a - b).powi(2)).sum();
+                sq_dists[i * n + j] = d;
+                sq_dists[j * n + i] = d;
+            }
+        }
+        sq_dists
+    };
 
     // Compute pairwise affinities P (symmetrized)
     let p = compute_joint_probabilities(&sq_dists, n, config.perplexity);

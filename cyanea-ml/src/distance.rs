@@ -109,13 +109,32 @@ impl DistanceMatrix {
                 )));
             }
         }
-        let size = n * (n - 1) / 2;
-        let mut condensed = Vec::with_capacity(size);
-        for i in 0..n {
-            for j in (i + 1)..n {
-                condensed.push(compute_distance(data[i], data[j], metric)?);
+        #[cfg(feature = "parallel")]
+        let condensed = {
+            use rayon::prelude::*;
+            (0..n)
+                .into_par_iter()
+                .map(|i| {
+                    ((i + 1)..n)
+                        .map(|j| compute_distance(data[i], data[j], metric))
+                        .collect::<Result<Vec<_>>>()
+                })
+                .collect::<Result<Vec<_>>>()?
+                .into_iter()
+                .flatten()
+                .collect::<Vec<f64>>()
+        };
+        #[cfg(not(feature = "parallel"))]
+        let condensed = {
+            let size = n * (n - 1) / 2;
+            let mut condensed = Vec::with_capacity(size);
+            for i in 0..n {
+                for j in (i + 1)..n {
+                    condensed.push(compute_distance(data[i], data[j], metric)?);
+                }
             }
-        }
+            condensed
+        };
         Ok(Self { condensed, n })
     }
 

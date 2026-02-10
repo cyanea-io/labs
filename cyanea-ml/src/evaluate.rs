@@ -32,57 +32,112 @@ pub fn silhouette_samples(data: &[&[f64]], labels: &[i32]) -> Result<Vec<f64>> {
         ));
     }
 
-    let mut scores = vec![0.0; n];
+    #[cfg(feature = "parallel")]
+    let scores = {
+        use rayon::prelude::*;
+        (0..n)
+            .into_par_iter()
+            .map(|i| {
+                if labels[i] < 0 {
+                    return Ok(0.0);
+                }
 
-    for i in 0..n {
-        if labels[i] < 0 {
-            continue; // noise
-        }
+                let mut same_sum = 0.0;
+                let mut same_count = 0usize;
+                for j in 0..n {
+                    if j != i && labels[j] == labels[i] {
+                        same_sum += euclidean(data[i], data[j])?;
+                        same_count += 1;
+                    }
+                }
+                let a = if same_count > 0 {
+                    same_sum / same_count as f64
+                } else {
+                    0.0
+                };
 
-        // a(i): mean distance to points in the same cluster
-        let mut same_sum = 0.0;
-        let mut same_count = 0usize;
-        for j in 0..n {
-            if j != i && labels[j] == labels[i] {
-                same_sum += euclidean(data[i], data[j])?;
-                same_count += 1;
-            }
-        }
-        let a = if same_count > 0 {
-            same_sum / same_count as f64
-        } else {
-            0.0
-        };
+                let mut b = f64::INFINITY;
+                for &label in &unique_labels {
+                    if label == labels[i] {
+                        continue;
+                    }
+                    let mut other_sum = 0.0;
+                    let mut other_count = 0usize;
+                    for j in 0..n {
+                        if labels[j] == label {
+                            other_sum += euclidean(data[i], data[j])?;
+                            other_count += 1;
+                        }
+                    }
+                    if other_count > 0 {
+                        let mean_dist = other_sum / other_count as f64;
+                        if mean_dist < b {
+                            b = mean_dist;
+                        }
+                    }
+                }
 
-        // b(i): minimum mean distance to points in any other cluster
-        let mut b = f64::INFINITY;
-        for &label in &unique_labels {
-            if label == labels[i] {
+                let max_ab = a.max(b);
+                Ok(if max_ab == 0.0 {
+                    0.0
+                } else {
+                    (b - a) / max_ab
+                })
+            })
+            .collect::<Result<Vec<f64>>>()?
+    };
+    #[cfg(not(feature = "parallel"))]
+    let scores = {
+        let mut scores = vec![0.0; n];
+        for i in 0..n {
+            if labels[i] < 0 {
                 continue;
             }
-            let mut other_sum = 0.0;
-            let mut other_count = 0usize;
-            for j in 0..n {
-                if labels[j] == label {
-                    other_sum += euclidean(data[i], data[j])?;
-                    other_count += 1;
-                }
-            }
-            if other_count > 0 {
-                let mean_dist = other_sum / other_count as f64;
-                if mean_dist < b {
-                    b = mean_dist;
-                }
-            }
-        }
 
-        let max_ab = a.max(b);
-        scores[i] = if max_ab == 0.0 {
-            0.0
-        } else {
-            (b - a) / max_ab
-        };
-    }
+            let mut same_sum = 0.0;
+            let mut same_count = 0usize;
+            for j in 0..n {
+                if j != i && labels[j] == labels[i] {
+                    same_sum += euclidean(data[i], data[j])?;
+                    same_count += 1;
+                }
+            }
+            let a = if same_count > 0 {
+                same_sum / same_count as f64
+            } else {
+                0.0
+            };
+
+            let mut b = f64::INFINITY;
+            for &label in &unique_labels {
+                if label == labels[i] {
+                    continue;
+                }
+                let mut other_sum = 0.0;
+                let mut other_count = 0usize;
+                for j in 0..n {
+                    if labels[j] == label {
+                        other_sum += euclidean(data[i], data[j])?;
+                        other_count += 1;
+                    }
+                }
+                if other_count > 0 {
+                    let mean_dist = other_sum / other_count as f64;
+                    if mean_dist < b {
+                        b = mean_dist;
+                    }
+                }
+            }
+
+            let max_ab = a.max(b);
+            scores[i] = if max_ab == 0.0 {
+                0.0
+            } else {
+                (b - a) / max_ab
+            };
+        }
+        scores
+    };
 
     Ok(scores)
 }

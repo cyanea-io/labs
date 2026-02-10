@@ -85,6 +85,15 @@ fn cpu_fallback(
     mode: AlignmentMode,
     scoring: &ScoringScheme,
 ) -> Result<Vec<AlignmentResult>> {
+    #[cfg(feature = "parallel")]
+    {
+        use rayon::prelude::*;
+        pairs
+            .par_iter()
+            .map(|(q, t)| crate::align(q, t, mode, scoring))
+            .collect()
+    }
+    #[cfg(not(feature = "parallel"))]
     pairs
         .iter()
         .map(|(q, t)| crate::align(q, t, mode, scoring))

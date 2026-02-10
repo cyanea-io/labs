@@ -124,6 +124,20 @@ pub fn batch_embed(sequences: &[&[u8]], config: &EmbeddingConfig) -> Result<Vec<
     if sequences.is_empty() {
         return Err(CyaneaError::InvalidInput("empty sequence list".into()));
     }
+    #[cfg(feature = "parallel")]
+    {
+        use rayon::prelude::*;
+        sequences
+            .par_iter()
+            .enumerate()
+            .map(|(i, seq)| {
+                kmer_embedding(seq, config).map_err(|e| {
+                    CyaneaError::InvalidInput(format!("sequence {}: {}", i, e))
+                })
+            })
+            .collect()
+    }
+    #[cfg(not(feature = "parallel"))]
     sequences
         .iter()
         .enumerate()
@@ -146,13 +160,35 @@ pub fn pairwise_cosine_distances(embeddings: &[SequenceEmbedding]) -> Result<Vec
         ));
     }
 
-    let mut distances = Vec::with_capacity(n * (n - 1) / 2);
-    for i in 0..n {
-        for j in (i + 1)..n {
-            let sim = cosine_sim(&embeddings[i].vector, &embeddings[j].vector);
-            distances.push(1.0 - sim);
+    #[cfg(feature = "parallel")]
+    let distances = {
+        use rayon::prelude::*;
+        (0..n)
+            .into_par_iter()
+            .map(|i| {
+                ((i + 1)..n)
+                    .map(|j| {
+                        let sim = cosine_sim(&embeddings[i].vector, &embeddings[j].vector);
+                        1.0 - sim
+                    })
+                    .collect::<Vec<f64>>()
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .flatten()
+            .collect::<Vec<f64>>()
+    };
+    #[cfg(not(feature = "parallel"))]
+    let distances = {
+        let mut distances = Vec::with_capacity(n * (n - 1) / 2);
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let sim = cosine_sim(&embeddings[i].vector, &embeddings[j].vector);
+                distances.push(1.0 - sim);
+            }
         }
-    }
+        distances
+    };
     Ok(distances)
 }
 
