@@ -18,3 +18,11 @@ cyanea-core = { path = "../cyanea-core", default-features = false }
 sha2 = { workspace = true }
 hex = { workspace = true }
 serde = { workspace = true, optional = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+proptest = { workspace = true }
+
+[[bench]]
+name = "chem"
+harness = false

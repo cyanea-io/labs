@@ -95,3 +95,55 @@ mod tests {
         assert!(result.length() > 0);
     }
 }
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use proptest::prelude::*;
+
+    fn dna_seq(max_len: usize) -> impl Strategy<Value = Vec<u8>> {
+        proptest::collection::vec(prop_oneof![Just(b'A'), Just(b'C'), Just(b'G'), Just(b'T')], 1..=max_len)
+    }
+
+    proptest! {
+        #[test]
+        fn alignment_score_is_deterministic(
+            q in dna_seq(50),
+            t in dna_seq(50),
+        ) {
+            let scoring = ScoringScheme::Simple(ScoringMatrix::dna_default());
+            let r1 = align(&q, &t, AlignmentMode::Global, &scoring).unwrap();
+            let r2 = align(&q, &t, AlignmentMode::Global, &scoring).unwrap();
+            prop_assert_eq!(r1.score, r2.score);
+        }
+
+        #[test]
+        fn identity_in_unit_interval(
+            q in dna_seq(50),
+            t in dna_seq(50),
+        ) {
+            let scoring = ScoringScheme::Simple(ScoringMatrix::dna_default());
+            let result = align(&q, &t, AlignmentMode::Global, &scoring).unwrap();
+            let id = result.identity();
+            prop_assert!(id >= 0.0 && id <= 1.0, "identity={} out of [0,1]", id);
+        }
+
+        #[test]
+        fn identical_sequences_perfect_identity(seq in dna_seq(50)) {
+            let scoring = ScoringScheme::Simple(ScoringMatrix::dna_default());
+            let result = align(&seq, &seq, AlignmentMode::Global, &scoring).unwrap();
+            prop_assert!((result.identity() - 1.0).abs() < 1e-10,
+                "identical seqs should have identity=1.0, got {}", result.identity());
+        }
+
+        #[test]
+        fn local_score_nonnegative(
+            q in dna_seq(50),
+            t in dna_seq(50),
+        ) {
+            let scoring = ScoringScheme::Simple(ScoringMatrix::dna_default());
+            let result = align(&q, &t, AlignmentMode::Local, &scoring).unwrap();
+            prop_assert!(result.score >= 0, "SW score should be >= 0, got {}", result.score);
+        }
+    }
+}

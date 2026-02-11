@@ -51,5 +51,11 @@ csv = "1.3"
 # Parallelism
 rayon = "1.10"
 
+# Benchmarking
+criterion = { version = "0.5", features = ["html_reports"] }
+
+# Property-based testing
+proptest = "1"
+
 # Testing
 tempfile = "3"

@@ -18,3 +18,6 @@ ml = ["dep:cyanea-ml"]
 cyanea-core = { path = "../cyanea-core", default-features = false }
 serde = { workspace = true, optional = true }
 cyanea-ml = { path = "../cyanea-ml", default-features = false, optional = true }
+
+[dev-dependencies]
+proptest = { workspace = true }

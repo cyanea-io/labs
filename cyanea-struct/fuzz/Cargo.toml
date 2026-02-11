@@ -1,0 +1,22 @@
+[package]
+name = "cyanea-struct-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.cyanea-struct]
+path = ".."
+
+[[bin]]
+name = "fuzz_pdb"
+path = "fuzz_targets/fuzz_pdb.rs"
+doc = false
+
+[workspace]
+members = ["."]

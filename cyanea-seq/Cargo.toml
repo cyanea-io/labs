@@ -19,4 +19,10 @@ needletail = { workspace = true }
 serde = { workspace = true, optional = true }
 
 [dev-dependencies]
+criterion = { workspace = true }
+proptest = { workspace = true }
 tempfile = { workspace = true }
+
+[[bench]]
+name = "seq"
+harness = false

@@ -283,3 +283,59 @@ mod tests {
         assert_eq!(output, input);
     }
 }
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use proptest::prelude::*;
+
+    /// Strategy for generating leaf names (simple alphanumeric, no special chars)
+    fn leaf_name() -> impl Strategy<Value = String> {
+        "[A-Za-z][A-Za-z0-9]{0,5}"
+    }
+
+    /// Strategy for a simple Newick tree with 2-6 leaves (no branch lengths)
+    fn simple_newick() -> impl Strategy<Value = String> {
+        proptest::collection::vec(leaf_name(), 2..=6)
+            .prop_map(|leaves| {
+                // Build a simple caterpillar tree
+                if leaves.len() == 2 {
+                    return format!("({},{});", leaves[0], leaves[1]);
+                }
+                let mut s = format!("({},{}", leaves[0], leaves[1]);
+                for leaf in &leaves[2..] {
+                    s = format!("({},{})", s, leaf);
+                }
+                s.push(';');
+                s
+            })
+    }
+
+    proptest! {
+        #[test]
+        fn newick_roundtrip_preserves_leaf_names(newick in simple_newick()) {
+            if let Ok(tree) = parse(&newick) {
+                let output = write(&tree);
+                let tree2 = parse(&output).unwrap();
+                let mut names1 = tree.leaf_names();
+                let mut names2 = tree2.leaf_names();
+                names1.sort();
+                names2.sort();
+                prop_assert_eq!(names1, names2);
+            }
+        }
+
+        #[test]
+        fn parse_newick_does_not_panic(s in "\\PC{0,100}") {
+            let _ = parse(&s);
+        }
+
+        #[test]
+        fn node_count_ge_leaf_count(newick in simple_newick()) {
+            if let Ok(tree) = parse(&newick) {
+                prop_assert!(tree.node_count() >= tree.leaf_count(),
+                    "node_count={} < leaf_count={}", tree.node_count(), tree.leaf_count());
+            }
+        }
+    }
+}

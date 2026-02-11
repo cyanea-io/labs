@@ -352,3 +352,61 @@ mod tests {
         assert!(s.contains("mean="));
     }
 }
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use proptest::prelude::*;
+
+    fn finite_f64() -> impl Strategy<Value = f64> {
+        -1e12_f64..1e12_f64
+    }
+
+    proptest! {
+        #[test]
+        fn describe_count_equals_length(
+            data in proptest::collection::vec(finite_f64(), 1..=500)
+        ) {
+            let stats = describe(&data).unwrap();
+            prop_assert_eq!(stats.count, data.len());
+        }
+
+        #[test]
+        fn variance_nonnegative(
+            data in proptest::collection::vec(finite_f64(), 1..=500)
+        ) {
+            let stats = describe(&data).unwrap();
+            prop_assert!(stats.variance >= 0.0, "variance={} should be >= 0", stats.variance);
+        }
+
+        #[test]
+        fn min_le_mean_le_max(
+            data in proptest::collection::vec(finite_f64(), 1..=500)
+        ) {
+            let stats = describe(&data).unwrap();
+            prop_assert!(stats.min <= stats.mean + 1e-10,
+                "min={} > mean={}", stats.min, stats.mean);
+            prop_assert!(stats.mean <= stats.max + 1e-10,
+                "mean={} > max={}", stats.mean, stats.max);
+        }
+
+        #[test]
+        fn range_equals_max_minus_min(
+            data in proptest::collection::vec(finite_f64(), 1..=500)
+        ) {
+            let stats = describe(&data).unwrap();
+            prop_assert!((stats.range - (stats.max - stats.min)).abs() < 1e-10);
+        }
+
+        #[test]
+        fn median_between_min_and_max(
+            data in proptest::collection::vec(finite_f64(), 1..=500)
+        ) {
+            let stats = describe(&data).unwrap();
+            prop_assert!(stats.median >= stats.min - 1e-10,
+                "median={} < min={}", stats.median, stats.min);
+            prop_assert!(stats.median <= stats.max + 1e-10,
+                "median={} > max={}", stats.median, stats.max);
+        }
+    }
+}

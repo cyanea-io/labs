@@ -574,3 +574,48 @@ mod tests {
         assert!(parse_smiles("[").is_err());
     }
 }
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use crate::properties::molecular_formula;
+    use proptest::prelude::*;
+
+    /// Strategy for valid simple SMILES: chains of organic subset atoms
+    fn simple_smiles() -> impl Strategy<Value = String> {
+        let atoms = prop_oneof![
+            Just("C"),
+            Just("N"),
+            Just("O"),
+            Just("S"),
+            Just("c"),
+            Just("n"),
+            Just("o"),
+        ];
+        proptest::collection::vec(atoms, 1..=20)
+            .prop_map(|parts| parts.join(""))
+    }
+
+    proptest! {
+        #[test]
+        fn parse_smiles_does_not_panic(s in "\\PC{0,100}") {
+            let _ = parse_smiles(&s);
+        }
+
+        #[test]
+        fn formula_is_deterministic(smi in simple_smiles()) {
+            if let Ok(mol) = parse_smiles(&smi) {
+                let f1 = molecular_formula(&mol);
+                let f2 = molecular_formula(&mol);
+                prop_assert_eq!(f1, f2);
+            }
+        }
+
+        #[test]
+        fn atom_count_positive_on_success(smi in simple_smiles()) {
+            if let Ok(mol) = parse_smiles(&smi) {
+                prop_assert!(mol.atom_count() > 0);
+            }
+        }
+    }
+}

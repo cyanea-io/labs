@@ -18,3 +18,10 @@ cyanea-core = { path = "../cyanea-core", default-features = false }
 sha2  = { workspace = true }
 hex   = { workspace = true }
 serde = { workspace = true, optional = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[[bench]]
+name = "struct_bio"
+harness = false

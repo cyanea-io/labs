@@ -281,3 +281,43 @@ mod tests {
         assert_eq!(seq.gc_content(), 0.0);
     }
 }
+
+#[cfg(test)]
+mod proptests {
+    use super::*;
+    use proptest::prelude::*;
+
+    /// Strategy: generate a random DNA string of length 1..=500 using only ACGT
+    fn dna_string(max_len: usize) -> impl Strategy<Value = Vec<u8>> {
+        proptest::collection::vec(prop_oneof![Just(b'A'), Just(b'C'), Just(b'G'), Just(b'T')], 1..=max_len)
+    }
+
+    proptest! {
+        #[test]
+        fn transcribe_reverse_transcribe_roundtrips(seq in dna_string(500)) {
+            let dna = DnaSequence::new(&seq).unwrap();
+            let roundtrip = dna.transcribe().reverse_transcribe();
+            prop_assert_eq!(dna.as_ref() as &[u8], roundtrip.as_ref() as &[u8]);
+        }
+
+        #[test]
+        fn gc_content_in_unit_interval(seq in dna_string(500)) {
+            let dna = DnaSequence::new(&seq).unwrap();
+            let gc = dna.gc_content();
+            prop_assert!(gc >= 0.0 && gc <= 1.0, "gc_content={} out of [0,1]", gc);
+        }
+
+        #[test]
+        fn reverse_complement_involution(seq in dna_string(500)) {
+            let dna = DnaSequence::new(&seq).unwrap();
+            let double_rc = dna.reverse_complement().reverse_complement();
+            prop_assert_eq!(dna.as_ref() as &[u8], double_rc.as_ref() as &[u8]);
+        }
+
+        #[test]
+        fn reverse_complement_preserves_length(seq in dna_string(500)) {
+            let dna = DnaSequence::new(&seq).unwrap();
+            prop_assert_eq!(dna.len(), dna.reverse_complement().len());
+        }
+    }
+}

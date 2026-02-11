@@ -1,0 +1,27 @@
+[package]
+name = "cyanea-chem-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.cyanea-chem]
+path = ".."
+
+[[bin]]
+name = "fuzz_smiles"
+path = "fuzz_targets/fuzz_smiles.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_sdf"
+path = "fuzz_targets/fuzz_sdf.rs"
+doc = false
+
+[workspace]
+members = ["."]
