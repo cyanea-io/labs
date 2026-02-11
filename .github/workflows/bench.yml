@@ -1,0 +1,92 @@
+name: Benchmarks
+
+on:
+  pull_request:
+    branches: [main]
+  # Allow manual triggering
+  workflow_dispatch:
+
+# Only run one benchmark at a time per PR
+concurrency:
+  group: bench-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  benchmark:
+    name: Performance benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: bench-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: bench-${{ runner.os }}-
+
+      - name: Run benchmarks (PR)
+        run: |
+          cargo bench --workspace --exclude cyanea-py -- --output-format bencher | tee pr-bench.txt
+
+      - name: Checkout main for baseline
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          clean: false
+
+      - name: Run benchmarks (baseline)
+        if: github.event_name == 'pull_request'
+        run: |
+          cargo bench --workspace --exclude cyanea-py -- --output-format bencher | tee main-bench.txt
+
+      - name: Compare benchmarks
+        if: github.event_name == 'pull_request'
+        id: compare
+        run: |
+          # Simple comparison: extract benchmark names and times
+          echo "## Benchmark Results" > bench-comment.md
+          echo "" >> bench-comment.md
+          echo "| Benchmark | PR | Main | Change |" >> bench-comment.md
+          echo "|-----------|-----|------|--------|" >> bench-comment.md
+
+          # Parse bencher format: "test name ... bench: NNN ns/iter (+/- NNN)"
+          while IFS= read -r line; do
+            if echo "$line" | grep -q "bench:"; then
+              name=$(echo "$line" | sed 's/test \(.*\) \.\.\. bench:.*/\1/' | xargs)
+              pr_ns=$(echo "$line" | sed 's/.*bench: *\([0-9,]*\) ns.*/\1/' | tr -d ',')
+
+              # Find corresponding line in main
+              main_line=$(grep "test ${name} " main-bench.txt 2>/dev/null || true)
+              if [ -n "$main_line" ]; then
+                main_ns=$(echo "$main_line" | sed 's/.*bench: *\([0-9,]*\) ns.*/\1/' | tr -d ',')
+                if [ "$main_ns" -gt 0 ] 2>/dev/null; then
+                  change=$(( (pr_ns - main_ns) * 100 / main_ns ))
+                  if [ "$change" -gt 10 ]; then
+                    status="⚠️ +${change}%"
+                  elif [ "$change" -lt -10 ]; then
+                    status="🚀 ${change}%"
+                  else
+                    status="≈ ${change}%"
+                  fi
+                  echo "| ${name} | ${pr_ns} ns | ${main_ns} ns | ${status} |" >> bench-comment.md
+                fi
+              fi
+            fi
+          done < pr-bench.txt
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          path: bench-comment.md
