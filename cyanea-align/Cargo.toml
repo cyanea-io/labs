@@ -8,8 +8,9 @@ repository.workspace = true
 rust-version.workspace = true
 
 [features]
-default = ["std"]
+default = ["std", "simd"]
 std = []
+simd = []
 wasm = []
 serde = ["dep:serde", "cyanea-core/serde"]
 cuda = []

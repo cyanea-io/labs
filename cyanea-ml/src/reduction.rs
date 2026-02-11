@@ -10,6 +10,10 @@
 
 use cyanea_core::{CyaneaError, Result, Summarizable};
 
+#[cfg(feature = "blas")]
+#[path = "blas_pca.rs"]
+mod blas_pca;
+
 // ---------------------------------------------------------------------------
 // PCA
 // ---------------------------------------------------------------------------
@@ -73,6 +77,7 @@ impl Summarizable for PcaResult {
 ///
 /// Returns an error if the data is empty, dimensions are inconsistent,
 /// or `n_components` exceeds `n_features`.
+#[allow(unreachable_code)]
 pub fn pca(data: &[f64], n_features: usize, config: &PcaConfig) -> Result<PcaResult> {
     if data.is_empty() {
         return Err(CyaneaError::InvalidInput("empty data".into()));
@@ -99,6 +104,10 @@ pub fn pca(data: &[f64], n_features: usize, config: &PcaConfig) -> Result<PcaRes
             "n_components must be > 0".into(),
         ));
     }
+
+    // When the blas feature is enabled, use ndarray for matrix operations
+    #[cfg(feature = "blas")]
+    return blas_pca::pca_ndarray(data, n_features, n_samples, n_components, config);
 
     // Compute mean per feature
     let mut mean = vec![0.0; n_features];

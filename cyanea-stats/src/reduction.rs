@@ -6,6 +6,10 @@
 
 use cyanea_core::{CyaneaError, Result};
 
+#[cfg(feature = "blas")]
+#[path = "blas_pca.rs"]
+mod blas_pca;
+
 /// Result of a PCA computation.
 #[derive(Debug, Clone)]
 pub struct PcaResult {
@@ -31,6 +35,7 @@ pub struct PcaResult {
 ///
 /// Returns an error if data is empty, samples have inconsistent lengths,
 /// or `n_components` is zero or exceeds the number of features.
+#[allow(unreachable_code)]
 pub fn pca(data: &[&[f64]], n_components: usize) -> Result<PcaResult> {
     if data.is_empty() {
         return Err(CyaneaError::InvalidInput("empty data".into()));
@@ -56,6 +61,10 @@ pub fn pca(data: &[&[f64]], n_components: usize) -> Result<PcaResult> {
             n_components, n_features
         )));
     }
+
+    // When the blas feature is enabled, dispatch to ndarray-based implementation
+    #[cfg(feature = "blas")]
+    return blas_pca::pca_ndarray(data, n_features, n_samples, n_components);
 
     // Center data
     let mean = compute_mean(data, n_features);

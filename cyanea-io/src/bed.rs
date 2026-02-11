@@ -34,8 +34,9 @@ pub fn parse_bed(path: impl AsRef<Path>) -> Result<Vec<BedRecord>> {
         ))
     })?;
     let reader = BufReader::new(file);
-    let mut records = Vec::new();
 
+    // Read all data lines (skip headers)
+    let mut data_lines: Vec<(usize, String)> = Vec::new();
     for (line_num, line_result) in reader.lines().enumerate() {
         let line = line_result.map_err(|e| {
             CyaneaError::Io(std::io::Error::new(
@@ -43,21 +44,31 @@ pub fn parse_bed(path: impl AsRef<Path>) -> Result<Vec<BedRecord>> {
                 format!("{}: line {}: {}", path.display(), line_num + 1, e),
             ))
         })?;
-        let line = line.trim();
-
-        if line.is_empty()
-            || line.starts_with('#')
-            || line.starts_with("track")
-            || line.starts_with("browser")
+        let trimmed = line.trim().to_string();
+        if trimmed.is_empty()
+            || trimmed.starts_with('#')
+            || trimmed.starts_with("track")
+            || trimmed.starts_with("browser")
         {
             continue;
         }
-
-        let record = parse_bed_line(line, line_num + 1, path)?;
-        records.push(record);
+        data_lines.push((line_num + 1, trimmed));
     }
 
-    Ok(records)
+    // Parse data lines (optionally in parallel)
+    #[cfg(feature = "parallel")]
+    {
+        use rayon::prelude::*;
+        data_lines
+            .par_iter()
+            .map(|(line_num, line)| parse_bed_line(line, *line_num, path))
+            .collect()
+    }
+    #[cfg(not(feature = "parallel"))]
+    data_lines
+        .iter()
+        .map(|(line_num, line)| parse_bed_line(line, *line_num, path))
+        .collect()
 }
 
 /// Parse a BED file and return only the genomic intervals (discards name/score).

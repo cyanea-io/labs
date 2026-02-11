@@ -24,8 +24,9 @@ pub fn parse_vcf(path: impl AsRef<Path>) -> Result<Vec<Variant>> {
         ))
     })?;
     let reader = BufReader::new(file);
-    let mut variants = Vec::new();
 
+    // Read all data lines (skip headers)
+    let mut data_lines: Vec<(usize, String)> = Vec::new();
     for (line_num, line_result) in reader.lines().enumerate() {
         let line = line_result.map_err(|e| {
             CyaneaError::Io(std::io::Error::new(
@@ -33,18 +34,27 @@ pub fn parse_vcf(path: impl AsRef<Path>) -> Result<Vec<Variant>> {
                 format!("{}: line {}: {}", path.display(), line_num + 1, e),
             ))
         })?;
-        let line = line.trim();
-
-        // Skip header and comment lines.
-        if line.is_empty() || line.starts_with('#') {
+        let trimmed = line.trim().to_string();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
             continue;
         }
-
-        let variant = parse_vcf_line(line, line_num + 1, path)?;
-        variants.push(variant);
+        data_lines.push((line_num + 1, trimmed));
     }
 
-    Ok(variants)
+    // Parse data lines (optionally in parallel)
+    #[cfg(feature = "parallel")]
+    {
+        use rayon::prelude::*;
+        data_lines
+            .par_iter()
+            .map(|(line_num, line)| parse_vcf_line(line, *line_num, path))
+            .collect()
+    }
+    #[cfg(not(feature = "parallel"))]
+    data_lines
+        .iter()
+        .map(|(line_num, line)| parse_vcf_line(line, *line_num, path))
+        .collect()
 }
 
 /// Summary statistics for a VCF file.

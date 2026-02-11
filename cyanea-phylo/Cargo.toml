@@ -13,11 +13,13 @@ std = []
 wasm = []
 serde = ["dep:serde", "cyanea-core/serde"]
 ml = ["dep:cyanea-ml"]
+parallel = ["dep:rayon"]
 
 [dependencies]
 cyanea-core = { path = "../cyanea-core", default-features = false }
 serde = { workspace = true, optional = true }
 cyanea-ml = { path = "../cyanea-ml", default-features = false, optional = true }
+rayon = { workspace = true, optional = true }
 
 [dev-dependencies]
 proptest = { workspace = true }

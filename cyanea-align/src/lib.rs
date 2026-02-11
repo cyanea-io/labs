@@ -21,6 +21,7 @@ pub mod smith_waterman;
 pub mod semi_global;
 pub mod batch;
 pub mod simd;
+pub mod simd_sw;
 pub mod msa;
 
 pub mod gpu;
@@ -31,6 +32,7 @@ pub use needleman_wunsch::needleman_wunsch;
 pub use smith_waterman::smith_waterman;
 pub use semi_global::semi_global;
 pub use batch::align_batch;
+pub use simd_sw::sw_simd_score;
 
 /// Convenience function: align two sequences using the specified mode and scoring.
 ///

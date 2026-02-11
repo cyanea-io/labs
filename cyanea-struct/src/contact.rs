@@ -127,30 +127,70 @@ pub fn compute_contact_map_allatom(chain: &Chain) -> Result<ContactMap> {
         ));
     }
 
-    let mut distances = vec![0.0f64; n * n];
+    #[cfg(feature = "parallel")]
+    let distances = {
+        use rayon::prelude::*;
+        let upper: Vec<Vec<(usize, f64)>> = (0..n)
+            .into_par_iter()
+            .map(|i| {
+                ((i + 1)..n)
+                    .map(|j| {
+                        let mut min_dist = f64::INFINITY;
+                        for a1 in &chain.residues[i].atoms {
+                            if a1.element.as_deref() == Some("H") {
+                                continue;
+                            }
+                            for a2 in &chain.residues[j].atoms {
+                                if a2.element.as_deref() == Some("H") {
+                                    continue;
+                                }
+                                let d = a1.coords.distance_to(&a2.coords);
+                                if d < min_dist {
+                                    min_dist = d;
+                                }
+                            }
+                        }
+                        (j, min_dist)
+                    })
+                    .collect()
+            })
+            .collect();
+        let mut distances = vec![0.0f64; n * n];
+        for (i, row) in upper.into_iter().enumerate() {
+            for (j, d) in row {
+                distances[i * n + j] = d;
+                distances[j * n + i] = d;
+            }
+        }
+        distances
+    };
 
-    for i in 0..n {
-        for j in (i + 1)..n {
-            let mut min_dist = f64::INFINITY;
-            for a1 in &chain.residues[i].atoms {
-                // Skip hydrogens (element "H")
-                if a1.element.as_deref() == Some("H") {
-                    continue;
-                }
-                for a2 in &chain.residues[j].atoms {
-                    if a2.element.as_deref() == Some("H") {
+    #[cfg(not(feature = "parallel"))]
+    let distances = {
+        let mut distances = vec![0.0f64; n * n];
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let mut min_dist = f64::INFINITY;
+                for a1 in &chain.residues[i].atoms {
+                    if a1.element.as_deref() == Some("H") {
                         continue;
                     }
-                    let d = a1.coords.distance_to(&a2.coords);
-                    if d < min_dist {
-                        min_dist = d;
+                    for a2 in &chain.residues[j].atoms {
+                        if a2.element.as_deref() == Some("H") {
+                            continue;
+                        }
+                        let d = a1.coords.distance_to(&a2.coords);
+                        if d < min_dist {
+                            min_dist = d;
+                        }
                     }
                 }
+                distances[i * n + j] = min_dist;
+                distances[j * n + i] = min_dist;
             }
-            distances[i * n + j] = min_dist;
-            distances[j * n + i] = min_dist;
         }
-    }
+        distances
+    };
 
     Ok(ContactMap {
         chain_id: chain.id,

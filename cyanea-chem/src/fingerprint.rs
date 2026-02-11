@@ -154,6 +154,12 @@ pub fn tanimoto_similarity(fp1: &Fingerprint, fp2: &Fingerprint) -> f64 {
 
 /// Compute Tanimoto similarity of a query against multiple targets.
 pub fn tanimoto_bulk(query: &Fingerprint, targets: &[Fingerprint]) -> Vec<f64> {
+    #[cfg(feature = "parallel")]
+    {
+        use rayon::prelude::*;
+        targets.par_iter().map(|t| tanimoto_similarity(query, t)).collect()
+    }
+    #[cfg(not(feature = "parallel"))]
     targets.iter().map(|t| tanimoto_similarity(query, t)).collect()
 }
 

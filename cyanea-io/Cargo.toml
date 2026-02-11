@@ -14,6 +14,7 @@ vcf = ["dep:cyanea-omics"]
 bed = ["dep:cyanea-omics"]
 gff = ["dep:cyanea-omics"]
 wasm = []
+parallel = ["dep:rayon"]
 
 [dependencies]
 cyanea-core = { path = "../cyanea-core", default-features = false }
@@ -21,6 +22,7 @@ cyanea-omics = { path = "../cyanea-omics", default-features = false, optional = 
 csv = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
+rayon = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

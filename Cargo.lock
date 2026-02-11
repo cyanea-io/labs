@@ -317,6 +317,7 @@ dependencies = [
  "cyanea-core",
  "hex",
  "proptest",
+ "rayon",
  "serde",
  "sha2",
 ]
@@ -351,6 +352,7 @@ dependencies = [
  "csv",
  "cyanea-core",
  "cyanea-omics",
+ "rayon",
  "serde",
  "serde_json",
  "tempfile",
@@ -362,6 +364,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "cyanea-core",
+ "ndarray",
  "rayon",
  "serde",
 ]
@@ -381,6 +384,7 @@ dependencies = [
  "cyanea-core",
  "cyanea-ml",
  "proptest",
+ "rayon",
  "serde",
 ]
 
@@ -415,6 +419,7 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "cyanea-core",
+ "ndarray",
  "proptest",
  "rayon",
  "serde",
@@ -427,6 +432,7 @@ dependencies = [
  "criterion",
  "cyanea-core",
  "hex",
+ "rayon",
  "serde",
  "sha2",
 ]
@@ -630,6 +636,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "matrixmultiply"
+version = "0.3.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a06de3016e9fae57a36fd14dba131fccf49f74b40b7fbdb472f96e361ec71a08"
+dependencies = [
+ "autocfg",
+ "rawpointer",
+]
+
+[[package]]
 name = "memchr"
 version = "2.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -664,6 +680,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ndarray"
+version = "0.16.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "882ed72dce9365842bf196bdeedf5055305f11fc8c03dee7bb0194a6cad34841"
+dependencies = [
+ "matrixmultiply",
+ "num-complex",
+ "num-integer",
+ "num-traits",
+ "portable-atomic",
+ "portable-atomic-util",
+ "rawpointer",
+]
+
+[[package]]
 name = "needletail"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -675,6 +706,24 @@ dependencies = [
  "flate2",
  "memchr",
  "xz2",
+]
+
+[[package]]
+name = "num-complex"
+version = "0.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73f88a1307638156682bada9d7604135552957b7818057dcef22705b4d509495"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
+name = "num-integer"
+version = "0.1.46"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7969661fd2958a5cb096e56c8e1ad0444ac2bbcd0061bd28660485a44879858f"
+dependencies = [
+ "num-traits",
 ]
 
 [[package]]
@@ -737,6 +786,15 @@ name = "portable-atomic"
 version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c33a9471896f1c69cecef8d20cbe2f7accd12527ce60845ff44c153bb2a21b49"
+
+[[package]]
+name = "portable-atomic-util"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7a9db96d7fa8782dd8c15ce32ffe8680bbd1e978a43bf51a34d39483540495f5"
+dependencies = [
+ "portable-atomic",
+]
 
 [[package]]
 name = "ppv-lite86"
@@ -896,6 +954,12 @@ checksum = "513962919efc330f829edb2535844d1b912b0fbe2ca165d613e4e8788bb05a5a"
 dependencies = [
  "rand_core",
 ]
+
+[[package]]
+name = "rawpointer"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "60a357793950651c4ed0f3f52338f53b2f809f32d83a07f72909fa13e4c6c1e3"
 
 [[package]]
 name = "rayon"

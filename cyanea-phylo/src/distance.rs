@@ -133,26 +133,56 @@ pub fn sequence_distance_matrix(
         }
     }
 
-    let size = n * (n - 1) / 2;
-    let mut condensed = Vec::with_capacity(size);
+    #[cfg(feature = "parallel")]
+    let condensed = {
+        use rayon::prelude::*;
+        (0..n)
+            .into_par_iter()
+            .map(|i| {
+                ((i + 1)..n)
+                    .map(|j| match model {
+                        DistanceModel::P => p_distance(seqs[i], seqs[j]),
+                        DistanceModel::JukesCantor => {
+                            let p = p_distance(seqs[i], seqs[j])?;
+                            jukes_cantor(p)
+                        }
+                        DistanceModel::Kimura2P => {
+                            let (ts, tv) = count_substitutions(seqs[i], seqs[j]);
+                            let total = seqs[i].len() as f64;
+                            kimura_2p(ts as f64 / total, tv as f64 / total)
+                        }
+                    })
+                    .collect::<Result<Vec<_>>>()
+            })
+            .collect::<Result<Vec<_>>>()?
+            .into_iter()
+            .flatten()
+            .collect::<Vec<f64>>()
+    };
 
-    for i in 0..n {
-        for j in (i + 1)..n {
-            let d = match model {
-                DistanceModel::P => p_distance(seqs[i], seqs[j])?,
-                DistanceModel::JukesCantor => {
-                    let p = p_distance(seqs[i], seqs[j])?;
-                    jukes_cantor(p)?
-                }
-                DistanceModel::Kimura2P => {
-                    let (ts, tv) = count_substitutions(seqs[i], seqs[j]);
-                    let total = seqs[i].len() as f64;
-                    kimura_2p(ts as f64 / total, tv as f64 / total)?
-                }
-            };
-            condensed.push(d);
+    #[cfg(not(feature = "parallel"))]
+    let condensed = {
+        let size = n * (n - 1) / 2;
+        let mut condensed = Vec::with_capacity(size);
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let d = match model {
+                    DistanceModel::P => p_distance(seqs[i], seqs[j])?,
+                    DistanceModel::JukesCantor => {
+                        let p = p_distance(seqs[i], seqs[j])?;
+                        jukes_cantor(p)?
+                    }
+                    DistanceModel::Kimura2P => {
+                        let (ts, tv) = count_substitutions(seqs[i], seqs[j]);
+                        let total = seqs[i].len() as f64;
+                        kimura_2p(ts as f64 / total, tv as f64 / total)?
+                    }
+                };
+                condensed.push(d);
+            }
         }
-    }
+        condensed
+    };
 
     cyanea_ml::DistanceMatrix::from_condensed(condensed, n)
 }
