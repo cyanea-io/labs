@@ -15,7 +15,10 @@ crate-type = ["cdylib"]
 pyo3 = { version = "0.23", features = ["extension-module"] }
 cyanea-core  = { path = "../cyanea-core",  features = ["std"] }
 cyanea-seq   = { path = "../cyanea-seq",   features = ["std"] }
-cyanea-io    = { path = "../cyanea-io",    default-features = false }
-cyanea-align = { path = "../cyanea-align", features = ["std"] }
-cyanea-stats = { path = "../cyanea-stats", features = ["std"] }
-cyanea-ml    = { path = "../cyanea-ml",    features = ["std"] }
+cyanea-io     = { path = "../cyanea-io",     features = ["csv", "vcf", "bed", "gff"] }
+cyanea-align  = { path = "../cyanea-align",  features = ["std"] }
+cyanea-stats  = { path = "../cyanea-stats",  features = ["std"] }
+cyanea-ml     = { path = "../cyanea-ml",     features = ["std"] }
+cyanea-chem   = { path = "../cyanea-chem",   features = ["std"] }
+cyanea-struct = { path = "../cyanea-struct", features = ["std"] }
+cyanea-phylo  = { path = "../cyanea-phylo", features = ["std", "ml"] }

@@ -393,11 +393,14 @@ name = "cyanea-py"
 version = "0.1.0"
 dependencies = [
  "cyanea-align",
+ "cyanea-chem",
  "cyanea-core",
  "cyanea-io",
  "cyanea-ml",
+ "cyanea-phylo",
  "cyanea-seq",
  "cyanea-stats",
+ "cyanea-struct",
  "pyo3",
 ]
 
@@ -442,11 +445,14 @@ name = "cyanea-wasm"
 version = "0.1.0"
 dependencies = [
  "cyanea-align",
+ "cyanea-chem",
  "cyanea-core",
  "cyanea-io",
  "cyanea-ml",
+ "cyanea-phylo",
  "cyanea-seq",
  "cyanea-stats",
+ "cyanea-struct",
  "serde",
  "serde_json",
  "wasm-bindgen",

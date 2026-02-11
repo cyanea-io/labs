@@ -17,6 +17,9 @@
 //! - [`align`] — DNA and protein sequence alignment
 //! - [`stats`] — Descriptive statistics, correlation, hypothesis testing
 //! - [`ml`] — K-mer counting, distance metrics
+//! - [`chem`] — SMILES parsing, molecular properties, fingerprints, similarity
+//! - [`struct_bio`] — PDB parsing, secondary structure, RMSD
+//! - [`phylo`] — Newick trees, evolutionary distances, UPGMA/NJ, RF distance
 //!
 //! # Example
 //!
@@ -32,6 +35,9 @@ pub mod align;
 pub mod stats;
 pub mod ml;
 pub mod core_utils;
+pub mod chem;
+pub mod struct_bio;
+pub mod phylo;
 
 /// Crate version (set from Cargo.toml at compile time).
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -63,6 +69,24 @@ pub use ml::{
 // core
 pub use core_utils::{sha256, zstd_compress, zstd_decompress};
 
+// chem
+pub use chem::{
+    smiles_properties, canonical, smiles_fingerprint, tanimoto, smiles_substructure,
+    JsMolecularProperties, JsFingerprint, JsSubstructureResult,
+};
+
+// struct_bio
+pub use struct_bio::{
+    pdb_info, pdb_secondary_structure, rmsd,
+    JsStructureInfo, JsChainInfo, JsSecondaryStructure, JsSSAssignment,
+};
+
+// phylo
+pub use phylo::{
+    newick_info, evolutionary_distance, build_upgma, build_nj, rf_distance,
+    JsTreeInfo, JsRFDistance,
+};
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -86,5 +110,17 @@ mod tests {
         let _ = sha256("hello");
         let _ = spearman("[1,2,3]", "[1,2,3]");
         let _ = bonferroni("[0.01,0.04]");
+        let _ = smiles_properties("CCO");
+        let _ = canonical("CCO");
+        let _ = smiles_fingerprint("CCO", 2, 2048);
+        let _ = tanimoto("CCO", "CCO");
+        let _ = smiles_substructure("CCO", "CC");
+        let _ = pdb_info("HEADER\nEND\n");
+        let _ = rmsd("[[0,0,0]]", "[[0,0,0]]");
+        let _ = newick_info("(A,B);");
+        let _ = evolutionary_distance("ACGT", "ACGT", "p");
+        let _ = build_upgma(r#"["A","B"]"#, "[[0,1],[1,0]]");
+        let _ = build_nj(r#"["A","B"]"#, "[[0,1],[1,0]]");
+        let _ = rf_distance("(A,B);", "(A,B);");
     }
 }

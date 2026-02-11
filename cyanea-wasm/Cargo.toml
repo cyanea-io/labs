@@ -18,6 +18,9 @@ cyanea-io    = { path = "../cyanea-io",    default-features = false }
 cyanea-align = { path = "../cyanea-align", default-features = false, features = ["serde"] }
 cyanea-stats = { path = "../cyanea-stats", default-features = false }
 cyanea-ml    = { path = "../cyanea-ml",    default-features = false }
+cyanea-chem   = { path = "../cyanea-chem",   default-features = false, features = ["serde"] }
+cyanea-struct = { path = "../cyanea-struct", default-features = false, features = ["serde"] }
+cyanea-phylo  = { path = "../cyanea-phylo", default-features = false, features = ["serde", "ml"] }
 serde        = { workspace = true, features = ["derive"] }
 serde_json   = { workspace = true }
 wasm-bindgen = { version = "0.2", optional = true }
