@@ -5,6 +5,7 @@
 //! - **VCF** — Variant Call Format, via the `vcf` feature
 //! - **BED** — Browser Extensible Data, via the `bed` feature
 //! - **GFF3** — General Feature Format, via the `gff` feature
+//! - **SAM** — Sequence Alignment/Map (text format), via the `sam` feature
 
 #[cfg(feature = "csv")]
 pub mod csv;
@@ -17,6 +18,9 @@ pub mod bed;
 
 #[cfg(feature = "gff")]
 pub mod gff;
+
+#[cfg(feature = "sam")]
+pub mod sam;
 
 // Re-exports for convenience.
 
@@ -31,3 +35,6 @@ pub use bed::{bed_stats, parse_bed, parse_bed_intervals, BedRecord, BedStats};
 
 #[cfg(feature = "gff")]
 pub use gff::{gff3_stats, parse_gff3, GffStats};
+
+#[cfg(feature = "sam")]
+pub use sam::{parse_sam, sam_stats, sam_stats_from_path, SamRecord, SamStats};

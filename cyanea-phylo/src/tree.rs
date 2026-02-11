@@ -123,6 +123,11 @@ impl PhyloTree {
         self.root
     }
 
+    /// Read-only access to the full node arena.
+    pub fn nodes(&self) -> &[Node] {
+        &self.nodes
+    }
+
     /// Total number of nodes.
     pub fn node_count(&self) -> usize {
         self.nodes.len()

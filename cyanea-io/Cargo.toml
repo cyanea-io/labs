@@ -13,6 +13,7 @@ csv = ["dep:csv", "dep:serde", "dep:serde_json"]
 vcf = ["dep:cyanea-omics"]
 bed = ["dep:cyanea-omics"]
 gff = ["dep:cyanea-omics"]
+sam = []
 wasm = []
 parallel = ["dep:rayon"]
 

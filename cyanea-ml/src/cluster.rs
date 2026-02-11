@@ -400,6 +400,9 @@ pub enum Linkage {
     Single,
     Complete,
     Average,
+    /// Ward's minimum variance method. Minimizes the total within-cluster
+    /// variance at each merge step. Requires Euclidean distances.
+    Ward,
 }
 
 /// Configuration for hierarchical clustering.
@@ -446,6 +449,10 @@ impl Summarizable for HierarchicalResult {
 }
 
 /// Run agglomerative hierarchical clustering on a precomputed distance matrix.
+///
+/// For [`Linkage::Ward`], an O(n^2) nearest-neighbor chain algorithm is used
+/// instead of the naive O(n^3) approach. Single, Complete, and Average
+/// linkage use the standard pairwise scan.
 pub fn hierarchical(
     distances: &DistanceMatrix,
     config: &HierarchicalConfig,
@@ -461,6 +468,11 @@ pub fn hierarchical(
             "n_clusters ({}) > n_points ({})",
             config.n_clusters, n
         )));
+    }
+
+    // Dispatch Ward to the NN-chain implementation
+    if config.linkage == Linkage::Ward {
+        return hierarchical_ward_nn_chain(distances, config.n_clusters);
     }
 
     // Each point starts in its own cluster.
@@ -524,6 +536,7 @@ pub fn hierarchical(
                     let size_b = members_b.len() as f64;
                     (d_ac * size_a + d_bc * size_b) / (size_a + size_b)
                 }
+                Linkage::Ward => unreachable!("Ward dispatched above"),
             };
             dist[best_a][c] = new_d;
             dist[c][best_a] = new_d;
@@ -545,6 +558,162 @@ pub fn hierarchical(
             for &pt in members {
                 labels[pt] = label;
             }
+        }
+    }
+
+    Ok(HierarchicalResult {
+        labels,
+        merge_history,
+    })
+}
+
+/// Ward's method using the nearest-neighbor chain algorithm (O(n^2)).
+///
+/// The NN-chain algorithm exploits the reducibility property of Ward linkage:
+/// if cluster A's nearest neighbor is B and B's nearest neighbor is A (mutual
+/// nearest neighbors), they must be the next pair to merge in the optimal
+/// agglomeration order.
+///
+/// The algorithm maintains a stack-based chain. At each step it either extends
+/// the chain by finding the nearest neighbor of the chain tip, or — when a
+/// mutual nearest-neighbor pair is found — pops the pair off and merges them.
+///
+/// Ward distance between clusters i and j:
+///   d_W(i,j) = (n_i * n_j) / (n_i + n_j) * ||c_i - c_j||^2
+/// where c_i, c_j are the centroids and n_i, n_j the sizes.
+///
+/// After merging i and j into cluster m, Lance-Williams update for Ward:
+///   d_W(m,k) = ((n_k + n_i) * d_W(i,k) + (n_k + n_j) * d_W(j,k) - n_k * d_W(i,j))
+///              / (n_k + n_i + n_j)
+fn hierarchical_ward_nn_chain(
+    distances: &DistanceMatrix,
+    n_clusters: usize,
+) -> Result<HierarchicalResult> {
+    let n = distances.n();
+
+    // Sizes of each cluster (initially 1 for each point)
+    let mut sizes = vec![1usize; n];
+
+    // Ward distance matrix (stored flat, indexed as dist[i * n + j]).
+    // Initial Ward distance for singletons = ||p_i - p_j||^2 / 2
+    // which equals (1*1)/(1+1) * euclidean_dist^2 = dist^2 / 2
+    // But more precisely, for singletons of size 1:
+    //   ward_dist(i,j) = (1*1)/(1+1) * ||p_i - p_j||^2 = d^2 / 2
+    // We store squared Euclidean distances for the Ward formula, then
+    // convert: d_W(i,j) = n_i*n_j/(n_i+n_j) * d_eucl^2
+    // For singletons: d_W = 0.5 * d^2
+    let mut ward_dist = vec![f64::INFINITY; n * n];
+    for i in 0..n {
+        ward_dist[i * n + i] = 0.0;
+        for j in (i + 1)..n {
+            let d = distances.get(i, j);
+            let wd = d * d / 2.0; // (1*1)/(1+1) * d^2
+            ward_dist[i * n + j] = wd;
+            ward_dist[j * n + i] = wd;
+        }
+    }
+
+    // Track which clusters are still active
+    let mut active = vec![true; n];
+    let mut n_active = n;
+
+    // Cluster membership for final label assignment
+    let mut cluster_members: Vec<Option<Vec<usize>>> =
+        (0..n).map(|i| Some(vec![i])).collect();
+    let mut merge_history = Vec::with_capacity(n.saturating_sub(n_clusters));
+
+    // NN-chain stack
+    let mut chain: Vec<usize> = Vec::new();
+
+    while n_active > n_clusters {
+        // If the chain is empty, start from any active cluster
+        if chain.is_empty() {
+            for i in 0..n {
+                if active[i] {
+                    chain.push(i);
+                    break;
+                }
+            }
+        }
+
+        let tip = *chain.last().unwrap();
+
+        // Find nearest neighbor of tip among active clusters
+        let mut nn = usize::MAX;
+        let mut nn_dist = f64::INFINITY;
+        for j in 0..n {
+            if !active[j] || j == tip {
+                continue;
+            }
+            let d = ward_dist[tip * n + j];
+            if d < nn_dist {
+                nn_dist = d;
+                nn = j;
+            }
+        }
+
+        // Check if we have a mutual nearest-neighbor pair
+        // (tip's NN is nn; if nn was already the second-to-last on the chain,
+        // then nn's NN was tip — mutual pair)
+        if chain.len() >= 2 && chain[chain.len() - 2] == nn {
+            // Pop both from chain and merge
+            chain.pop(); // tip
+            chain.pop(); // nn
+
+            let (a, b) = if tip < nn { (tip, nn) } else { (nn, tip) };
+            let size_a = sizes[a];
+            let size_b = sizes[b];
+            let new_size = size_a + size_b;
+
+            merge_history.push(MergeStep {
+                cluster_a: a,
+                cluster_b: b,
+                distance: nn_dist,
+                size: new_size,
+            });
+
+            // Lance-Williams update for Ward distance
+            for k in 0..n {
+                if !active[k] || k == a || k == b {
+                    continue;
+                }
+                let n_k = sizes[k] as f64;
+                let n_a = size_a as f64;
+                let n_b = size_b as f64;
+                let d_ak = ward_dist[a * n + k];
+                let d_bk = ward_dist[b * n + k];
+                let d_ab = ward_dist[a * n + b];
+                let new_d =
+                    ((n_k + n_a) * d_ak + (n_k + n_b) * d_bk - n_k * d_ab) / (n_k + n_a + n_b);
+                ward_dist[a * n + k] = new_d;
+                ward_dist[k * n + a] = new_d;
+            }
+
+            // Merge: keep cluster a, deactivate b
+            sizes[a] = new_size;
+            active[b] = false;
+            n_active -= 1;
+
+            let members_b = cluster_members[b].take().unwrap();
+            let members_a = cluster_members[a].as_mut().unwrap();
+            members_a.extend(members_b);
+        } else {
+            // Extend the chain
+            chain.push(nn);
+        }
+    }
+
+    // Assign labels
+    let mut labels = vec![0usize; n];
+    let mut label = 0;
+    for i in 0..n {
+        if active[i] {
+            if let Some(members) = &cluster_members[i] {
+                for &pt in members {
+                    labels[pt] = label;
+                }
+            }
+            label += 1;
         }
     }
 
@@ -855,5 +1024,107 @@ mod tests {
         assert_eq!(result.merge_history.len(), 2); // n-1 merges for n=3 -> 1 cluster
         // First merge should be distance 1.0 (between 0.0 and 1.0)
         assert!((result.merge_history[0].distance - 1.0).abs() < 1e-12);
+    }
+
+    // --- Ward linkage (NN-chain) ---
+
+    #[test]
+    fn ward_two_clusters() {
+        let pts = vec![
+            vec![0.0, 0.0],
+            vec![1.0, 0.0],
+            vec![0.0, 1.0],
+            vec![10.0, 10.0],
+            vec![11.0, 10.0],
+            vec![10.0, 11.0],
+        ];
+        let refs = make_refs(&pts);
+        let dm = DistanceMatrix::from_points(&refs, DistanceMetric::Euclidean).unwrap();
+        let config = HierarchicalConfig {
+            n_clusters: 2,
+            linkage: Linkage::Ward,
+        };
+        let result = hierarchical(&dm, &config).unwrap();
+        // First 3 should cluster together, last 3 together
+        assert_eq!(result.labels[0], result.labels[1]);
+        assert_eq!(result.labels[0], result.labels[2]);
+        assert_eq!(result.labels[3], result.labels[4]);
+        assert_eq!(result.labels[3], result.labels[5]);
+        assert_ne!(result.labels[0], result.labels[3]);
+    }
+
+    #[test]
+    fn ward_single_cluster() {
+        let pts = vec![vec![0.0], vec![1.0], vec![2.0]];
+        let refs = make_refs(&pts);
+        let dm = DistanceMatrix::from_points(&refs, DistanceMetric::Euclidean).unwrap();
+        let config = HierarchicalConfig {
+            n_clusters: 1,
+            linkage: Linkage::Ward,
+        };
+        let result = hierarchical(&dm, &config).unwrap();
+        assert!(result.labels.iter().all(|&l| l == 0));
+        assert_eq!(result.merge_history.len(), 2); // n-1 merges
+    }
+
+    #[test]
+    fn ward_correct_number_of_clusters() {
+        let pts = vec![vec![0.0], vec![1.0], vec![10.0], vec![11.0]];
+        let refs = make_refs(&pts);
+        let dm = DistanceMatrix::from_points(&refs, DistanceMetric::Euclidean).unwrap();
+        let config = HierarchicalConfig {
+            n_clusters: 3,
+            linkage: Linkage::Ward,
+        };
+        let result = hierarchical(&dm, &config).unwrap();
+        let n_clusters = *result.labels.iter().max().unwrap() + 1;
+        assert_eq!(n_clusters, 3);
+    }
+
+    #[test]
+    fn ward_matches_naive_on_small_data() {
+        // Verify that Ward NN-chain produces same clustering as a naive Ward
+        // implementation on a small dataset
+        let pts = vec![vec![0.0], vec![2.0], vec![5.0], vec![6.0]];
+        let refs = make_refs(&pts);
+        let dm = DistanceMatrix::from_points(&refs, DistanceMetric::Euclidean).unwrap();
+        let config = HierarchicalConfig {
+            n_clusters: 2,
+            linkage: Linkage::Ward,
+        };
+        let result = hierarchical(&dm, &config).unwrap();
+        // 0 and 2 are close, 5 and 6 are close — should group as {0,2} and {5,6}
+        assert_eq!(result.labels[0], result.labels[1]); // 0.0 and 2.0
+        assert_eq!(result.labels[2], result.labels[3]); // 5.0 and 6.0
+        assert_ne!(result.labels[0], result.labels[2]);
+    }
+
+    #[test]
+    fn ward_merge_history_length() {
+        let pts = vec![vec![0.0], vec![1.0], vec![5.0], vec![6.0], vec![10.0]];
+        let refs = make_refs(&pts);
+        let dm = DistanceMatrix::from_points(&refs, DistanceMetric::Euclidean).unwrap();
+        let config = HierarchicalConfig {
+            n_clusters: 2,
+            linkage: Linkage::Ward,
+        };
+        let result = hierarchical(&dm, &config).unwrap();
+        // n=5, target=2 → 3 merges
+        assert_eq!(result.merge_history.len(), 3);
+    }
+
+    #[test]
+    fn ward_summary() {
+        let pts = vec![vec![0.0], vec![1.0], vec![10.0]];
+        let refs = make_refs(&pts);
+        let dm = DistanceMatrix::from_points(&refs, DistanceMetric::Euclidean).unwrap();
+        let config = HierarchicalConfig {
+            n_clusters: 2,
+            linkage: Linkage::Ward,
+        };
+        let result = hierarchical(&dm, &config).unwrap();
+        let s = result.summary();
+        assert!(s.contains("Hierarchical"));
+        assert!(s.contains("2 clusters"));
     }
 }

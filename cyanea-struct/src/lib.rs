@@ -1,10 +1,13 @@
 //! Protein and nucleic acid 3D structures for the Cyanea bioinformatics ecosystem.
 //!
 //! - **PDB parsing** — Read macromolecular structure files with [`pdb::parse_pdb`]
+//! - **mmCIF parsing** — Read PDBx/mmCIF files with [`mmcif::parse_mmcif`]
 //! - **Coordinate geometry** — Distance, angle, dihedral, RMSD in [`geometry`]
-//! - **Secondary structure** — Simplified DSSP assignment in [`secondary`]
+//! - **Secondary structure** — Simplified and full DSSP assignment in [`secondary`]
 //! - **Superposition** — Kabsch structural alignment in [`superposition`]
 //! - **Contact maps** — Residue-residue contact analysis in [`contact`]
+//! - **Ramachandran** — Backbone dihedral validation in [`ramachandran`]
+//! - **B-factor analysis** — Flexibility scoring in [`analysis`]
 //!
 //! # Quick start
 //!
@@ -35,20 +38,26 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
+pub mod analysis;
 pub mod contact;
 pub mod geometry;
 mod linalg;
+pub mod mmcif;
 pub mod pdb;
+pub mod ramachandran;
 pub mod secondary;
 pub mod superposition;
 pub mod types;
 
+pub use analysis::{chain_bfactors, flexibility_score, residue_bfactors, BFactorStats};
 pub use contact::{compute_contact_map, compute_contact_map_allatom, ContactMap};
 pub use geometry::{angle, angle_points, center_of_mass, dihedral, dihedral_points, distance};
+pub use mmcif::parse_mmcif;
 pub use pdb::parse_pdb;
+pub use ramachandran::{ramachandran_report, validate_ramachandran, RamachandranRegion};
 pub use secondary::{
-    assign_secondary_structure, backbone_dihedrals, SecondaryStructure,
-    SecondaryStructureAssignment,
+    assign_secondary_structure, backbone_dihedrals, dssp, DsspAssignment, DsspState,
+    SecondaryStructure, SecondaryStructureAssignment,
 };
 pub use superposition::{kabsch, kabsch_points, SuperpositionResult};
 pub use types::{Atom, Chain, Point3D, Residue, Structure};

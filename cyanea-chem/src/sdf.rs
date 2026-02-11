@@ -134,6 +134,7 @@ fn parse_atom_line(line: &str) -> Result<MolAtom> {
         isotope: None,
         is_aromatic: false,
         implicit_hydrogens: 0, // V2000 doesn't store implicit H — computed from valence if needed
+        chirality: crate::molecule::Chirality::None,
     })
 }
 
@@ -173,6 +174,7 @@ fn parse_bond_line(line: &str) -> Result<Bond> {
         atom2: a2 - 1,
         order,
         is_aromatic: bond_type == 4,
+        stereo: crate::molecule::BondStereo::None,
     })
 }
 

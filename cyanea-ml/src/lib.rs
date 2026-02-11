@@ -23,10 +23,12 @@ pub mod distance;
 pub mod embedding;
 pub mod encoding;
 pub mod evaluate;
+pub mod forest;
 pub mod inference;
 pub mod kmer;
 pub mod normalize;
 pub mod reduction;
+pub mod tree;
 
 pub use cluster::{
     dbscan, hierarchical, kmeans, DbscanConfig, DbscanResult, HierarchicalConfig,
@@ -44,3 +46,5 @@ pub use normalize::{
 };
 pub use reduction::{pca, tsne, PcaConfig, PcaResult, TsneConfig, TsneResult};
 pub use inference::{KnnConfig, KnnModel, LinearRegression};
+pub use tree::DecisionTree;
+pub use forest::{RandomForest, RandomForestConfig};

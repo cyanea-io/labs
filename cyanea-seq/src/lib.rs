@@ -38,9 +38,12 @@ pub mod alphabet;
 pub mod codon;
 pub mod fasta;
 pub mod fastq;
+pub mod fm_index;
 pub mod kmer;
 pub mod quality;
 pub mod seq;
+pub mod suffix;
+pub mod twobit;
 pub mod types;
 
 // Re-export alphabet types
@@ -66,3 +69,8 @@ pub use fasta::{parse_fasta_stats, FastaStats};
 
 // Re-export FASTQ types
 pub use fastq::{parse_fastq_file, parse_fastq_stats, FastqRecord, FastqStats};
+
+// Re-export compact encoding and indexing types
+pub use twobit::TwoBitSequence;
+pub use suffix::SuffixArray;
+pub use fm_index::FmIndex;

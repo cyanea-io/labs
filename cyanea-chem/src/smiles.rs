@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use cyanea_core::{CyaneaError, Result};
 
 use crate::element::element_by_symbol;
-use crate::molecule::{Bond, BondOrder, MolAtom, Molecule};
+use crate::molecule::{Bond, BondOrder, BondStereo, Chirality, MolAtom, Molecule};
 
 /// Parse a SMILES string into a `Molecule`.
 pub fn parse_smiles(smiles: &str) -> Result<Molecule> {
@@ -26,14 +26,16 @@ struct SmilesParser<'a> {
     pos: usize,
     atoms: Vec<MolAtom>,
     bonds: Vec<Bond>,
-    /// ring_closures[digit] = (atom_idx, Option<BondOrder>)
-    ring_closures: BTreeMap<u16, (usize, Option<BondOrder>)>,
+    /// ring_closures[digit] = (atom_idx, Option<BondOrder>, BondStereo)
+    ring_closures: BTreeMap<u16, (usize, Option<BondOrder>, BondStereo)>,
     /// Stack of atom indices for branch handling
     stack: Vec<usize>,
     /// Index of the previous atom (for bonding)
     prev_atom: Option<usize>,
     /// Pending bond order for the next bond
     pending_bond: Option<BondOrder>,
+    /// Pending bond stereo direction for the next bond
+    pending_stereo: BondStereo,
 }
 
 impl<'a> SmilesParser<'a> {
@@ -47,6 +49,7 @@ impl<'a> SmilesParser<'a> {
             stack: Vec::new(),
             prev_atom: None,
             pending_bond: None,
+            pending_stereo: BondStereo::None,
         }
     }
 
@@ -92,9 +95,13 @@ impl<'a> SmilesParser<'a> {
                     self.advance();
                     self.pending_bond = Some(BondOrder::Aromatic);
                 }
-                Some(b'/') | Some(b'\\') => {
-                    // Stereo bond markers — consume and ignore
+                Some(b'/') => {
                     self.advance();
+                    self.pending_stereo = BondStereo::Up;
+                }
+                Some(b'\\') => {
+                    self.advance();
+                    self.pending_stereo = BondStereo::Down;
                 }
                 Some(b'%') => {
                     self.advance();
@@ -186,6 +193,7 @@ impl<'a> SmilesParser<'a> {
             isotope: None,
             is_aromatic,
             implicit_hydrogens: 0, // computed later
+            chirality: Chirality::None,
         };
 
         let atom_idx = self.atoms.len();
@@ -230,10 +238,18 @@ impl<'a> SmilesParser<'a> {
             CyaneaError::Parse(format!("unknown element '{symbol}'"))
         })?;
 
-        // Skip stereochemistry markers
-        while self.peek() == Some(b'@') {
+        // Parse stereochemistry markers: @ = counterclockwise, @@ = clockwise
+        let chirality = if self.peek() == Some(b'@') {
             self.advance();
-        }
+            if self.peek() == Some(b'@') {
+                self.advance();
+                Chirality::Clockwise
+            } else {
+                Chirality::CounterClockwise
+            }
+        } else {
+            Chirality::None
+        };
 
         // Optional hydrogen count
         let mut explicit_h = 0u8;
@@ -309,6 +325,7 @@ impl<'a> SmilesParser<'a> {
             isotope: isotope.map(|n| n as u16),
             is_aromatic,
             implicit_hydrogens: explicit_h, // bracket atoms specify H explicitly
+            chirality,
         };
 
         let atom_idx = self.atoms.len();
@@ -351,7 +368,7 @@ impl<'a> SmilesParser<'a> {
             CyaneaError::Parse("ring closure without preceding atom".into())
         })?;
 
-        if let Some((open_atom, open_bond)) = self.ring_closures.remove(&ring_num) {
+        if let Some((open_atom, open_bond, open_stereo)) = self.ring_closures.remove(&ring_num) {
             // Close the ring
             let order = self.pending_bond.or(open_bond).unwrap_or(BondOrder::Single);
             let is_aromatic = self.atoms[open_atom].is_aromatic && self.atoms[current].is_aromatic;
@@ -360,16 +377,26 @@ impl<'a> SmilesParser<'a> {
             } else {
                 order
             };
+            // Use the stereo from the opening side if present, else from the closing side
+            let stereo = if open_stereo != BondStereo::None {
+                open_stereo
+            } else {
+                self.pending_stereo
+            };
             self.bonds.push(Bond {
                 atom1: open_atom,
                 atom2: current,
                 order,
                 is_aromatic,
+                stereo,
             });
             self.pending_bond = None;
+            self.pending_stereo = BondStereo::None;
         } else {
             // Open a ring closure
-            self.ring_closures.insert(ring_num, (current, self.pending_bond.take()));
+            let stereo = self.pending_stereo;
+            self.ring_closures.insert(ring_num, (current, self.pending_bond.take(), stereo));
+            self.pending_stereo = BondStereo::None;
         }
         Ok(())
     }
@@ -385,14 +412,17 @@ impl<'a> SmilesParser<'a> {
                 }
             });
             let is_aromatic = both_aromatic && order == BondOrder::Aromatic;
+            let stereo = self.pending_stereo;
             self.bonds.push(Bond {
                 atom1: prev,
                 atom2: atom_idx,
                 order,
                 is_aromatic,
+                stereo,
             });
         }
         self.pending_bond = None;
+        self.pending_stereo = BondStereo::None;
         Ok(())
     }
 

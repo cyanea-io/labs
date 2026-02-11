@@ -248,6 +248,277 @@ impl Distribution for Poisson {
     }
 }
 
+// ── Regularized lower incomplete gamma function ──────────────────────────
+
+/// Regularized lower incomplete gamma function P(a, x) = γ(a, x) / Γ(a).
+///
+/// Uses the series expansion when x < a + 1 and the continued fraction
+/// representation (computing Q = 1 - P) otherwise.
+pub fn gammainc(a: f64, x: f64) -> Result<f64> {
+    if a <= 0.0 {
+        return Err(CyaneaError::InvalidInput("gammainc: a must be positive".into()));
+    }
+    if x < 0.0 {
+        return Err(CyaneaError::InvalidInput("gammainc: x must be non-negative".into()));
+    }
+    if x == 0.0 {
+        return Ok(0.0);
+    }
+
+    if x < a + 1.0 {
+        // Series expansion
+        gammainc_series(a, x)
+    } else {
+        // Continued fraction for upper gamma, then P = 1 - Q
+        let q = gammainc_cf(a, x)?;
+        Ok(1.0 - q)
+    }
+}
+
+/// Series expansion for P(a, x).
+fn gammainc_series(a: f64, x: f64) -> Result<f64> {
+    let max_iter = 200;
+    let eps = 1e-12;
+    let ln_prefix = a * x.ln() - x - ln_gamma(a);
+
+    let mut sum = 1.0 / a;
+    let mut term = 1.0 / a;
+
+    for n in 1..=max_iter {
+        term *= x / (a + n as f64);
+        sum += term;
+        if term.abs() < sum.abs() * eps {
+            return Ok(sum * ln_prefix.exp());
+        }
+    }
+
+    Ok(sum * ln_prefix.exp())
+}
+
+/// Continued fraction for Q(a, x) = 1 - P(a, x) via modified Lentz's method.
+fn gammainc_cf(a: f64, x: f64) -> Result<f64> {
+    let max_iter = 200;
+    let eps = 1e-12;
+    let tiny = 1e-30_f64;
+    let ln_prefix = a * x.ln() - x - ln_gamma(a);
+
+    let mut b = x + 1.0 - a;
+    let mut c = 1.0 / tiny;
+    let mut d = 1.0 / b;
+    let mut h = d;
+
+    for i in 1..=max_iter {
+        let an = -(i as f64) * (i as f64 - a);
+        b += 2.0;
+        d = an * d + b;
+        if d.abs() < tiny {
+            d = tiny;
+        }
+        c = b + an / c;
+        if c.abs() < tiny {
+            c = tiny;
+        }
+        d = 1.0 / d;
+        let delta = d * c;
+        h *= delta;
+        if (delta - 1.0).abs() < eps {
+            break;
+        }
+    }
+
+    Ok(h * ln_prefix.exp())
+}
+
+// ── Chi-squared distribution ──────────────────────────────────────────────
+
+/// Chi-squared distribution with k degrees of freedom.
+#[derive(Debug, Clone, Copy)]
+pub struct ChiSquared {
+    k: f64,
+}
+
+impl ChiSquared {
+    /// Create a chi-squared distribution with `k` degrees of freedom.
+    pub fn new(k: f64) -> Result<Self> {
+        if k <= 0.0 {
+            return Err(CyaneaError::InvalidInput(
+                "ChiSquared: k must be positive".into(),
+            ));
+        }
+        Ok(Self { k })
+    }
+
+    /// Degrees of freedom.
+    pub fn df(&self) -> f64 {
+        self.k
+    }
+}
+
+impl Distribution for ChiSquared {
+    fn pdf(&self, x: f64) -> f64 {
+        if x <= 0.0 {
+            return 0.0;
+        }
+        let half_k = self.k / 2.0;
+        let ln_pdf = (half_k - 1.0) * x.ln() - x / 2.0 - half_k * 2.0_f64.ln() - ln_gamma(half_k);
+        ln_pdf.exp()
+    }
+
+    fn cdf(&self, x: f64) -> f64 {
+        if x <= 0.0 {
+            return 0.0;
+        }
+        gammainc(self.k / 2.0, x / 2.0).unwrap_or(0.0)
+    }
+
+    fn mean(&self) -> f64 {
+        self.k
+    }
+
+    fn variance(&self) -> f64 {
+        2.0 * self.k
+    }
+}
+
+// ── F-distribution ────────────────────────────────────────────────────────
+
+/// F-distribution with d1 and d2 degrees of freedom.
+#[derive(Debug, Clone, Copy)]
+pub struct FDistribution {
+    d1: f64,
+    d2: f64,
+}
+
+impl FDistribution {
+    /// Create an F-distribution with `d1` and `d2` degrees of freedom.
+    pub fn new(d1: f64, d2: f64) -> Result<Self> {
+        if d1 <= 0.0 || d2 <= 0.0 {
+            return Err(CyaneaError::InvalidInput(
+                "FDistribution: both d1 and d2 must be positive".into(),
+            ));
+        }
+        Ok(Self { d1, d2 })
+    }
+}
+
+impl Distribution for FDistribution {
+    fn pdf(&self, x: f64) -> f64 {
+        if x <= 0.0 {
+            return 0.0;
+        }
+        let d1 = self.d1;
+        let d2 = self.d2;
+        let ln_pdf = 0.5 * d1 * (d1 * x / (d1 * x + d2)).ln()
+            + 0.5 * d2 * (d2 / (d1 * x + d2)).ln()
+            - x.ln()
+            - ln_gamma(d1 / 2.0)
+            - ln_gamma(d2 / 2.0)
+            + ln_gamma((d1 + d2) / 2.0);
+        ln_pdf.exp()
+    }
+
+    fn cdf(&self, x: f64) -> f64 {
+        if x <= 0.0 {
+            return 0.0;
+        }
+        let ix = self.d1 * x / (self.d1 * x + self.d2);
+        betai(self.d1 / 2.0, self.d2 / 2.0, ix).unwrap_or(0.0)
+    }
+
+    fn mean(&self) -> f64 {
+        if self.d2 > 2.0 {
+            self.d2 / (self.d2 - 2.0)
+        } else {
+            f64::INFINITY
+        }
+    }
+
+    fn variance(&self) -> f64 {
+        if self.d2 > 4.0 {
+            let d1 = self.d1;
+            let d2 = self.d2;
+            2.0 * d2 * d2 * (d1 + d2 - 2.0)
+                / (d1 * (d2 - 2.0).powi(2) * (d2 - 4.0))
+        } else {
+            f64::INFINITY
+        }
+    }
+}
+
+// ── Binomial distribution ─────────────────────────────────────────────────
+
+/// Binomial distribution with parameters n (trials) and p (success probability).
+#[derive(Debug, Clone, Copy)]
+pub struct Binomial {
+    n: usize,
+    p: f64,
+}
+
+impl Binomial {
+    /// Create a binomial distribution. `p` must be in [0, 1].
+    pub fn new(n: usize, p: f64) -> Result<Self> {
+        if !(0.0..=1.0).contains(&p) {
+            return Err(CyaneaError::InvalidInput(
+                "Binomial: p must be in [0, 1]".into(),
+            ));
+        }
+        Ok(Self { n, p })
+    }
+
+    /// Number of trials.
+    pub fn trials(&self) -> usize {
+        self.n
+    }
+
+    /// Success probability.
+    pub fn prob(&self) -> f64 {
+        self.p
+    }
+
+    /// Probability mass function P(X = k).
+    pub fn pmf(&self, k: usize) -> f64 {
+        if k > self.n {
+            return 0.0;
+        }
+        let ln_binom = ln_gamma(self.n as f64 + 1.0)
+            - ln_gamma(k as f64 + 1.0)
+            - ln_gamma((self.n - k) as f64 + 1.0);
+        let ln_pmf = ln_binom + k as f64 * self.p.ln() + (self.n - k) as f64 * (1.0 - self.p).ln();
+        ln_pmf.exp()
+    }
+}
+
+impl Distribution for Binomial {
+    fn pdf(&self, x: f64) -> f64 {
+        let k = x.round() as i64;
+        if k < 0 || (x - k as f64).abs() > 1e-9 {
+            return 0.0;
+        }
+        self.pmf(k as usize)
+    }
+
+    fn cdf(&self, x: f64) -> f64 {
+        let k_max = x.floor() as i64;
+        if k_max < 0 {
+            return 0.0;
+        }
+        let k_max = k_max as usize;
+        if k_max >= self.n {
+            return 1.0;
+        }
+        // Use regularized incomplete beta: P(X <= k) = I_{1-p}(n-k, k+1)
+        betai((self.n - k_max) as f64, (k_max + 1) as f64, 1.0 - self.p).unwrap_or(1.0)
+    }
+
+    fn mean(&self) -> f64 {
+        self.n as f64 * self.p
+    }
+
+    fn variance(&self) -> f64 {
+        self.n as f64 * self.p * (1.0 - self.p)
+    }
+}
+
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -361,5 +632,149 @@ mod tests {
     fn poisson_invalid_lambda() {
         assert!(Poisson::new(0.0).is_err());
         assert!(Poisson::new(-1.0).is_err());
+    }
+
+    // ── gammainc tests ─────────────────────────────────────────────────
+
+    #[test]
+    fn gammainc_zero() {
+        assert_eq!(gammainc(1.0, 0.0).unwrap(), 0.0);
+    }
+
+    #[test]
+    fn gammainc_exponential() {
+        // P(1, x) = 1 - e^{-x} for exponential distribution
+        let x: f64 = 2.0;
+        let expected = 1.0 - (-x).exp();
+        assert!((gammainc(1.0, x).unwrap() - expected).abs() < 1e-8);
+    }
+
+    #[test]
+    fn gammainc_half_integer() {
+        // P(0.5, x) = erf(sqrt(x)) for a = 0.5
+        let x: f64 = 1.0;
+        let expected = erf(x.sqrt());
+        assert!((gammainc(0.5, x).unwrap() - expected).abs() < 1e-6);
+    }
+
+    #[test]
+    fn gammainc_large_x() {
+        // For large x, P(a, x) → 1
+        assert!((gammainc(2.0, 50.0).unwrap() - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn gammainc_invalid() {
+        assert!(gammainc(-1.0, 1.0).is_err());
+        assert!(gammainc(1.0, -1.0).is_err());
+    }
+
+    // ── Chi-squared tests ──────────────────────────────────────────────
+
+    #[test]
+    fn chi_squared_cdf_known_values() {
+        let chi2 = ChiSquared::new(2.0).unwrap();
+        // χ²(2) CDF at x: P = 1 - e^{-x/2}
+        let x = 5.991; // ≈ p=0.05 for df=2
+        let p = chi2.cdf(x);
+        assert!((p - 0.95).abs() < 0.01, "p={}", p);
+    }
+
+    #[test]
+    fn chi_squared_cdf_df1() {
+        let chi2 = ChiSquared::new(1.0).unwrap();
+        // χ²(1) at 3.841 ≈ p=0.95
+        assert!((chi2.cdf(3.841) - 0.95).abs() < 0.01);
+    }
+
+    #[test]
+    fn chi_squared_mean_variance() {
+        let chi2 = ChiSquared::new(5.0).unwrap();
+        assert!((chi2.mean() - 5.0).abs() < TOL);
+        assert!((chi2.variance() - 10.0).abs() < TOL);
+    }
+
+    #[test]
+    fn chi_squared_cdf_at_zero() {
+        let chi2 = ChiSquared::new(3.0).unwrap();
+        assert_eq!(chi2.cdf(0.0), 0.0);
+    }
+
+    #[test]
+    fn chi_squared_invalid() {
+        assert!(ChiSquared::new(0.0).is_err());
+        assert!(ChiSquared::new(-1.0).is_err());
+    }
+
+    // ── F-distribution tests ───────────────────────────────────────────
+
+    #[test]
+    fn f_dist_cdf_known() {
+        let f = FDistribution::new(5.0, 10.0).unwrap();
+        // F(5,10) at 3.326 ≈ p=0.95
+        let p = f.cdf(3.326);
+        assert!((p - 0.95).abs() < 0.02, "p={}", p);
+    }
+
+    #[test]
+    fn f_dist_cdf_at_zero() {
+        let f = FDistribution::new(3.0, 5.0).unwrap();
+        assert_eq!(f.cdf(0.0), 0.0);
+    }
+
+    #[test]
+    fn f_dist_mean() {
+        let f = FDistribution::new(4.0, 8.0).unwrap();
+        // Mean = d2/(d2-2) = 8/6 ≈ 1.333
+        assert!((f.mean() - 8.0 / 6.0).abs() < TOL);
+    }
+
+    #[test]
+    fn f_dist_invalid() {
+        assert!(FDistribution::new(0.0, 5.0).is_err());
+        assert!(FDistribution::new(5.0, 0.0).is_err());
+    }
+
+    // ── Binomial tests ─────────────────────────────────────────────────
+
+    #[test]
+    fn binomial_pmf() {
+        let b = Binomial::new(10, 0.5).unwrap();
+        // P(X=5) = C(10,5) * 0.5^10 = 252/1024 ≈ 0.24609
+        assert!((b.pmf(5) - 0.24609375).abs() < 1e-6);
+    }
+
+    #[test]
+    fn binomial_pmf_sum() {
+        let b = Binomial::new(8, 0.3).unwrap();
+        let sum: f64 = (0..=8).map(|k| b.pmf(k)).sum();
+        assert!((sum - 1.0).abs() < 1e-8);
+    }
+
+    #[test]
+    fn binomial_cdf() {
+        let b = Binomial::new(10, 0.5).unwrap();
+        // P(X <= 5) ≈ 0.623047
+        assert!((b.cdf(5.0) - 0.623047).abs() < 0.01);
+    }
+
+    #[test]
+    fn binomial_cdf_boundaries() {
+        let b = Binomial::new(5, 0.5).unwrap();
+        assert!(b.cdf(-1.0) == 0.0);
+        assert!((b.cdf(5.0) - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn binomial_mean_variance() {
+        let b = Binomial::new(20, 0.3).unwrap();
+        assert!((b.mean() - 6.0).abs() < TOL);
+        assert!((b.variance() - 4.2).abs() < TOL);
+    }
+
+    #[test]
+    fn binomial_invalid() {
+        assert!(Binomial::new(10, -0.1).is_err());
+        assert!(Binomial::new(10, 1.1).is_err());
     }
 }

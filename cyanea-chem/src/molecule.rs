@@ -3,6 +3,30 @@
 use cyanea_core::{Annotated, ContentAddressable, Summarizable};
 use sha2::{Digest, Sha256};
 
+/// Tetrahedral chirality at a stereocenter.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum Chirality {
+    /// No chirality specified.
+    #[default]
+    None,
+    /// Counterclockwise (`@` in SMILES).
+    CounterClockwise,
+    /// Clockwise (`@@` in SMILES).
+    Clockwise,
+}
+
+/// Cis-trans stereo bond direction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum BondStereo {
+    /// No stereo bond.
+    #[default]
+    None,
+    /// Up bond (`/` in SMILES).
+    Up,
+    /// Down bond (`\` in SMILES).
+    Down,
+}
+
 /// Bond order classification.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BondOrder {
@@ -32,6 +56,7 @@ pub struct MolAtom {
     pub isotope: Option<u16>,
     pub is_aromatic: bool,
     pub implicit_hydrogens: u8,
+    pub chirality: Chirality,
 }
 
 /// A bond between two atoms.
@@ -41,6 +66,7 @@ pub struct Bond {
     pub atom2: usize,
     pub order: BondOrder,
     pub is_aromatic: bool,
+    pub stereo: BondStereo,
 }
 
 /// A molecular graph with atoms, bonds, and adjacency information.
@@ -160,18 +186,18 @@ mod tests {
 
     fn make_water() -> Molecule {
         let atoms = vec![
-            MolAtom { atomic_number: 8, formal_charge: 0, isotope: None, is_aromatic: false, implicit_hydrogens: 2 },
+            MolAtom { atomic_number: 8, formal_charge: 0, isotope: None, is_aromatic: false, implicit_hydrogens: 2, chirality: Chirality::None },
         ];
         Molecule::new("water".into(), atoms, vec![])
     }
 
     fn make_ethane() -> Molecule {
         let atoms = vec![
-            MolAtom { atomic_number: 6, formal_charge: 0, isotope: None, is_aromatic: false, implicit_hydrogens: 3 },
-            MolAtom { atomic_number: 6, formal_charge: 0, isotope: None, is_aromatic: false, implicit_hydrogens: 3 },
+            MolAtom { atomic_number: 6, formal_charge: 0, isotope: None, is_aromatic: false, implicit_hydrogens: 3, chirality: Chirality::None },
+            MolAtom { atomic_number: 6, formal_charge: 0, isotope: None, is_aromatic: false, implicit_hydrogens: 3, chirality: Chirality::None },
         ];
         let bonds = vec![
-            Bond { atom1: 0, atom2: 1, order: BondOrder::Single, is_aromatic: false },
+            Bond { atom1: 0, atom2: 1, order: BondOrder::Single, is_aromatic: false, stereo: BondStereo::None },
         ];
         Molecule::new("ethane".into(), atoms, bonds)
     }
