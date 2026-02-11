@@ -25,7 +25,7 @@ All crates are complete. Each has `docs/STATUS.md` with full API docs.
 | **cyanea-align** | NW, SW, semi-global, MSA, banded, seed-and-extend, minimizers, GPU dispatch | 122 | cyanea-core |
 | **cyanea-omics** | Genomic coords, intervals, matrices, variants, AnnData | 87 | cyanea-core |
 | **cyanea-stats** | Descriptive, correlation, hypothesis tests, distributions, PCA, effect sizes | 127 | cyanea-core |
-| **cyanea-ml** | Clustering, distances, embeddings, KNN, PCA, t-SNE, random forest | 134 | cyanea-core |
+| **cyanea-ml** | Clustering, distances, embeddings, KNN, PCA, t-SNE, UMAP, random forest | 149 | cyanea-core |
 | **cyanea-chem** | SMILES/SDF, fingerprints, properties, substructure, stereochemistry, canonical SMILES | 65 | cyanea-core, sha2 |
 | **cyanea-struct** | PDB, mmCIF, geometry, DSSP, Kabsch, contact maps, Ramachandran | 76 | cyanea-core, sha2 |
 | **cyanea-phylo** | Newick/NEXUS, distances, UPGMA/NJ, Fitch/Sankoff, ML likelihood, bootstrap | 101 | cyanea-core, cyanea-ml (optional) |
@@ -119,4 +119,3 @@ cargo check -p cyanea-native   # Check only (can't link without BEAM)
 - **SIMD kernels**: SIMD module has runtime dispatch scaffolding; actual AVX2/NEON kernels pending profiling
 - **Publishing**: Not yet on crates.io, PyPI, or npm
 - **Advanced formats**: BAM/CRAM (binary), Parquet, HDF5/Zarr not implemented in cyanea-io
-- **UMAP**: Not yet implemented (nearest-neighbor graph + SGD optimization)

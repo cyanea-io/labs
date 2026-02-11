@@ -4,7 +4,7 @@ Machine learning primitives for bioinformatics: clustering, distance metrics, se
 
 ## Status: Complete
 
-All ML primitives are implemented including clustering, distance metrics, sequence encoding, evaluation, normalization, k-mer counting, sequence embeddings, KNN/linear regression, and dimensionality reduction (PCA, t-SNE).
+All ML primitives are implemented including clustering, distance metrics, sequence encoding, evaluation, normalization, k-mer counting, sequence embeddings, KNN/linear regression, and dimensionality reduction (PCA, t-SNE, UMAP).
 
 ## Public API
 
@@ -133,6 +133,15 @@ All ML primitives are implemented including clustering, distance metrics, sequen
 | `TsneResult` | `embedding`, `n_samples`, `n_components`, `kl_divergence` |
 | `tsne(data, n_features, config) -> Result<TsneResult>` | t-distributed Stochastic Neighbor Embedding |
 
+### UMAP (`umap.rs`)
+
+| Type/Function | Description |
+|---------------|-------------|
+| `UmapInit` | Enum: `Random`, `Pca` |
+| `UmapConfig` | `n_components`, `n_neighbors`, `min_dist`, `spread`, `learning_rate`, `n_epochs`, `negative_sample_rate`, `metric`, `init`, `seed` |
+| `UmapResult` | `embedding`, `n_samples`, `n_components`, `n_epochs` |
+| `umap(data, n_features, config) -> Result<UmapResult>` | Uniform Manifold Approximation and Projection |
+
 ## Feature Flags
 
 | Flag | Default | Description |
@@ -147,7 +156,7 @@ All ML primitives are implemented including clustering, distance metrics, sequen
 
 ## Tests
 
-108 unit tests + 1 doc test across 10 source files.
+149 unit tests + 1 doc test across 11 source files.
 
 ## Source Files
 
@@ -162,4 +171,5 @@ All ML primitives are implemented including clustering, distance metrics, sequen
 | `normalize.rs` | 255 | Min-max, z-score, L2 normalization |
 | `embedding.rs` | 262 | K-mer and composition vector embeddings |
 | `inference.rs` | 546 | KNN and linear regression |
-| `reduction.rs` | 735 | PCA and t-SNE dimensionality reduction |
+| `reduction.rs` | 773 | PCA and t-SNE dimensionality reduction |
+| `umap.rs` | ~630 | UMAP dimensionality reduction |

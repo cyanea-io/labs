@@ -29,6 +29,7 @@ pub mod kmer;
 pub mod normalize;
 pub mod reduction;
 pub mod tree;
+pub mod umap;
 
 pub use cluster::{
     dbscan, hierarchical, kmeans, DbscanConfig, DbscanResult, HierarchicalConfig,
@@ -45,6 +46,7 @@ pub use normalize::{
     l2_normalize, l2_normalize_columns, min_max, min_max_columns, z_score, z_score_columns,
 };
 pub use reduction::{pca, tsne, PcaConfig, PcaResult, TsneConfig, TsneResult};
+pub use umap::{umap, UmapConfig, UmapInit, UmapResult};
 pub use inference::{KnnConfig, KnnModel, LinearRegression};
 pub use tree::DecisionTree;
 pub use forest::{RandomForest, RandomForestConfig};

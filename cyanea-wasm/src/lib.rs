@@ -63,7 +63,7 @@ pub use stats::{
 // ml
 pub use ml::{
     kmer_count, euclidean_distance, manhattan_distance, hamming_distance, cosine_similarity,
-    JsKmerCounts,
+    umap, JsKmerCounts, JsUmapResult,
 };
 
 // core

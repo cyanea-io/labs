@@ -114,6 +114,78 @@ pub fn cosine_similarity(a_json: &str, b_json: &str) -> String {
     }
 }
 
+// ── UMAP ────────────────────────────────────────────────────────────────
+
+/// Serializable UMAP result.
+#[derive(Debug, Serialize)]
+pub struct JsUmapResult {
+    pub embedding: Vec<f64>,
+    pub n_samples: usize,
+    pub n_components: usize,
+    pub n_epochs: usize,
+}
+
+/// Parse a distance metric string.
+fn parse_metric(s: &str) -> Result<cyanea_ml::DistanceMetric, String> {
+    match s {
+        "euclidean" => Ok(cyanea_ml::DistanceMetric::Euclidean),
+        "manhattan" => Ok(cyanea_ml::DistanceMetric::Manhattan),
+        "cosine" => Ok(cyanea_ml::DistanceMetric::Cosine),
+        _ => Err(format!(
+            "unknown metric: {s} (expected euclidean, manhattan, or cosine)"
+        )),
+    }
+}
+
+/// UMAP dimensionality reduction.
+///
+/// `data_json`: JSON array of numbers (flat row-major matrix).
+/// `n_features`: number of features per sample.
+/// `n_components`: output dimensionality (default 2).
+/// `n_neighbors`: number of nearest neighbors (default 15).
+/// `min_dist`: minimum distance in embedding (default 0.1).
+/// `n_epochs`: optimization epochs (default 200).
+/// `metric`: distance metric ("euclidean", "manhattan", "cosine").
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn umap(
+    data_json: &str,
+    n_features: usize,
+    n_components: usize,
+    n_neighbors: usize,
+    min_dist: f64,
+    n_epochs: usize,
+    metric: &str,
+) -> String {
+    let data = match parse_f64_array(data_json) {
+        Ok(d) => d,
+        Err(e) => return wasm_err(e),
+    };
+    let metric = match parse_metric(metric) {
+        Ok(m) => m,
+        Err(e) => return wasm_err(e),
+    };
+    let config = cyanea_ml::UmapConfig {
+        n_components,
+        n_neighbors,
+        min_dist,
+        n_epochs,
+        metric,
+        ..Default::default()
+    };
+    match cyanea_ml::umap(&data, n_features, &config) {
+        Ok(r) => {
+            let js = JsUmapResult {
+                embedding: r.embedding,
+                n_samples: r.n_samples,
+                n_components: r.n_components,
+                n_epochs: r.n_epochs,
+            };
+            wasm_ok(&js)
+        }
+        Err(e) => wasm_err(e),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
