@@ -40,6 +40,7 @@ pub mod fasta;
 pub mod fastq;
 pub mod fm_index;
 pub mod kmer;
+pub mod minhash;
 pub mod quality;
 pub mod seq;
 pub mod suffix;
@@ -74,3 +75,6 @@ pub use fastq::{parse_fastq_file, parse_fastq_stats, FastqRecord, FastqStats};
 pub use twobit::TwoBitSequence;
 pub use suffix::SuffixArray;
 pub use fm_index::FmIndex;
+
+// Re-export MinHash sketching types
+pub use minhash::{MinHash, FracMinHash};

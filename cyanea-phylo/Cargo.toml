@@ -6,6 +6,8 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
+keywords = ["bioinformatics", "phylogenetics", "newick", "evolution", "tree"]
+categories = ["science"]
 
 [features]
 default = ["std"]

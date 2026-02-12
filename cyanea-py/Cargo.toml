@@ -6,6 +6,8 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
+keywords = ["bioinformatics", "python", "pyo3", "bindings", "genomics"]
+categories = ["api-bindings", "science"]
 
 [lib]
 name = "cyanea"
@@ -13,9 +15,10 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.23", features = ["extension-module"] }
+numpy = { version = "0.23", optional = true }
 cyanea-core  = { path = "../cyanea-core",  features = ["std"] }
 cyanea-seq   = { path = "../cyanea-seq",   features = ["std"] }
-cyanea-io     = { path = "../cyanea-io",     features = ["csv", "vcf", "bed", "gff"] }
+cyanea-io     = { path = "../cyanea-io",     features = ["csv", "vcf", "bed", "gff", "sam", "bam"] }
 cyanea-align  = { path = "../cyanea-align",  features = ["std"] }
 cyanea-stats  = { path = "../cyanea-stats",  features = ["std"] }
 cyanea-ml     = { path = "../cyanea-ml",     features = ["std"] }

@@ -2,8 +2,8 @@
 //!
 //! Provides a [`Backend`] trait that abstracts over CPU, CUDA, and Metal
 //! compute backends. The [`CpuBackend`] is always available as a reference
-//! implementation and fallback. GPU backends are feature-gated stubs that
-//! will be replaced with real implementations in the future.
+//! implementation and fallback. GPU backends are feature-gated behind
+//! `metal` (Apple Silicon) and `cuda` (NVIDIA) features.
 //!
 //! # Quick start
 //!
@@ -31,6 +31,9 @@ pub mod buffer;
 pub mod cpu;
 pub mod ops;
 
+#[cfg(feature = "metal")]
+pub mod shaders;
+
 #[cfg(feature = "cuda")]
 pub mod cuda;
 
@@ -49,14 +52,19 @@ pub use metal::MetalBackend;
 
 /// Returns the best available backend for the current platform.
 ///
-/// Selection order (compile-time feature gates):
-/// 1. `metal` — Apple Metal (if feature enabled)
-/// 2. `cuda` — NVIDIA CUDA (if feature enabled)
+/// Selection order (compile-time feature gates, runtime availability):
+/// 1. `metal` — Apple Metal (if feature enabled and GPU available)
+/// 2. `cuda` — NVIDIA CUDA (if feature enabled and GPU available)
 /// 3. CPU fallback (always available)
-///
-/// Note: Since GPU backends are currently stubs that panic on construction,
-/// this always returns the CPU backend in practice.
 pub fn auto_backend() -> Box<dyn Backend> {
+    #[cfg(feature = "metal")]
+    if let Ok(m) = MetalBackend::new() {
+        return Box::new(m);
+    }
+    #[cfg(feature = "cuda")]
+    if let Ok(c) = CudaBackend::new() {
+        return Box::new(c);
+    }
     Box::new(CpuBackend::new())
 }
 
@@ -66,8 +74,12 @@ mod tests {
 
     #[test]
     fn auto_backend_returns_cpu() {
-        let b = auto_backend();
-        assert_eq!(b.device_info().kind, BackendKind::Cpu);
+        // Without GPU features, always returns CPU.
+        #[cfg(not(any(feature = "metal", feature = "cuda")))]
+        {
+            let b = auto_backend();
+            assert_eq!(b.device_info().kind, BackendKind::Cpu);
+        }
     }
 
     #[test]
@@ -75,6 +87,6 @@ mod tests {
         let b = auto_backend();
         let buf = b.buffer_from_slice(&[10.0, 20.0, 30.0]).unwrap();
         let sum = b.reduce_sum(&buf).unwrap();
-        assert!((sum - 60.0).abs() < 1e-12);
+        assert!((sum - 60.0).abs() < 0.1);
     }
 }

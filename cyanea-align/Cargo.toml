@@ -6,21 +6,26 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
+keywords = ["bioinformatics", "alignment", "smith-waterman", "needleman-wunsch", "sequence-alignment"]
+categories = ["science", "algorithms"]
 
 [features]
 default = ["std", "simd"]
 std = []
 simd = []
 wasm = []
+wfa = []
 serde = ["dep:serde", "cyanea-core/serde"]
-cuda = []
-metal = []
+cuda = ["dep:cudarc"]
+metal = ["dep:metal-rs"]
 parallel = ["dep:rayon"]
 
 [dependencies]
 cyanea-core = { path = "../cyanea-core", default-features = false }
 serde = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
+metal-rs = { workspace = true, optional = true }
+cudarc = { workspace = true, optional = true }
 
 [dev-dependencies]
 criterion = { workspace = true }

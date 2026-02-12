@@ -1,6 +1,6 @@
 # Cyanea Labs
 
-Rust bioinformatics ecosystem — 13 crates, 976 tests, targeting native, WASM, Python, and Elixir NIFs.
+Rust bioinformatics ecosystem — 13 crates, 1055+ tests, targeting native, WASM, Python, and Elixir NIFs.
 
 ## Workspace
 
@@ -20,13 +20,13 @@ All crates are complete. Each has `docs/STATUS.md` with full API docs.
 | Crate | Purpose | Tests | Key deps |
 |-------|---------|------:|----------|
 | **cyanea-core** | Traits, errors, SHA-256, zstd, mmap | 14 | thiserror, sha2, zstd, flate2, memmap2 |
-| **cyanea-seq** | DNA/RNA/protein, FASTA/FASTQ, k-mers, 2-bit encoding, suffix array, FM-index | 93 | cyanea-core, needletail |
-| **cyanea-io** | CSV, VCF, BED, GFF3, SAM (feature-gated) | 46 | cyanea-core, cyanea-omics, csv, noodles |
-| **cyanea-align** | NW, SW, semi-global, MSA, banded, seed-and-extend, minimizers, GPU dispatch | 122 | cyanea-core |
+| **cyanea-seq** | DNA/RNA/protein, FASTA/FASTQ, k-mers, 2-bit encoding, suffix array, FM-index, MinHash | 111 | cyanea-core, needletail |
+| **cyanea-io** | CSV, VCF, BED, GFF3, SAM, BAM (feature-gated) | 56 | cyanea-core, cyanea-omics, csv, flate2 |
+| **cyanea-align** | NW, SW, semi-global, MSA, banded, seed-and-extend, minimizers, WFA, GPU dispatch | 138 | cyanea-core |
 | **cyanea-omics** | Genomic coords, intervals, matrices, variants, AnnData | 87 | cyanea-core |
 | **cyanea-stats** | Descriptive, correlation, hypothesis tests, distributions, PCA, effect sizes | 127 | cyanea-core |
-| **cyanea-ml** | Clustering, distances, embeddings, KNN, PCA, t-SNE, UMAP, random forest | 149 | cyanea-core |
-| **cyanea-chem** | SMILES/SDF, fingerprints, properties, substructure, stereochemistry, canonical SMILES | 65 | cyanea-core, sha2 |
+| **cyanea-ml** | Clustering, distances, embeddings, KNN, PCA, t-SNE, UMAP, random forest, HMM | 161 | cyanea-core |
+| **cyanea-chem** | SMILES/SDF V2000/V3000, fingerprints, MACCS keys, properties, substructure, stereochemistry, canonical SMILES | 79 | cyanea-core, sha2 |
 | **cyanea-struct** | PDB, mmCIF, geometry, DSSP, Kabsch, contact maps, Ramachandran | 76 | cyanea-core, sha2 |
 | **cyanea-phylo** | Newick/NEXUS, distances, UPGMA/NJ, Fitch/Sankoff, ML likelihood, bootstrap | 101 | cyanea-core, cyanea-ml (optional) |
 | **cyanea-gpu** | Backend trait, CPU impl, buffers, ops, benchmarks | 43 | cyanea-core, criterion (bench) |
@@ -47,7 +47,10 @@ All crates are complete. Each has `docs/STATUS.md` with full API docs.
 - `serde` — serialization support
 - `cuda` / `metal` — GPU backends in cyanea-gpu and cyanea-align
 - `ml` — optional cyanea-ml dependency in cyanea-phylo
-- `sam` — SAM format support in cyanea-io (noodles dependency)
+- `sam` — SAM format support in cyanea-io
+- `bam` — BAM format support in cyanea-io (implies `sam`, depends on `flate2`)
+- `wfa` — Wavefront alignment in cyanea-align
+- `minhash` — MinHash/FracMinHash sketching in cyanea-seq
 - `parallel` — Rayon parallelism in cyanea-align, cyanea-ml, cyanea-stats, cyanea-chem, cyanea-struct, cyanea-phylo, cyanea-io
 - `blas` — Optional BLAS-backed PCA in cyanea-ml and cyanea-stats
 - `simd` — SIMD-accelerated alignment in cyanea-align
@@ -92,14 +95,19 @@ cyanea-core (foundation — no internal deps)
 ```bash
 cargo check -p cyanea-wasm --features wasm   # Check with wasm-bindgen
 # Full build: wasm-pack build cyanea-wasm --features wasm
+# TypeScript wrapper: npm run build:ts (from cyanea-wasm/)
 ```
+Published as `@cyanea/bio` on npm (TypeScript types in `ts/types.ts`, wrapper in `ts/index.ts`).
 
 ### Python
 ```bash
 # Needs Python 3.13 or 3.14 with compat flag
 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo check -p cyanea-py
+# With NumPy interop:
+PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo check -p cyanea-py --features numpy
 # Full build: cd cyanea-py && PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin develop --release
 ```
+Python bindings include: seq, align, stats, ml (pca/tsne/umap/kmeans/pairwise_distances + NumPy variants), chem, struct_bio, phylo, io (csv/vcf/bed/gff/sam/bam).
 
 ### NIF (Elixir)
 The NIF crate lives in `../cyanea/native/cyanea_native/` and depends on labs crates via path.
@@ -116,6 +124,6 @@ cargo check -p cyanea-native   # Check only (can't link without BEAM)
 ## What's Not Done
 
 - **GPU backends**: CUDA and Metal stubs exist but need hardware SDKs to implement
-- **SIMD kernels**: SIMD module has runtime dispatch scaffolding; actual AVX2/NEON kernels pending profiling
-- **Publishing**: Not yet on crates.io, PyPI, or npm
-- **Advanced formats**: BAM/CRAM (binary), Parquet, HDF5/Zarr not implemented in cyanea-io
+- **Publishing**: Not yet on crates.io, PyPI, or npm (metadata ready, workflows pending)
+- **Advanced formats**: CRAM, Parquet, HDF5/Zarr not implemented in cyanea-io
+- **Competitive benchmarks**: Head-to-head vs rust-bio not yet published

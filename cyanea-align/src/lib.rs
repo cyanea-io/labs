@@ -25,6 +25,7 @@ pub mod simd_sw;
 pub mod msa;
 pub mod minimizers;
 pub mod seed_extend;
+pub mod wfa;
 
 pub mod gpu;
 
@@ -37,6 +38,7 @@ pub use batch::align_batch;
 pub use simd_sw::sw_simd_score;
 pub use minimizers::{minimizers, find_seed_matches, Minimizer};
 pub use seed_extend::{seed_extend_align, chain_seeds, Seed, SeedChain};
+pub use wfa::wfa_align;
 
 /// Convenience function: align two sequences using the specified mode and scoring.
 ///

@@ -1,0 +1,59 @@
+{
+  "name": "@cyanea/bio",
+  "version": "0.1.0",
+  "description": "Bioinformatics toolkit for the browser -- sequence analysis, alignment, statistics, chemistry, structural biology, and phylogenetics powered by Rust/WASM",
+  "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cyanea-io/labs",
+    "directory": "cyanea-wasm"
+  },
+  "homepage": "https://github.com/cyanea-io/labs/tree/main/cyanea-wasm",
+  "keywords": [
+    "bioinformatics",
+    "wasm",
+    "webassembly",
+    "sequence-alignment",
+    "fasta",
+    "fastq",
+    "phylogenetics",
+    "cheminformatics",
+    "smiles",
+    "pdb",
+    "statistics",
+    "rust"
+  ],
+  "type": "module",
+  "main": "ts/index.js",
+  "types": "ts/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./ts/index.d.ts",
+      "import": "./ts/index.js"
+    },
+    "./types": {
+      "types": "./ts/types.d.ts",
+      "import": "./ts/types.js"
+    },
+    "./pkg": {
+      "types": "./pkg/cyanea_wasm.d.ts",
+      "import": "./pkg/cyanea_wasm.js"
+    }
+  },
+  "files": [
+    "ts/",
+    "pkg/",
+    "LICENSE-MIT",
+    "LICENSE-APACHE"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build:wasm": "wasm-pack build --target web --out-dir pkg --features wasm",
+    "build:ts": "tsc --project tsconfig.json",
+    "build": "npm run build:wasm && npm run build:ts",
+    "clean": "rm -rf pkg/ ts/*.js ts/*.d.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

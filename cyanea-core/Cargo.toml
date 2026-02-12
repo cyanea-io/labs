@@ -6,6 +6,8 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
+keywords = ["bioinformatics", "genomics", "biology", "science", "computational-biology"]
+categories = ["science"]
 
 [features]
 default = ["std"]

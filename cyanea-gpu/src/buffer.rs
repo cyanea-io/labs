@@ -1,5 +1,7 @@
 //! Type-safe host/device memory buffer abstraction.
 
+use core::fmt;
+
 use cyanea_core::Summarizable;
 
 use crate::backend::BackendKind;
@@ -8,7 +10,6 @@ use crate::backend::BackendKind;
 ///
 /// For the CPU backend, data lives in a `Vec<f64>`. For GPU backends,
 /// `host_data` may be `None` until an explicit read-back is performed.
-#[derive(Debug, Clone)]
 pub struct Buffer {
     /// Host-side copy of the data (always present for CPU, lazy for GPU).
     pub(crate) host_data: Option<Vec<f64>>,
@@ -16,6 +17,41 @@ pub struct Buffer {
     pub(crate) len: usize,
     /// Which backend created this buffer.
     pub(crate) origin: BackendKind,
+    /// Metal device buffer (stores f32 on GPU; converted to/from f64 at boundary).
+    #[cfg(feature = "metal")]
+    pub(crate) metal_buffer: Option<metal_rs::Buffer>,
+    /// CUDA device allocation (f64 on GPU).
+    #[cfg(feature = "cuda")]
+    pub(crate) cuda_slice: Option<cudarc::driver::CudaSlice<f64>>,
+}
+
+impl fmt::Debug for Buffer {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut dbg = f.debug_struct("Buffer");
+        dbg.field("len", &self.len);
+        dbg.field("origin", &self.origin);
+        dbg.field("has_host_data", &self.host_data.is_some());
+        #[cfg(feature = "metal")]
+        dbg.field("has_metal_buffer", &self.metal_buffer.is_some());
+        #[cfg(feature = "cuda")]
+        dbg.field("has_cuda_slice", &self.cuda_slice.is_some());
+        dbg.finish()
+    }
+}
+
+impl Clone for Buffer {
+    fn clone(&self) -> Self {
+        Self {
+            host_data: self.host_data.clone(),
+            len: self.len,
+            origin: self.origin,
+            #[cfg(feature = "metal")]
+            metal_buffer: self.metal_buffer.clone(),
+            // CudaSlice owns GPU memory — clone host data only, drop device reference.
+            #[cfg(feature = "cuda")]
+            cuda_slice: None,
+        }
+    }
 }
 
 impl Buffer {
@@ -26,6 +62,10 @@ impl Buffer {
             host_data: Some(data),
             len,
             origin,
+            #[cfg(feature = "metal")]
+            metal_buffer: None,
+            #[cfg(feature = "cuda")]
+            cuda_slice: None,
         }
     }
 
@@ -36,6 +76,44 @@ impl Buffer {
             host_data: None,
             len,
             origin,
+            #[cfg(feature = "metal")]
+            metal_buffer: None,
+            #[cfg(feature = "cuda")]
+            cuda_slice: None,
+        }
+    }
+
+    /// Creates a buffer backed by a Metal device buffer.
+    #[cfg(feature = "metal")]
+    pub(crate) fn from_metal(
+        host_data: Option<Vec<f64>>,
+        metal_buffer: metal_rs::Buffer,
+        len: usize,
+    ) -> Self {
+        Self {
+            host_data,
+            len,
+            origin: BackendKind::Metal,
+            metal_buffer: Some(metal_buffer),
+            #[cfg(feature = "cuda")]
+            cuda_slice: None,
+        }
+    }
+
+    /// Creates a buffer backed by a CUDA device slice.
+    #[cfg(feature = "cuda")]
+    pub(crate) fn from_cuda(
+        host_data: Option<Vec<f64>>,
+        cuda_slice: cudarc::driver::CudaSlice<f64>,
+        len: usize,
+    ) -> Self {
+        Self {
+            host_data,
+            len,
+            origin: BackendKind::Cuda,
+            #[cfg(feature = "metal")]
+            metal_buffer: None,
+            cuda_slice: Some(cuda_slice),
         }
     }
 
@@ -75,9 +153,23 @@ impl Summarizable for Buffer {
         } else {
             "device-only"
         };
+        #[cfg(feature = "metal")]
+        let device_status = if self.metal_buffer.is_some() {
+            ", metal-backed"
+        } else {
+            ""
+        };
+        #[cfg(feature = "cuda")]
+        let device_status = if self.cuda_slice.is_some() {
+            ", cuda-backed"
+        } else {
+            ""
+        };
+        #[cfg(not(any(feature = "metal", feature = "cuda")))]
+        let device_status = "";
         format!(
-            "Buffer({} f64s, {}, {})",
-            self.len, self.origin, host_status
+            "Buffer({} f64s, {}, {}{})",
+            self.len, self.origin, host_status, device_status
         )
     }
 }
@@ -136,7 +228,6 @@ mod tests {
     fn clone_independence() {
         let buf = Buffer::from_host(vec![1.0, 2.0, 3.0], BackendKind::Cpu);
         let mut cloned = buf.clone();
-        // Mutating the clone's internal data doesn't affect the original.
         if let Some(ref mut data) = cloned.host_data {
             data[0] = 999.0;
         }

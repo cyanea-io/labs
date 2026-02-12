@@ -2,6 +2,7 @@
 //!
 //! Implements the Farrar (2007) striped approach using SIMD intrinsics:
 //! - **NEON** (aarch64 / Apple Silicon) — 8 × i16 lanes
+//! - **AVX2** (x86_64) — 16 × i16 lanes
 //! - **SSE4.1** (x86_64) — 8 × i16 lanes
 //! - **Scalar fallback** — when no SIMD is available or `simd` feature is off
 //!
@@ -15,7 +16,7 @@ use crate::scoring::ScoringScheme;
 /// SIMD-accelerated Smith-Waterman score-only alignment.
 ///
 /// Returns the maximum local alignment score without traceback.
-/// Uses SIMD intrinsics when available (NEON on aarch64, SSE4.1 on x86_64),
+/// Uses SIMD intrinsics when available (NEON on aarch64, AVX2/SSE4.1 on x86_64),
 /// with automatic fallback to a scalar implementation.
 ///
 /// # Errors
@@ -43,6 +44,9 @@ pub fn sw_simd_score(
 
         #[cfg(target_arch = "x86_64")]
         {
+            if is_x86_feature_detected!("avx2") {
+                return Ok(unsafe { avx2::sw_score_avx2(query, target, scoring) });
+            }
             if is_x86_feature_detected!("sse4.1") {
                 return Ok(unsafe { sse41::sw_score_sse41(query, target, scoring) });
             }
@@ -356,6 +360,136 @@ mod sse41 {
         // Horizontal max reduction
         let mut buf = [0i16; 8];
         _mm_storeu_si128(buf.as_mut_ptr() as *mut __m128i, vbest);
+        let mut max_val = i16::MIN;
+        for &v in &buf {
+            if v > max_val {
+                max_val = v;
+            }
+        }
+        max_val as i32
+    }
+}
+
+// ---------------------------------------------------------------------------
+// AVX2 (x86_64) — 16 × i16 lanes
+// ---------------------------------------------------------------------------
+
+#[cfg(all(feature = "simd", target_arch = "x86_64"))]
+mod avx2 {
+    use super::*;
+    use core::arch::x86_64::*;
+
+    const LANES: usize = 16; // __m256i with i16
+
+    /// AVX2-accelerated SW score-only using Farrar striped vectorization.
+    ///
+    /// # Safety
+    ///
+    /// Requires AVX2 (checked by caller via `is_x86_feature_detected!`).
+    #[target_feature(enable = "avx2")]
+    pub(super) unsafe fn sw_score_avx2(
+        query: &[u8],
+        target: &[u8],
+        scoring: &ScoringScheme,
+    ) -> i32 {
+        let qlen = query.len();
+        let n_stripes = (qlen + LANES - 1) / LANES;
+        let padded_len = n_stripes * LANES;
+
+        let gap_open = scoring.gap_open() as i16;
+        let gap_extend = scoring.gap_extend() as i16;
+
+        let profile = build_striped_profile(query, scoring, n_stripes, LANES);
+
+        let vzero = _mm256_setzero_si256();
+        let vgap_open = _mm256_set1_epi16(gap_open);
+        let vgap_extend = _mm256_set1_epi16(gap_extend);
+        let vneg_inf = _mm256_set1_epi16(i16::MIN / 2);
+
+        let mut vh: Vec<__m256i> = vec![vzero; n_stripes];
+        let mut ve: Vec<__m256i> = vec![vneg_inf; n_stripes];
+        let mut vbest = vzero;
+
+        for &tb in target {
+            let prof_row = &profile[tb as usize * padded_len..];
+            let vh_old: Vec<__m256i> = vh.clone();
+
+            // --- Main pass ---
+            for s in 0..n_stripes {
+                let vp = _mm256_loadu_si256(prof_row.as_ptr().add(s * LANES) as *const __m256i);
+
+                let vdiag = if s == 0 {
+                    // Shift the entire 256-bit vector right by one i16 element (insert 0 at lane 0).
+                    // AVX2 _mm256_slli_si256 shifts within each 128-bit lane independently,
+                    // so we need an extra cross-lane carry step.
+                    let prev = vh_old[n_stripes - 1];
+                    // Step 1: shift each 128-bit lane left by 2 bytes (one i16 element)
+                    let shifted = _mm256_slli_si256::<2>(prev);
+                    // Step 2: carry the top element of the low 128-bit lane into the
+                    // bottom of the high 128-bit lane.
+                    // permute2x128(prev, prev, 0x08):
+                    //   low 128 = zero (bit 3 of 0x08 low nibble is set)
+                    //   high 128 = prev.lo (high nibble 0x00 selects a.lo)
+                    // Result: [zero_128, prev.lo]
+                    let carry_vec = _mm256_permute2x128_si256::<0x08>(prev, prev);
+                    // Shift each 128-bit lane right by 14 bytes, keeping only the top
+                    // 2 bytes (element 7 of the original low lane) at position 0 of the
+                    // high lane.
+                    let carry_shifted = _mm256_srli_si256::<14>(carry_vec);
+                    // Combine: shifted has the correct intra-lane shifts, carry_shifted
+                    // has the cross-lane element.
+                    _mm256_or_si256(shifted, carry_shifted)
+                } else {
+                    vh_old[s - 1]
+                };
+
+                let ve_new = _mm256_max_epi16(
+                    _mm256_adds_epi16(vh_old[s], vgap_open),
+                    _mm256_adds_epi16(ve[s], vgap_extend),
+                );
+                ve[s] = ve_new;
+
+                let vh_new = _mm256_max_epi16(vzero, _mm256_max_epi16(
+                    _mm256_adds_epi16(vdiag, vp),
+                    ve_new,
+                ));
+                vh[s] = vh_new;
+                vbest = _mm256_max_epi16(vbest, vh_new);
+            }
+
+            // --- F-loop ---
+            loop {
+                let mut vf = vneg_inf;
+                let mut any_update = false;
+
+                for s in 0..n_stripes {
+                    vf = _mm256_max_epi16(
+                        _mm256_adds_epi16(vh[s], vgap_open),
+                        _mm256_adds_epi16(vf, vgap_extend),
+                    );
+
+                    let vh_cur = vh[s];
+                    let vh_new = _mm256_max_epi16(vh_cur, vf);
+
+                    let cmp = _mm256_cmpeq_epi16(vh_new, vh_cur);
+                    if _mm256_movemask_epi8(cmp) != -1i32 {
+                        any_update = true;
+                        vh[s] = vh_new;
+                        vbest = _mm256_max_epi16(vbest, vh_new);
+                    }
+
+                    vf = vf;
+                }
+
+                if !any_update {
+                    break;
+                }
+            }
+        }
+
+        // Horizontal max reduction: store to buffer and find max
+        let mut buf = [0i16; 16];
+        _mm256_storeu_si256(buf.as_mut_ptr() as *mut __m256i, vbest);
         let mut max_val = i16::MIN;
         for &v in &buf {
             if v > max_val {

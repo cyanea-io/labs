@@ -24,6 +24,7 @@ pub mod embedding;
 pub mod encoding;
 pub mod evaluate;
 pub mod forest;
+pub mod hmm;
 pub mod inference;
 pub mod kmer;
 pub mod normalize;
@@ -47,6 +48,7 @@ pub use normalize::{
 };
 pub use reduction::{pca, tsne, PcaConfig, PcaResult, TsneConfig, TsneResult};
 pub use umap::{umap, UmapConfig, UmapInit, UmapResult};
+pub use hmm::HmmModel;
 pub use inference::{KnnConfig, KnnModel, LinearRegression};
 pub use tree::DecisionTree;
 pub use forest::{RandomForest, RandomForestConfig};

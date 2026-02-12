@@ -22,6 +22,9 @@ pub mod gff;
 #[cfg(feature = "sam")]
 pub mod sam;
 
+#[cfg(feature = "bam")]
+pub mod bam;
+
 // Re-exports for convenience.
 
 #[cfg(feature = "csv")]
@@ -38,3 +41,6 @@ pub use gff::{gff3_stats, parse_gff3, GffStats};
 
 #[cfg(feature = "sam")]
 pub use sam::{parse_sam, sam_stats, sam_stats_from_path, SamRecord, SamStats};
+
+#[cfg(feature = "bam")]
+pub use bam::{parse_bam, bam_stats, BamReference};
