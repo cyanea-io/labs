@@ -1,10 +1,10 @@
 # cyanea-chem
 
-Chemistry and small molecule toolkit: molecular graph representation, SMILES/SDF parsing, fingerprints, property calculation, and substructure search.
+Chemistry and small molecule toolkit: molecular graph representation, SMILES/SDF parsing, fingerprints, property calculation, substructure search, canonical SMILES, MACCS keys, and stereochemistry.
 
 ## Status: Complete
 
-All planned functionality is implemented including SMILES parsing, SDF parsing, Morgan fingerprints, Tanimoto similarity, molecular property calculation, and substructure matching.
+All planned functionality is implemented including SMILES parsing, SDF parsing, Morgan fingerprints, MACCS fingerprints, Tanimoto similarity, molecular property calculation, substructure matching, canonical SMILES generation, and stereochemistry assignment (R/S, E/Z).
 
 ## Public API
 
@@ -71,6 +71,31 @@ Supports: atoms, bonds, branches, ring closures, aromatic atoms, charges, explic
 | `has_substructure(target, pattern) -> bool` | Check if pattern exists in target |
 | `find_substructure_matches(target, pattern) -> Vec<SubstructureMatch>` | Find all matches |
 
+### Canonical SMILES (`canon.rs`)
+
+| Function | Description |
+|----------|-------------|
+| `canonical_smiles(mol) -> String` | Generate deterministic canonical SMILES string |
+
+Algorithm: Morgan-like invariant refinement (atomic number, degree, H count, charge, isotope, aromaticity) followed by iterative neighbor summation until convergence, then DFS traversal with canonical atom ordering. Handles disconnected fragments (dot-separated), ring closures (including two-digit `%nn` notation), aromatic atoms, charges, and bracket atoms.
+
+### MACCS fingerprints (`maccs.rs`)
+
+| Function | Description |
+|----------|-------------|
+| `maccs_fingerprint(mol) -> Fingerprint` | Compute MACCS-like 166-key structural fingerprint |
+
+Each of the 166 bit positions corresponds to a specific structural feature from the MACCS key definitions. Keys are evaluated directly from the molecular graph covering: element presence and count thresholds, ring topology (size, aromaticity, heteroatoms), bond types (single, double, triple, aromatic, specific atom pairs), functional groups (carboxyl, amide, sulfonyl, hydroxyl, amine, aldehyde, ester, nitro, thiol, phosphate, ether, tertiary amine, charged atoms), and count-based thresholds (heavy atoms, ring atoms, bond counts, branching degree).
+
+### Stereochemistry (`stereo.rs`)
+
+| Function | Description |
+|----------|-------------|
+| `assign_rs(mol, atom_idx) -> Option<char>` | Assign R/S descriptor to a tetrahedral stereocenter |
+| `assign_ez(mol, bond_idx) -> Option<char>` | Assign E/Z descriptor to a double bond |
+
+Implements Cahn-Ingold-Prelog (CIP) priority rules with two-level recursive tiebreaking by neighbor atomic numbers. `assign_rs` reads `Chirality` annotations (`@`/`@@` from SMILES) and returns `Some('R')` or `Some('S')` for valid stereocenters with four distinct-priority substituents, or `None` otherwise. `assign_ez` reads `BondStereo` annotations (`/`/`\` from SMILES) on double bonds and returns `Some('E')` (higher-priority groups on opposite sides) or `Some('Z')` (same side), or `None` if stereo markers are absent.
+
 ## Feature Flags
 
 | Flag | Default | Description |
@@ -86,7 +111,7 @@ Supports: atoms, bonds, branches, ring closures, aromatic atoms, charges, explic
 
 ## Tests
 
-34 unit tests + 1 doc test across 8 source files.
+79 tests across 12 source files.
 
 ## Source Files
 
@@ -101,3 +126,6 @@ Supports: atoms, bonds, branches, ring closures, aromatic atoms, charges, explic
 | `properties.rs` | 255 | Molecular weight, formula, HBD/HBA, rotatable bonds |
 | `substructure.rs` | 236 | Substructure matching |
 | `ring.rs` | 250 | Ring detection (internal) |
+| `canon.rs` | 591 | Canonical SMILES generation (Morgan-like ranking, DFS traversal) |
+| `maccs.rs` | 1107 | MACCS 166-key structural fingerprints |
+| `stereo.rs` | 456 | Stereochemistry assignment (R/S, E/Z via CIP rules) |

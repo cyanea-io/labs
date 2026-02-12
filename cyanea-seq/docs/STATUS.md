@@ -94,6 +94,99 @@ All sequence types are `ValidatedSeq<A: Alphabet>` -- validated, uppercase byte 
 | `parse_fastq_file(path) -> Result<Vec<FastqRecord>>` | Parse all records |
 | `parse_fastq_stats(path) -> Result<FastqStats>` | Streaming statistics |
 
+### 2-bit encoding (`twobit.rs`)
+
+Compact 2-bit-per-base representation for unambiguous DNA (A, C, G, T only). Achieves 4x compression over ASCII. Encoding: A=00, C=01, G=10, T=11.
+
+| Type | Description |
+|------|-------------|
+| `TwoBitSequence` | DNA sequence stored in 2-bit packed representation (4 bases per byte) |
+
+**TwoBitSequence methods:**
+
+| Method | Description |
+|--------|-------------|
+| `encode(seq: &[u8]) -> Result<Self>` | Encode ASCII DNA into 2-bit packed form (case-insensitive, ACGT only) |
+| `decode(&self) -> Vec<u8>` | Decode back to uppercase ASCII DNA bytes |
+| `get(&self, index: usize) -> Option<u8>` | Get the base at a specific position |
+| `len(&self) -> usize` | Number of bases in the sequence |
+| `is_empty(&self) -> bool` | Whether the sequence is empty |
+| `kmer(&self, pos: usize, k: usize) -> Option<u64>` | Extract a k-mer as a 2-bit integer encoding (max k=32) |
+| `complement(&self) -> Self` | Bitwise complement (A<->T, C<->G) via XOR |
+
+### Suffix array (`suffix.rs`)
+
+O(n) suffix array construction via the SA-IS algorithm (Nong, Zhang & Chan, 2009) with O(m log n) binary search for pattern matching.
+
+| Type | Description |
+|------|-------------|
+| `SuffixArray` | Suffix array built from a text, storing sorted suffix positions |
+
+**SuffixArray methods:**
+
+| Method | Description |
+|--------|-------------|
+| `build(text: &[u8]) -> Self` | Build a suffix array using SA-IS (appends sentinel, O(n) construction) |
+| `search(&self, text: &[u8], pattern: &[u8]) -> Vec<usize>` | Find all occurrences of pattern in text (O(m log n), sorted positions) |
+| `len(&self) -> usize` | Number of entries in the suffix array (text length + 1 for sentinel) |
+
+### FM-Index (`fm_index.rs`)
+
+FM-Index for O(m) exact pattern matching on DNA sequences via backward search. Built on the Burrows-Wheeler Transform (BWT), occurrence table, and C table. Supports the DNA alphabet (A, C, G, T) plus sentinel '$'.
+
+| Type | Description |
+|------|-------------|
+| `FmIndex` | FM-Index for DNA sequences with BWT, suffix array, occurrence table, and C table |
+
+**FmIndex methods:**
+
+| Method | Description |
+|--------|-------------|
+| `build(text: &[u8]) -> Self` | Build an FM-Index from a DNA sequence (ACGT only, sentinel appended internally) |
+| `search(&self, pattern: &[u8]) -> Vec<usize>` | Find all occurrence positions of pattern (O(m) search + O(k) lookup, sorted) |
+| `count(&self, pattern: &[u8]) -> usize` | Count occurrences without returning positions (more efficient than `search`) |
+
+### MinHash sketching (`minhash.rs`)
+
+Bottom-k MinHash and scaled FracMinHash sketching for rapid genome comparison. Estimates Jaccard similarity, containment, and average nucleotide identity (ANI) between DNA sequences without full alignment. Uses canonical k-mers (min of forward and reverse complement hash) for strand-agnostic sketching.
+
+| Type | Description |
+|------|-------------|
+| `MinHash` | Bottom-k MinHash sketch: keeps the `sketch_size` smallest canonical k-mer hash values |
+| `FracMinHash` | Scaled (fractional) MinHash sketch: keeps all hash values below `u64::MAX / scale` |
+
+**MinHash methods:**
+
+| Method | Description |
+|--------|-------------|
+| `new(k: usize, sketch_size: usize) -> Result<Self>` | Create an empty bottom-k sketch |
+| `from_sequence(seq: &[u8], k: usize, sketch_size: usize) -> Result<Self>` | Build a sketch from a DNA sequence |
+| `add_sequence(&mut self, seq: &[u8])` | Add k-mers from a DNA sequence to the sketch |
+| `jaccard(&self, other: &MinHash) -> Result<f64>` | Estimate Jaccard similarity (merge-based estimator) |
+| `containment(&self, other: &MinHash) -> Result<f64>` | Estimate containment C(A,B) = \|A intersect B\| / \|A\| |
+| `ani(&self, other: &MinHash) -> Result<f64>` | Estimate ANI from Jaccard (Mash formula) |
+| `len(&self) -> usize` | Number of hash values in the sketch |
+| `is_empty(&self) -> bool` | Whether the sketch is empty |
+| `k(&self) -> usize` | The k-mer size |
+| `sketch_size(&self) -> usize` | The target sketch size (bottom-k parameter) |
+| `hashes(&self) -> &[u64]` | Reference to the sorted hash values |
+
+**FracMinHash methods:**
+
+| Method | Description |
+|--------|-------------|
+| `new(k: usize, scale: u64) -> Result<Self>` | Create an empty scaled sketch |
+| `from_sequence(seq: &[u8], k: usize, scale: u64) -> Result<Self>` | Build a scaled sketch from a DNA sequence |
+| `add_sequence(&mut self, seq: &[u8])` | Add k-mers from a DNA sequence to the sketch |
+| `jaccard(&self, other: &FracMinHash) -> Result<f64>` | Estimate Jaccard similarity |
+| `containment(&self, other: &FracMinHash) -> Result<f64>` | Estimate containment C(A,B) = \|A intersect B\| / \|A\| |
+| `ani(&self, other: &FracMinHash) -> Result<f64>` | Estimate ANI from Jaccard (Mash formula) |
+| `len(&self) -> usize` | Number of hash values in the sketch |
+| `is_empty(&self) -> bool` | Whether the sketch is empty |
+| `k(&self) -> usize` | The k-mer size |
+| `scale(&self) -> u64` | The scale factor |
+| `hashes(&self) -> &[u64]` | Reference to the sorted hash values |
+
 ## Feature Flags
 
 | Flag | Default | Description |
@@ -101,6 +194,7 @@ All sequence types are `ValidatedSeq<A: Alphabet>` -- validated, uppercase byte 
 | `std` | Yes | Standard library support |
 | `wasm` | No | WASM target |
 | `serde` | No | Serialization support |
+| `minhash` | No | MinHash/FracMinHash sketching |
 
 ## Dependencies
 
@@ -109,13 +203,13 @@ All sequence types are `ValidatedSeq<A: Alphabet>` -- validated, uppercase byte 
 
 ## Tests
 
-43 unit tests + 1 doc test across 8 source files.
+111 tests across 13 source files.
 
 ## Source Files
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `lib.rs` | 68 | Module declarations, re-exports |
+| `lib.rs` | 81 | Module declarations, re-exports |
 | `alphabet.rs` | 94 | Alphabet trait and implementations |
 | `types.rs` | 283 | ValidatedSeq generic type |
 | `seq.rs` | 197 | Sequence-specific methods |
@@ -124,3 +218,7 @@ All sequence types are `ValidatedSeq<A: Alphabet>` -- validated, uppercase byte 
 | `quality.rs` | 164 | Phred quality scores |
 | `fasta.rs` | 98 | FASTA parsing |
 | `fastq.rs` | 256 | FASTQ parsing |
+| `twobit.rs` | 373 | 2-bit packed DNA encoding |
+| `suffix.rs` | 635 | Suffix array (SA-IS algorithm) |
+| `fm_index.rs` | 355 | FM-Index (BWT backward search) |
+| `minhash.rs` | 833 | MinHash and FracMinHash sketching |

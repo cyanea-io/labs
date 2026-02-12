@@ -1,10 +1,10 @@
 # cyanea-stats
 
-Statistical methods for life sciences: descriptive statistics, correlation, hypothesis testing, probability distributions, and multiple testing correction.
+Statistical methods for life sciences: descriptive statistics, correlation, hypothesis testing, probability distributions, multiple testing correction, and effect sizes.
 
 ## Status: Complete
 
-All statistical functionality is implemented including descriptive statistics, correlation, hypothesis testing, distributions, multiple testing correction, and PCA dimensionality reduction.
+All statistical functionality is implemented including descriptive statistics, correlation, hypothesis testing, distributions, multiple testing correction, effect sizes, and PCA dimensionality reduction.
 
 ## Public API
 
@@ -53,6 +53,9 @@ All statistical functionality is implemented including descriptive statistics, c
 | `trait Distribution` | `cdf(x)`, `pdf(x)` methods |
 | `Normal` | Gaussian distribution (mean, std_dev) |
 | `Poisson` | Poisson distribution (lambda) |
+| `Binomial` | Binomial distribution (n, p) |
+| `ChiSquared` | Chi-squared distribution (df) |
+| `FDistribution` | F distribution (df1, df2) |
 | `erf(x) -> f64` | Error function |
 | `ln_gamma(x) -> f64` | Log gamma function (Lanczos approximation) |
 | `betai(a, b, x) -> Result<f64>` | Regularized incomplete beta function |
@@ -66,12 +69,23 @@ All statistical functionality is implemented including descriptive statistics, c
 | `bonferroni(p_values) -> Result<Vec<f64>>` | Bonferroni correction |
 | `benjamini_hochberg(p_values) -> Result<Vec<f64>>` | BH FDR correction |
 
+### Effect sizes (`effect_size.rs`)
+
+| Function | Description |
+|----------|-------------|
+| `cohens_d(group1, group2) -> Result<f64>` | Cohen's d: standardized mean difference (pooled SD). Each group needs >= 2 observations |
+| `eta_squared(groups) -> Result<f64>` | Eta-squared: proportion of variance explained by group membership (ANOVA). Returns value in [0, 1] |
+| `odds_ratio(table) -> Result<f64>` | Odds ratio for a 2x2 contingency table `[[a, b], [c, d]]`. OR = (a*d) / (b*c) |
+| `relative_risk(table) -> Result<f64>` | Relative risk (risk ratio) for a 2x2 contingency table. RR = [a/(a+b)] / [c/(c+d)] |
+
 ### Dimensionality reduction (`reduction.rs`)
 
 | Type/Function | Description |
 |---------------|-------------|
 | `PcaResult` | `components`, `explained_variance`, `explained_variance_ratio`, `transformed`, `mean` |
 | `pca(data, n_components) -> Result<PcaResult>` | Principal Component Analysis |
+
+When the `blas` feature is enabled, `pca` dispatches to an ndarray-based implementation (`blas_pca.rs`) that uses matrix multiply for covariance computation and power iteration, which can leverage BLAS for acceleration.
 
 ## Feature Flags
 
@@ -80,24 +94,30 @@ All statistical functionality is implemented including descriptive statistics, c
 | `std` | Yes | Standard library support |
 | `wasm` | No | WASM target |
 | `serde` | No | Serialization support |
+| `parallel` | No | Rayon parallelism |
+| `blas` | No | BLAS-accelerated PCA via ndarray |
 
 ## Dependencies
 
 - `cyanea-core` -- error types
+- `ndarray` (optional, `blas` feature) -- matrix operations for BLAS-accelerated PCA
+- `rayon` (optional, `parallel` feature) -- data parallelism
 
 ## Tests
 
-76 unit tests + 1 doc test across 8 source files.
+127 tests across 10 source files.
 
 ## Source Files
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `lib.rs` | 43 | Module declarations, re-exports |
+| `lib.rs` | 45 | Module declarations, re-exports |
 | `descriptive.rs` | 354 | Descriptive statistics |
 | `correlation.rs` | 244 | Pearson/Spearman correlation |
-| `testing.rs` | 283 | t-tests, Mann-Whitney U |
-| `distribution.rs` | 365 | Normal, Poisson, erf, gamma, beta |
+| `testing.rs` | 605 | t-tests, Mann-Whitney U, Fisher's exact, chi-squared, ANOVA |
+| `distribution.rs` | 781 | Normal, Poisson, Binomial, ChiSquared, F, erf, gamma, beta |
 | `correction.rs` | 161 | Bonferroni, Benjamini-Hochberg |
 | `rank.rs` | 141 | Rank computation with tie-breaking |
-| `reduction.rs` | 274 | PCA dimensionality reduction |
+| `effect_size.rs` | 253 | Cohen's d, eta-squared, odds ratio, relative risk |
+| `reduction.rs` | 284 | PCA dimensionality reduction |
+| `blas_pca.rs` | 117 | BLAS-accelerated PCA via ndarray (feature-gated, internal to reduction) |

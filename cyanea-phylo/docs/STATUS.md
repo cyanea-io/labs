@@ -4,7 +4,7 @@ Phylogenetics: tree data structures, Newick I/O, evolutionary distance models, t
 
 ## Status: Complete
 
-All phylogenetics functionality is implemented including tree representation, Newick and NEXUS I/O, evolutionary distance models (p-distance, Jukes-Cantor, Kimura 2-parameter), Robinson-Foulds comparison, UPGMA/NJ tree construction, and ancestral sequence reconstruction (Fitch and Sankoff parsimony).
+All phylogenetics functionality is implemented including tree representation, Newick and NEXUS I/O, evolutionary distance models (p-distance, Jukes-Cantor, Kimura 2-parameter), Robinson-Foulds comparison, UPGMA/NJ tree construction, ancestral sequence reconstruction (Fitch and Sankoff parsimony), substitution models (JC69), maximum likelihood tree scoring (Felsenstein pruning), NNI tree search, and bootstrap support estimation.
 
 ## Public API
 
@@ -80,6 +80,29 @@ All phylogenetics functionality is implemented including tree representation, Ne
 | `sankoff(tree, leaf_states, cost_matrix) -> Result<AncestralStates>` | Sankoff weighted parsimony |
 | `reconstruct_sequences(tree, alignment) -> Result<Vec<AncestralStates>>` | Per-site ancestral reconstruction |
 
+### Substitution models (`models.rs`)
+
+| Type/Function | Description |
+|---------------|-------------|
+| `NUM_STATES` | Constant: number of nucleotide states (4) |
+| `JC69_FREQ` | Constant: JC69 equilibrium frequency (0.25) |
+| `nucleotide_index(b) -> Option<usize>` | Map nucleotide byte to index (A=0, C=1, G=2, T/U=3) |
+| `jc69_probability(t) -> [[f64; 4]; 4]` | JC69 transition probability matrix for branch length `t` |
+
+### Maximum likelihood (`likelihood.rs`)
+
+| Function | Description |
+|----------|-------------|
+| `tree_likelihood(tree, sequences, model) -> Result<f64>` | Log-likelihood via Felsenstein's pruning algorithm |
+| `nni_search(tree, sequences, model) -> Result<PhyloTree>` | Hill-climbing NNI search for improved tree topology |
+
+### Bootstrap support (`bootstrap.rs`)
+
+| Function | Description |
+|----------|-------------|
+| `bootstrap_support(sequences, original_tree, tree_builder, n_replicates) -> Result<Vec<f64>>` | Non-parametric bootstrap support values for internal edges |
+| `bipartitions(tree) -> Vec<BTreeSet<String>>` | Extract non-trivial bipartitions (splits) from a tree |
+
 ## Feature Flags
 
 | Flag | Default | Description |
@@ -96,13 +119,13 @@ All phylogenetics functionality is implemented including tree representation, Ne
 
 ## Tests
 
-71 unit tests + 2 doc tests across 7 source files.
+101 tests across 10 source files.
 
 ## Source Files
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `lib.rs` | 36 | Module declarations, re-exports |
+| `lib.rs` | 44 | Module declarations, re-exports |
 | `tree.rs` | 420 | PhyloTree data structure and traversal |
 | `newick.rs` | 285 | Newick parser and writer |
 | `distance.rs` | 291 | Evolutionary distance models |
@@ -110,3 +133,6 @@ All phylogenetics functionality is implemented including tree representation, Ne
 | `construct.rs` | 425 | UPGMA and neighbor-joining |
 | `nexus.rs` | 314 | NEXUS format parser and writer |
 | `reconstruct.rs` | 454 | Fitch and Sankoff ancestral reconstruction |
+| `models.rs` | 186 | JC69 substitution model and nucleotide indexing |
+| `likelihood.rs` | 475 | Felsenstein pruning and NNI tree search |
+| `bootstrap.rs` | 317 | Bootstrap support and bipartition extraction |

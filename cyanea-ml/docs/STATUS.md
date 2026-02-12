@@ -1,10 +1,10 @@
 # cyanea-ml
 
-Machine learning primitives for bioinformatics: clustering, distance metrics, sequence encoding, normalization, and evaluation.
+Machine learning primitives for bioinformatics: clustering, distance metrics, sequence encoding, normalization, evaluation, decision trees, random forests, and hidden Markov models.
 
 ## Status: Complete
 
-All ML primitives are implemented including clustering, distance metrics, sequence encoding, evaluation, normalization, k-mer counting, sequence embeddings, KNN/linear regression, and dimensionality reduction (PCA, t-SNE, UMAP).
+All ML primitives are implemented including clustering, distance metrics, sequence encoding, evaluation, normalization, k-mer counting, sequence embeddings, KNN/linear regression, dimensionality reduction (PCA, t-SNE, UMAP), decision tree and random forest classifiers, and hidden Markov models (forward, backward, Viterbi, Baum-Welch).
 
 ## Public API
 
@@ -115,6 +115,42 @@ All ML primitives are implemented including clustering, distance metrics, sequen
 | `LinearRegression::predict_batch(queries) -> Result<Vec<f64>>` | Predict batch |
 | Fields: `weights`, `bias`, `n_features`, `r_squared` | Model parameters |
 
+### Decision tree (`tree.rs`)
+
+| Type/Function | Description |
+|---------------|-------------|
+| `DecisionTree` | CART-style decision tree classifier using Gini impurity |
+| `DecisionTree::fit(data, n_features, labels, max_depth) -> Result<Self>` | Fit a decision tree on flat row-major data |
+| `DecisionTree::predict(sample) -> usize` | Predict class label for a single sample |
+| `DecisionTree::predict_batch(data, n_features) -> Vec<usize>` | Predict class labels for multiple samples |
+
+### Random forest (`forest.rs`)
+
+| Type/Function | Description |
+|---------------|-------------|
+| `RandomForestConfig` | `n_trees`, `max_depth`, `max_features`, `seed` |
+| `RandomForest` | Bagged ensemble of `DecisionTree` classifiers with bootstrap sampling and feature bagging |
+| `RandomForest::fit(data, n_features, labels, config) -> Result<Self>` | Fit a random forest on flat row-major data |
+| `RandomForest::predict(sample) -> usize` | Predict class label via majority vote |
+| `RandomForest::predict_batch(data, n_features) -> Vec<usize>` | Predict class labels for multiple samples |
+| `RandomForest::feature_importance(n_features) -> Vec<f64>` | Normalized split-frequency feature importance |
+| `RandomForest::n_trees() -> usize` | Number of trees in the forest |
+| `RandomForest::n_classes() -> usize` | Number of classes discovered during fitting |
+
+### Hidden Markov Model (`hmm.rs`)
+
+| Type/Function | Description |
+|---------------|-------------|
+| `HmmModel` | Discrete Hidden Markov Model with log-space arithmetic |
+| `HmmModel::new(n_states, n_symbols, initial, transition, emission) -> Result<Self>` | Create and validate a new HMM |
+| `HmmModel::forward(observations) -> Result<(Vec<Vec<f64>>, f64)>` | Forward algorithm (log-space alpha matrix + log-likelihood) |
+| `HmmModel::backward(observations) -> Result<Vec<Vec<f64>>>` | Backward algorithm (log-space beta matrix) |
+| `HmmModel::viterbi(observations) -> Result<(Vec<usize>, f64)>` | Viterbi decoding (most likely state path + log-probability) |
+| `HmmModel::log_likelihood(observations) -> Result<f64>` | Log-likelihood of observation sequence |
+| `HmmModel::baum_welch(observations, max_iter, tolerance) -> Result<f64>` | Baum-Welch (EM) parameter re-estimation |
+| `HmmModel::n_states() -> usize` | Number of hidden states |
+| `HmmModel::n_symbols() -> usize` | Number of observable symbols |
+
 ### Dimensionality reduction (`reduction.rs`)
 
 **PCA:**
@@ -124,6 +160,8 @@ All ML primitives are implemented including clustering, distance metrics, sequen
 | `PcaConfig` | `n_components`, `max_iter`, `tolerance` |
 | `PcaResult` | `components`, `explained_variance`, `explained_variance_ratio`, `transformed`, `mean`, `n_features`, `n_components` |
 | `pca(data, n_features, config) -> Result<PcaResult>` | Principal Component Analysis |
+
+When the `blas` feature is enabled, PCA automatically dispatches to an ndarray-backed implementation (`blas_pca.rs`) that uses BLAS for covariance matrix computation and power iteration. The public API (`pca()`) is unchanged; the acceleration is transparent.
 
 **t-SNE:**
 
@@ -149,20 +187,25 @@ All ML primitives are implemented including clustering, distance metrics, sequen
 | `std` | Yes | Standard library support |
 | `wasm` | No | WASM target |
 | `serde` | No | Serialization support |
+| `parallel` | No | Rayon parallelism |
+| `blas` | No | BLAS-accelerated PCA via ndarray |
 
 ## Dependencies
 
 - `cyanea-core` -- error types
+- `ndarray` -- (optional, `blas` feature) matrix operations for BLAS-accelerated PCA
+- `rayon` -- (optional, `parallel` feature) parallel iterators
+- `serde` -- (optional, `serde` feature) serialization
 
 ## Tests
 
-149 unit tests + 1 doc test across 11 source files.
+161 tests across 15 source files.
 
 ## Source Files
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `lib.rs` | 46 | Module declarations, re-exports |
+| `lib.rs` | 55 | Module declarations, re-exports |
 | `cluster.rs` | 812 | K-means, DBSCAN, hierarchical clustering |
 | `distance.rs` | 309 | Distance metrics and pairwise matrices |
 | `encoding.rs` | 141 | One-hot and label encoding |
@@ -171,5 +214,9 @@ All ML primitives are implemented including clustering, distance metrics, sequen
 | `normalize.rs` | 255 | Min-max, z-score, L2 normalization |
 | `embedding.rs` | 262 | K-mer and composition vector embeddings |
 | `inference.rs` | 546 | KNN and linear regression |
+| `tree.rs` | 510 | Decision tree classifier (Gini impurity) |
+| `forest.rs` | 447 | Random forest classifier (bagged ensemble) |
+| `hmm.rs` | 770 | Hidden Markov Model (forward, backward, Viterbi, Baum-Welch) |
 | `reduction.rs` | 773 | PCA and t-SNE dimensionality reduction |
-| `umap.rs` | ~630 | UMAP dimensionality reduction |
+| `blas_pca.rs` | 123 | BLAS-accelerated PCA via ndarray (feature `blas`) |
+| `umap.rs` | 630 | UMAP dimensionality reduction |

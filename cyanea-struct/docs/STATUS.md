@@ -1,10 +1,10 @@
 # cyanea-struct
 
-Protein and nucleic acid 3D structure analysis: PDB parsing, geometric calculations, secondary structure assignment, structural superposition, and contact maps.
+Protein and nucleic acid 3D structure analysis: PDB parsing, mmCIF parsing, geometric calculations, secondary structure assignment, structural superposition, contact maps, Ramachandran validation, and B-factor analysis.
 
 ## Status: Complete
 
-All planned functionality is implemented including PDB parsing, distance/angle/dihedral calculation, RMSD, simplified DSSP, Kabsch superposition, and contact map computation.
+All planned functionality is implemented including PDB parsing, mmCIF parsing, distance/angle/dihedral calculation, RMSD, simplified and full DSSP, Kabsch superposition, contact map computation, Ramachandran validation, and B-factor analysis.
 
 ## Public API
 
@@ -24,6 +24,13 @@ All planned functionality is implemented including PDB parsing, distance/angle/d
 |----------|-------------|
 | `parse_pdb(input: &str) -> Result<Structure>` | Parse PDB format string |
 | `parse_pdb_file(path) -> Result<Structure>` | Parse PDB file (std only) |
+
+### mmCIF parsing (`mmcif.rs`)
+
+| Function | Description |
+|----------|-------------|
+| `parse_mmcif(input: &str) -> Result<Structure>` | Parse mmCIF/PDBx format string into a `Structure` |
+| `parse_mmcif_loop(lines: &[&str]) -> Vec<BTreeMap<String, String>>` | Parse a `loop_` construct into field-name to value records |
 
 ### Geometry (`geometry.rs`)
 
@@ -65,6 +72,24 @@ All planned functionality is implemented including PDB parsing, distance/angle/d
 | `compute_contact_map(chain) -> Result<ContactMap>` | CA-only contact map |
 | `compute_contact_map_allatom(chain) -> Result<ContactMap>` | All heavy atoms (minimum distance) |
 
+### Ramachandran validation (`ramachandran.rs`)
+
+| Type/Function | Description |
+|---------------|-------------|
+| `RamachandranRegion` | Enum: `Favored`, `Allowed`, `Outlier`, `Glycine`, `Proline`, `PreProline` |
+| `RamachandranRegion::code(&self) -> char` | Single-character code (`F`, `A`, `O`, `G`, `P`, `p`) |
+| `validate_ramachandran(phi, psi, residue_type) -> RamachandranRegion` | Classify phi/psi into Ramachandran region |
+| `ramachandran_report(structure) -> Result<Vec<(usize, String, f64, f64, RamachandranRegion)>>` | Per-residue Ramachandran report for all chains |
+
+### B-factor analysis (`analysis.rs`)
+
+| Type/Function | Description |
+|---------------|-------------|
+| `BFactorStats` | Descriptive statistics: `mean`, `std_dev`, `min`, `max`, `median` |
+| `residue_bfactors(structure) -> Result<Vec<(usize, String, f64)>>` | Per-residue average B-factors |
+| `chain_bfactors(structure) -> Result<Vec<(String, BFactorStats)>>` | Per-chain B-factor statistics |
+| `flexibility_score(structure) -> Result<Vec<(usize, f64)>>` | Normalized B-factor Z-scores per residue |
+
 ## Feature Flags
 
 | Flag | Default | Description |
@@ -82,17 +107,20 @@ Note: Uses `#![no_std]` with `alloc` -- core algorithms work without std.
 
 ## Tests
 
-36 unit tests + 1 doc test across 8 source files.
+76 tests across 11 source files.
 
 ## Source Files
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `lib.rs` | 96 | Module declarations, re-exports |
-| `types.rs` | 426 | Point3D, Atom, Residue, Chain, Structure |
-| `pdb.rs` | 383 | PDB format parser |
-| `geometry.rs` | 203 | Distance, angle, dihedral, RMSD |
-| `secondary.rs` | 455 | Secondary structure assignment (simplified DSSP) |
-| `superposition.rs` | 246 | Kabsch algorithm |
-| `contact.rs` | 283 | Contact map computation |
-| `linalg.rs` | 294 | Internal 3x3 matrix operations, SVD |
+| `lib.rs` | 106 | Module declarations, re-exports |
+| `types.rs` | 427 | Point3D, Atom, Residue, Chain, Structure |
+| `pdb.rs` | 384 | PDB format parser |
+| `mmcif.rs` | 630 | mmCIF/PDBx format parser |
+| `geometry.rs` | 204 | Distance, angle, dihedral, RMSD |
+| `secondary.rs` | 1123 | Secondary structure assignment (simplified and full DSSP) |
+| `superposition.rs` | 247 | Kabsch algorithm |
+| `contact.rs` | 324 | Contact map computation |
+| `ramachandran.rs` | 402 | Ramachandran plot validation |
+| `analysis.rs` | 405 | B-factor analysis and flexibility scoring |
+| `linalg.rs` | 295 | Internal 3x3 matrix operations, SVD |
