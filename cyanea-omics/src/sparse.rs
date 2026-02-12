@@ -152,6 +152,94 @@ impl SparseMatrix {
         self.cols.iter().filter(|&&c| c == col).count()
     }
 
+    /// Convert COO to CSR format.
+    ///
+    /// Returns `(data, indices, indptr)` where:
+    /// - `data` contains the non-zero values
+    /// - `indices` contains the column index for each value
+    /// - `indptr[i]..indptr[i+1]` gives the range of entries for row `i`
+    pub fn to_csr(&self) -> (Vec<f64>, Vec<usize>, Vec<usize>) {
+        // Build sorted order by (row, col)
+        let nnz = self.values.len();
+        let mut order: Vec<usize> = (0..nnz).collect();
+        order.sort_by_key(|&i| (self.rows[i], self.cols[i]));
+
+        let mut data = Vec::with_capacity(nnz);
+        let mut indices = Vec::with_capacity(nnz);
+        let mut indptr = vec![0usize; self.n_rows + 1];
+
+        for &i in &order {
+            data.push(self.values[i]);
+            indices.push(self.cols[i]);
+            indptr[self.rows[i] + 1] += 1;
+        }
+
+        // Cumulative sum to build indptr
+        for i in 1..=self.n_rows {
+            indptr[i] += indptr[i - 1];
+        }
+
+        (data, indices, indptr)
+    }
+
+    /// Create a sparse matrix from CSR format.
+    ///
+    /// - `data` — non-zero values
+    /// - `indices` — column index for each value
+    /// - `indptr` — row pointer array (length `n_rows + 1`)
+    pub fn from_csr(
+        data: Vec<f64>,
+        indices: Vec<usize>,
+        indptr: Vec<usize>,
+        n_rows: usize,
+        n_cols: usize,
+    ) -> Result<Self> {
+        if data.len() != indices.len() {
+            return Err(CyaneaError::InvalidInput(
+                "CSR data and indices must have the same length".into(),
+            ));
+        }
+        if indptr.len() != n_rows + 1 {
+            return Err(CyaneaError::InvalidInput(format!(
+                "CSR indptr length ({}) must be n_rows + 1 ({})",
+                indptr.len(),
+                n_rows + 1
+            )));
+        }
+
+        let nnz = data.len();
+        let mut rows = Vec::with_capacity(nnz);
+        let mut cols = Vec::with_capacity(nnz);
+
+        for row in 0..n_rows {
+            let start = indptr[row];
+            let end = indptr[row + 1];
+            for idx in start..end {
+                if idx >= nnz {
+                    return Err(CyaneaError::InvalidInput(format!(
+                        "CSR indptr references index {idx} but nnz is {nnz}"
+                    )));
+                }
+                if indices[idx] >= n_cols {
+                    return Err(CyaneaError::InvalidInput(format!(
+                        "CSR column index {} out of bounds for n_cols={}",
+                        indices[idx], n_cols
+                    )));
+                }
+                rows.push(row);
+                cols.push(indices[idx]);
+            }
+        }
+
+        Ok(Self {
+            rows,
+            cols,
+            values: data,
+            n_rows,
+            n_cols,
+        })
+    }
+
     /// Iterate over stored triplets `(row, col, value)`.
     pub fn iter(&self) -> impl Iterator<Item = (usize, usize, f64)> + '_ {
         self.rows
@@ -329,5 +417,65 @@ mod tests {
     fn test_zero_dimension_density() {
         let m = SparseMatrix::new(0, 0);
         assert_eq!(m.density(), 0.0);
+    }
+
+    #[test]
+    fn test_csr_roundtrip() {
+        let m = SparseMatrix::from_triplets(
+            vec![0, 0, 1, 2, 2],
+            vec![0, 2, 1, 0, 2],
+            vec![1.0, 2.0, 3.0, 4.0, 5.0],
+            3,
+            3,
+        )
+        .unwrap();
+
+        let (data, indices, indptr) = m.to_csr();
+        let m2 = SparseMatrix::from_csr(data, indices, indptr, 3, 3).unwrap();
+
+        assert_eq!(m2.shape(), (3, 3));
+        assert_eq!(m2.nnz(), 5);
+        assert_eq!(m2.get(0, 0), 1.0);
+        assert_eq!(m2.get(0, 2), 2.0);
+        assert_eq!(m2.get(1, 1), 3.0);
+        assert_eq!(m2.get(2, 0), 4.0);
+        assert_eq!(m2.get(2, 2), 5.0);
+        assert_eq!(m2.get(1, 0), 0.0);
+    }
+
+    #[test]
+    fn test_csr_empty() {
+        let m = SparseMatrix::new(3, 4);
+        let (data, indices, indptr) = m.to_csr();
+        assert!(data.is_empty());
+        assert!(indices.is_empty());
+        assert_eq!(indptr, vec![0, 0, 0, 0]);
+
+        let m2 = SparseMatrix::from_csr(data, indices, indptr, 3, 4).unwrap();
+        assert_eq!(m2.nnz(), 0);
+        assert_eq!(m2.shape(), (3, 4));
+    }
+
+    #[test]
+    fn test_csr_single_row() {
+        let m = SparseMatrix::from_triplets(
+            vec![0, 0, 0],
+            vec![0, 2, 4],
+            vec![1.0, 2.0, 3.0],
+            1,
+            5,
+        )
+        .unwrap();
+
+        let (data, indices, indptr) = m.to_csr();
+        assert_eq!(data, vec![1.0, 2.0, 3.0]);
+        assert_eq!(indices, vec![0, 2, 4]);
+        assert_eq!(indptr, vec![0, 3]);
+
+        let m2 = SparseMatrix::from_csr(data, indices, indptr, 1, 5).unwrap();
+        assert_eq!(m2.nnz(), 3);
+        assert_eq!(m2.get(0, 0), 1.0);
+        assert_eq!(m2.get(0, 2), 2.0);
+        assert_eq!(m2.get(0, 4), 3.0);
     }
 }

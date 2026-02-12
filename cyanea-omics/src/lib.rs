@@ -33,6 +33,8 @@ pub mod sparse;
 pub mod variant;
 pub mod annotation;
 pub mod single_cell;
+#[cfg(feature = "h5ad")]
+pub mod h5ad;
 
 pub use genomic::{GenomicInterval, GenomicPosition, Strand};
 pub use interval::IntervalSet;
@@ -40,3 +42,6 @@ pub use expr::ExpressionMatrix;
 pub use sparse::SparseMatrix;
 pub use variant::{Variant, VariantFilter, VariantType, Zygosity};
 pub use annotation::{Exon, Gene, GeneType, Transcript};
+pub use single_cell::ColumnData;
+#[cfg(feature = "h5ad")]
+pub use h5ad::{read_h5ad, write_h5ad};

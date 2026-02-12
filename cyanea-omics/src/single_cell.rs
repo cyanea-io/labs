@@ -65,6 +65,70 @@ impl MatrixData {
     }
 }
 
+/// A metadata column with typed data.
+///
+/// Supports string, numeric, and categorical columns as found in `.h5ad` files.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ColumnData {
+    /// Free-text string values.
+    Strings(Vec<String>),
+    /// Numeric (f64) values.
+    Numeric(Vec<f64>),
+    /// Categorical data stored as integer codes indexing into a category list.
+    Categorical {
+        codes: Vec<i32>,
+        categories: Vec<String>,
+    },
+}
+
+impl ColumnData {
+    /// Number of elements in this column.
+    pub fn len(&self) -> usize {
+        match self {
+            ColumnData::Strings(v) => v.len(),
+            ColumnData::Numeric(v) => v.len(),
+            ColumnData::Categorical { codes, .. } => codes.len(),
+        }
+    }
+
+    /// Whether the column is empty.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Try to get as string slice. Returns `None` if not `Strings` variant.
+    pub fn as_strings(&self) -> Option<&Vec<String>> {
+        match self {
+            ColumnData::Strings(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// Try to get as numeric slice. Returns `None` if not `Numeric` variant.
+    pub fn as_numeric(&self) -> Option<&Vec<f64>> {
+        match self {
+            ColumnData::Numeric(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    /// Subset to the given indices.
+    fn subset(&self, indices: &[usize]) -> Self {
+        match self {
+            ColumnData::Strings(v) => {
+                ColumnData::Strings(indices.iter().map(|&i| v[i].clone()).collect())
+            }
+            ColumnData::Numeric(v) => {
+                ColumnData::Numeric(indices.iter().map(|&i| v[i]).collect())
+            }
+            ColumnData::Categorical { codes, categories } => ColumnData::Categorical {
+                codes: indices.iter().map(|&i| codes[i]).collect(),
+                categories: categories.clone(),
+            },
+        }
+    }
+}
+
 /// Per-cell or per-gene quality control metrics.
 #[derive(Debug, Clone)]
 pub struct QcMetrics {
@@ -84,9 +148,9 @@ pub struct AnnData {
     /// Variable (gene) names.
     var_names: Vec<String>,
     /// Per-cell metadata.
-    obs: HashMap<String, Vec<String>>,
+    obs: HashMap<String, ColumnData>,
     /// Per-gene metadata.
-    var: HashMap<String, Vec<String>>,
+    var: HashMap<String, ColumnData>,
     /// Multi-dimensional observation annotations (e.g. PCA embeddings).
     obsm: HashMap<String, Vec<Vec<f64>>>,
     /// Multi-dimensional variable annotations.
@@ -164,42 +228,82 @@ impl AnnData {
         &self.var_names
     }
 
-    /// Add per-cell metadata column.
+    /// Add a per-cell string metadata column.
     pub fn add_obs(&mut self, key: &str, values: Vec<String>) -> Result<()> {
-        if values.len() != self.n_obs() {
+        self.add_obs_column(key, ColumnData::Strings(values))
+    }
+
+    /// Add a per-cell numeric metadata column.
+    pub fn add_obs_numeric(&mut self, key: &str, values: Vec<f64>) -> Result<()> {
+        self.add_obs_column(key, ColumnData::Numeric(values))
+    }
+
+    /// Add a per-cell metadata column of any type.
+    pub fn add_obs_column(&mut self, key: &str, data: ColumnData) -> Result<()> {
+        if data.len() != self.n_obs() {
             return Err(CyaneaError::InvalidInput(format!(
                 "obs '{}' length ({}) does not match n_obs ({})",
                 key,
-                values.len(),
+                data.len(),
                 self.n_obs()
             )));
         }
-        self.obs.insert(key.to_string(), values);
+        self.obs.insert(key.to_string(), data);
         Ok(())
     }
 
-    /// Get per-cell metadata column.
-    pub fn get_obs(&self, key: &str) -> Option<&Vec<String>> {
+    /// Get per-cell metadata column as typed data.
+    pub fn get_obs(&self, key: &str) -> Option<&ColumnData> {
         self.obs.get(key)
     }
 
-    /// Add per-gene metadata column.
+    /// Get per-cell metadata column as strings (convenience for backward compat).
+    pub fn get_obs_strings(&self, key: &str) -> Option<&Vec<String>> {
+        self.obs.get(key).and_then(|c| c.as_strings())
+    }
+
+    /// All observation metadata columns.
+    pub fn obs_columns(&self) -> &HashMap<String, ColumnData> {
+        &self.obs
+    }
+
+    /// Add a per-gene string metadata column.
     pub fn add_var(&mut self, key: &str, values: Vec<String>) -> Result<()> {
-        if values.len() != self.n_vars() {
+        self.add_var_column(key, ColumnData::Strings(values))
+    }
+
+    /// Add a per-gene numeric metadata column.
+    pub fn add_var_numeric(&mut self, key: &str, values: Vec<f64>) -> Result<()> {
+        self.add_var_column(key, ColumnData::Numeric(values))
+    }
+
+    /// Add a per-gene metadata column of any type.
+    pub fn add_var_column(&mut self, key: &str, data: ColumnData) -> Result<()> {
+        if data.len() != self.n_vars() {
             return Err(CyaneaError::InvalidInput(format!(
                 "var '{}' length ({}) does not match n_vars ({})",
                 key,
-                values.len(),
+                data.len(),
                 self.n_vars()
             )));
         }
-        self.var.insert(key.to_string(), values);
+        self.var.insert(key.to_string(), data);
         Ok(())
     }
 
-    /// Get per-gene metadata column.
-    pub fn get_var(&self, key: &str) -> Option<&Vec<String>> {
+    /// Get per-gene metadata column as typed data.
+    pub fn get_var(&self, key: &str) -> Option<&ColumnData> {
         self.var.get(key)
+    }
+
+    /// Get per-gene metadata column as strings (convenience for backward compat).
+    pub fn get_var_strings(&self, key: &str) -> Option<&Vec<String>> {
+        self.var.get(key).and_then(|c| c.as_strings())
+    }
+
+    /// All variable metadata columns.
+    pub fn var_columns(&self) -> &HashMap<String, ColumnData> {
+        &self.var
     }
 
     /// Add a multi-dimensional observation annotation (e.g. PCA embedding).
@@ -262,6 +366,21 @@ impl AnnData {
         self.layers.get(key)
     }
 
+    /// All observation multi-dimensional annotations.
+    pub fn obsm_keys(&self) -> &HashMap<String, Vec<Vec<f64>>> {
+        &self.obsm
+    }
+
+    /// All variable multi-dimensional annotations.
+    pub fn varm_keys(&self) -> &HashMap<String, Vec<Vec<f64>>> {
+        &self.varm
+    }
+
+    /// All alternative data layers.
+    pub fn layers_keys(&self) -> &HashMap<String, MatrixData> {
+        &self.layers
+    }
+
     /// Subset to the given observation indices.
     pub fn subset_obs(&self, indices: &[usize]) -> Result<AnnData> {
         for &i in indices {
@@ -280,9 +399,8 @@ impl AnnData {
         let mut adata = AnnData::new(x, obs_names, self.var_names.clone())?;
 
         // Subset obs metadata
-        for (key, values) in &self.obs {
-            let sub: Vec<String> = indices.iter().map(|&i| values[i].clone()).collect();
-            adata.obs.insert(key.clone(), sub);
+        for (key, col) in &self.obs {
+            adata.obs.insert(key.clone(), col.subset(indices));
         }
         // Copy var metadata
         adata.var = self.var.clone();
@@ -402,7 +520,7 @@ mod tests {
                 vec!["T-cell".into(), "B-cell".into(), "NK".into()],
             )
             .unwrap();
-        let ct = adata.get_obs("cell_type").unwrap();
+        let ct = adata.get_obs_strings("cell_type").unwrap();
         assert_eq!(ct[0], "T-cell");
         assert!(adata.get_obs("missing").is_none());
     }
@@ -423,7 +541,7 @@ mod tests {
                 vec!["coding".into(), "coding".into(), "lncRNA".into()],
             )
             .unwrap();
-        let gt = adata.get_var("gene_type").unwrap();
+        let gt = adata.get_var_strings("gene_type").unwrap();
         assert_eq!(gt[2], "lncRNA");
     }
 
@@ -470,7 +588,7 @@ mod tests {
         assert_eq!(sub.n_obs(), 2);
         assert_eq!(sub.n_vars(), 3);
         assert_eq!(sub.obs_names(), &["cell_1", "cell_3"]);
-        let labels = sub.get_obs("label").unwrap();
+        let labels = sub.get_obs_strings("label").unwrap();
         assert_eq!(labels, &["a", "c"]);
     }
 
