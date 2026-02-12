@@ -29,7 +29,7 @@ All crates are complete. Each has `docs/STATUS.md` with full API docs.
 | **cyanea-chem** | SMILES/SDF V2000/V3000, fingerprints, MACCS keys, properties, substructure, stereochemistry, canonical SMILES | 79 | cyanea-core, sha2 |
 | **cyanea-struct** | PDB, mmCIF, geometry, DSSP, Kabsch, contact maps, Ramachandran | 76 | cyanea-core, sha2 |
 | **cyanea-phylo** | Newick/NEXUS, distances, UPGMA/NJ, Fitch/Sankoff, ML likelihood, bootstrap | 101 | cyanea-core, cyanea-ml (optional) |
-| **cyanea-gpu** | Backend trait, CPU impl, buffers, ops, benchmarks | 43 | cyanea-core, criterion (bench) |
+| **cyanea-gpu** | Backend trait, CPU/CUDA/Metal backends, buffers, ops, benchmarks | 61 | cyanea-core, metal-rs, cudarc, criterion (bench) |
 | **cyanea-wasm** | JSON-based WASM bindings (seq, io, align, stats, ml, chem, struct, phylo) | 83 | serde_json, wasm-bindgen |
 | **cyanea-py** | Python bindings via PyO3 (seq, align, stats, ml, chem, struct, phylo, io) | — | pyo3 |
 
@@ -127,6 +127,5 @@ cargo check -p cyanea-native   # Check only (can't link without BEAM)
 
 ## What's Not Done
 
-- **GPU backends**: CUDA and Metal stubs exist but need hardware SDKs to implement
 - **Publishing**: Not yet on crates.io, PyPI, or npm (metadata ready, workflows pending)
 - **Competitive benchmarks**: Head-to-head vs rust-bio not yet published
