@@ -4,7 +4,7 @@ Unified file format parsing for bioinformatics and tabular data. Each parser is 
 
 ## Status: Complete
 
-CSV, VCF, BED, and GFF3 parsers are fully implemented. Each format includes both raw record parsing and summary statistics.
+CSV, VCF, BED, GFF3, SAM, BAM, CRAM, and Parquet parsers are fully implemented. Each format includes both raw record parsing and summary statistics.
 
 ## Public API
 
@@ -46,6 +46,51 @@ Coordinate convention: BED uses 0-based half-open internally (matching the BED s
 
 Coordinate conversion: GFF3 1-based closed coordinates are converted to 0-based half-open internally. Handles `##FASTA` sentinel, percent-encoded attributes, and `Parent` attribute hierarchy.
 
+### SAM (`sam.rs`, `sam` feature)
+
+| Type/Function | Description |
+|---------------|-------------|
+| `SamRecord` | `qname`, `flag`, `rname`, `pos`, `mapq`, `cigar`, `sequence`, `quality` |
+| `parse_sam(path) -> Result<Vec<SamRecord>>` | Parse SAM text format |
+| `SamStats` | `total_reads`, `mapped`, `unmapped`, `avg_mapq`, `mapq_distribution` |
+| `sam_stats(records) -> SamStats` | Compute stats from records |
+| `sam_stats_from_path(path) -> Result<SamStats>` | Streaming SAM statistics |
+
+### BAM (`bam.rs`, `bam` feature)
+
+| Type/Function | Description |
+|---------------|-------------|
+| `parse_bam(path) -> Result<Vec<SamRecord>>` | Parse BAM (BGZF-compressed) format |
+| `bam_stats(path) -> Result<SamStats>` | Streaming BAM statistics |
+| `BamReference` | Reference sequence metadata from BAM header |
+
+### CRAM (`cram.rs`, `cram` feature)
+
+| Type/Function | Description |
+|---------------|-------------|
+| `CramConfig` | Configuration: `reference_path: Option<PathBuf>` for reference FASTA |
+| `parse_cram(path, config) -> Result<Vec<SamRecord>>` | Parse CRAM format with reference |
+| `parse_cram_default(path) -> Result<Vec<SamRecord>>` | Parse CRAM without external reference |
+| `cram_stats(path, config) -> Result<SamStats>` | CRAM summary statistics |
+| `cram_stats_default(path) -> Result<SamStats>` | CRAM stats without external reference |
+
+Reuses `SamRecord` and `SamStats` from the SAM module. The `cram` feature implies `sam`.
+
+### Parquet (`parquet.rs`, `parquet` feature)
+
+| Type/Function | Description |
+|---------------|-------------|
+| `ParquetInfo` | `num_rows`, `num_columns`, `column_names`, `num_row_groups`, `created_by` |
+| `parquet_info(path) -> Result<ParquetInfo>` | Extract Parquet file metadata |
+| `write_variants_parquet(variants, path) -> Result<()>` | Write `Vec<Variant>` to Parquet |
+| `read_variants_parquet(path) -> Result<Vec<Variant>>` | Read variants from Parquet |
+| `parquet_variant_stats(path) -> Result<VcfStats>` | Variant statistics from Parquet |
+| `write_intervals_parquet(intervals, path) -> Result<()>` | Write `Vec<GenomicInterval>` to Parquet |
+| `read_intervals_parquet(path) -> Result<Vec<GenomicInterval>>` | Read intervals from Parquet |
+| `parquet_interval_stats(path) -> Result<BedStats>` | Interval statistics from Parquet |
+
+The `parquet` feature implies `vcf` and `bed` (reuses `VcfStats`, `BedStats`, `Variant`, `GenomicInterval`).
+
 ## Feature Flags
 
 | Flag | Default | Description |
@@ -54,6 +99,11 @@ Coordinate conversion: GFF3 1-based closed coordinates are converted to 0-based 
 | `vcf` | No | VCF variant parsing (requires `cyanea-omics`) |
 | `bed` | No | BED interval parsing (requires `cyanea-omics`) |
 | `gff` | No | GFF3 gene structure parsing (requires `cyanea-omics`) |
+| `sam` | No | SAM text alignment parsing |
+| `bam` | No | BAM binary alignment parsing (implies `sam`, requires `flate2`) |
+| `cram` | No | CRAM reference-based alignment (implies `sam`, requires noodles) |
+| `parquet` | No | Apache Parquet columnar format (implies `vcf`, `bed`) |
+| `parallel` | No | Rayon parallelism |
 | `wasm` | No | WASM target |
 
 ## Dependencies
@@ -61,17 +111,24 @@ Coordinate conversion: GFF3 1-based closed coordinates are converted to 0-based 
 - `cyanea-core` -- error types
 - `cyanea-omics` -- genomic types (`Variant`, `GenomicInterval`, `Gene`), optional
 - `csv`, `serde`, `serde_json` -- CSV parsing, optional
+- `flate2` -- BAM BGZF decompression, optional
+- `noodles-cram`, `noodles-sam`, `noodles-fasta`, `noodles-core` -- CRAM parsing, optional
+- `parquet`, `arrow` -- Apache Parquet/Arrow, optional
 
 ## Tests
 
-3 tests with default features (CSV only), 26 tests with all features enabled: CSV (4), VCF (5), BED (9), GFF3 (8).
+3 tests with default features (CSV only), 71 tests with all features enabled: CSV (3), VCF (5), BED (9), GFF3 (8), SAM (17), BAM (14), CRAM (7), Parquet (8).
 
 ## Source Files
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `lib.rs` | 33 | Module declarations, re-exports |
+| `lib.rs` | 61 | Module declarations, re-exports |
 | `csv.rs` | 134 | CSV info extraction |
 | `vcf.rs` | 262 | VCF variant parsing |
 | `bed.rs` | 278 | BED interval parsing |
 | `gff.rs` | 618 | GFF3 hierarchical gene parsing |
+| `sam.rs` | 632 | SAM text alignment parsing |
+| `bam.rs` | 855 | BAM binary alignment parsing |
+| `cram.rs` | 446 | CRAM reference-based alignment |
+| `parquet.rs` | 591 | Apache Parquet columnar format |

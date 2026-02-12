@@ -146,6 +146,23 @@ All omics data structures are implemented including genomic coordinates, interva
 
 **System requirement:** HDF5 1.10.x library (`brew install hdf5@1.10` on macOS, `apt install libhdf5-dev` on Linux). Build with `HDF5_DIR="$(brew --prefix hdf5@1.10)"`. Note: hdf5-sys 0.8 does not support HDF5 2.0.
 
+### Zarr reader/writer (`zarr.rs`, feature: `zarr`)
+
+| Function | Description |
+|----------|-------------|
+| `read_zarr(path) -> Result<AnnData>` | Read Zarr directory into AnnData container |
+| `write_zarr(adata, path) -> Result<()>` | Write AnnData container to Zarr directory |
+
+**Supported Zarr components** (mirrors h5ad):
+
+- `X` — dense arrays and CSR sparse matrices
+- `obs` / `var` — string, numeric, and categorical metadata columns
+- `obs_names` / `var_names` — observation and variable index names
+- `obsm` / `varm` — 2D embedding matrices (e.g. PCA, UMAP)
+- `layers` — alternative dense or sparse matrices
+
+Pure Rust implementation using zarrs 0.18 (Zarr v3) — no system library requirements.
+
 ## Feature Flags
 
 | Flag | Default | Description |
@@ -154,22 +171,25 @@ All omics data structures are implemented including genomic coordinates, interva
 | `wasm` | No | WASM target |
 | `serde` | No | Serialization support |
 | `h5ad` | No | HDF5-backed `.h5ad` file I/O (requires system HDF5 library) |
+| `zarr` | No | Zarr v3 directory-based file I/O (pure Rust) |
 
 ## Dependencies
 
 - `cyanea-core` — error types, traits
 - `hdf5` 0.8 (optional, `h5ad` feature) — HDF5 bindings
 - `ndarray` 0.15 (optional, `h5ad` feature) — array types for HDF5 interop
+- `zarrs` 0.18 (optional, `zarr` feature) — Zarr v3 storage
+- `serde_json` (optional, `zarr` feature) — metadata serialization
 
 ## Tests
 
-99 unit tests + 2 doc tests across 9 source files (with `h5ad` feature; 90 + 2 without).
+99 unit tests + 2 doc tests across 10 source files (with `zarr` feature; 90 + 2 without `zarr` or `h5ad`).
 
 ## Source Files
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `lib.rs` | 47 | Module declarations, re-exports |
+| `lib.rs` | 51 | Module declarations, re-exports |
 | `genomic.rs` | 291 | Coordinates, strand, position, interval |
 | `interval.rs` | 255 | IntervalSet with overlap/merge/coverage |
 | `expr.rs` | 411 | Dense expression matrix |
@@ -178,3 +198,4 @@ All omics data structures are implemented including genomic coordinates, interva
 | `annotation.rs` | 297 | Gene/Transcript/Exon hierarchy |
 | `single_cell.rs` | 631 | AnnData container with typed metadata |
 | `h5ad.rs` | 735 | HDF5 `.h5ad` reader/writer |
+| `zarr.rs` | 856 | Zarr v3 directory reader/writer |

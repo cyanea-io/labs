@@ -35,6 +35,8 @@ pub mod annotation;
 pub mod single_cell;
 #[cfg(feature = "h5ad")]
 pub mod h5ad;
+#[cfg(feature = "zarr")]
+pub mod zarr;
 
 pub use genomic::{GenomicInterval, GenomicPosition, Strand};
 pub use interval::IntervalSet;
@@ -45,3 +47,5 @@ pub use annotation::{Exon, Gene, GeneType, Transcript};
 pub use single_cell::ColumnData;
 #[cfg(feature = "h5ad")]
 pub use h5ad::{read_h5ad, write_h5ad};
+#[cfg(feature = "zarr")]
+pub use zarr::{read_zarr, write_zarr};

@@ -1,6 +1,6 @@
 # Cyanea Labs
 
-Rust bioinformatics ecosystem — 13 crates, 1067+ tests, targeting native, WASM, Python, and Elixir NIFs.
+Rust bioinformatics ecosystem — 13 crates, 1090+ tests, targeting native, WASM, Python, and Elixir NIFs.
 
 ## Workspace
 
@@ -21,9 +21,9 @@ All crates are complete. Each has `docs/STATUS.md` with full API docs.
 |-------|---------|------:|----------|
 | **cyanea-core** | Traits, errors, SHA-256, zstd, mmap | 14 | thiserror, sha2, zstd, flate2, memmap2 |
 | **cyanea-seq** | DNA/RNA/protein, FASTA/FASTQ, k-mers, 2-bit encoding, suffix array, FM-index, MinHash | 111 | cyanea-core, needletail |
-| **cyanea-io** | CSV, VCF, BED, GFF3, SAM, BAM (feature-gated) | 56 | cyanea-core, cyanea-omics, csv, flate2 |
+| **cyanea-io** | CSV, VCF, BED, GFF3, SAM, BAM, CRAM, Parquet (feature-gated) | 71 | cyanea-core, cyanea-omics, csv, flate2, noodles, arrow/parquet |
 | **cyanea-align** | NW, SW, semi-global, MSA, banded, seed-and-extend, minimizers, WFA, GPU dispatch | 138 | cyanea-core |
-| **cyanea-omics** | Genomic coords, intervals, matrices, variants, AnnData, h5ad | 99 | cyanea-core |
+| **cyanea-omics** | Genomic coords, intervals, matrices, variants, AnnData, h5ad, zarr | 99 | cyanea-core, zarrs |
 | **cyanea-stats** | Descriptive, correlation, hypothesis tests, distributions, PCA, effect sizes | 127 | cyanea-core |
 | **cyanea-ml** | Clustering, distances, embeddings, KNN, PCA, t-SNE, UMAP, random forest, HMM | 161 | cyanea-core |
 | **cyanea-chem** | SMILES/SDF V2000/V3000, fingerprints, MACCS keys, properties, substructure, stereochemistry, canonical SMILES | 79 | cyanea-core, sha2 |
@@ -55,6 +55,9 @@ All crates are complete. Each has `docs/STATUS.md` with full API docs.
 - `blas` — Optional BLAS-backed PCA in cyanea-ml and cyanea-stats
 - `simd` — SIMD-accelerated alignment in cyanea-align
 - `h5ad` — HDF5-backed `.h5ad` file I/O in cyanea-omics (requires system HDF5 1.10.x; build with `HDF5_DIR`)
+- `zarr` — Zarr v3 directory-based file I/O in cyanea-omics (pure Rust, zarrs 0.18)
+- `cram` — CRAM alignment format in cyanea-io (implies `sam`, noodles-cram 0.72)
+- `parquet` — Apache Parquet columnar format in cyanea-io (implies `vcf`, `bed`; arrow/parquet 54)
 
 ### Code patterns
 - Each alignment module (NW, SW, semi-global, seed-extend) has its own private `push_cigar` helper
@@ -126,5 +129,4 @@ cargo check -p cyanea-native   # Check only (can't link without BEAM)
 
 - **GPU backends**: CUDA and Metal stubs exist but need hardware SDKs to implement
 - **Publishing**: Not yet on crates.io, PyPI, or npm (metadata ready, workflows pending)
-- **Advanced formats**: CRAM, Parquet, HDF5/Zarr not implemented in cyanea-io
 - **Competitive benchmarks**: Head-to-head vs rust-bio not yet published

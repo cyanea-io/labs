@@ -15,12 +15,15 @@ std = []
 wasm = []
 serde = ["dep:serde", "cyanea-core/serde"]
 h5ad = ["dep:hdf5", "dep:ndarray"]
+zarr = ["dep:zarrs", "dep:serde_json"]
 
 [dependencies]
 cyanea-core = { path = "../cyanea-core", default-features = false }
 serde = { workspace = true, optional = true }
 hdf5 = { workspace = true, optional = true }
 ndarray = { version = "0.15", optional = true }
+zarrs = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

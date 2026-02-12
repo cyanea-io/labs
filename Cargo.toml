@@ -67,5 +67,18 @@ proptest = "1"
 # HDF5
 hdf5 = "0.8"
 
+# Parquet / Arrow
+parquet = { version = "54", default-features = false, features = ["arrow"] }
+arrow = { version = "54", default-features = false, features = ["prettyprint"] }
+
+# CRAM / SAM (noodles) — versions must align with noodles-cram's transitive deps
+noodles-cram = "0.72"
+noodles-sam = "0.67"
+noodles-fasta = "0.46"
+noodles-core = "0.15"
+
+# Zarr
+zarrs = { version = "0.18", default-features = false, features = ["filesystem"] }
+
 # Testing
 tempfile = "3"

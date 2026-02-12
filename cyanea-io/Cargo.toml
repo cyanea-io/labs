@@ -17,6 +17,8 @@ bed = ["dep:cyanea-omics"]
 gff = ["dep:cyanea-omics"]
 sam = []
 bam = ["sam", "dep:flate2"]
+parquet = ["dep:parquet", "dep:arrow", "vcf", "bed"]
+cram = ["sam", "dep:noodles-cram", "dep:noodles-sam", "dep:noodles-fasta", "dep:noodles-core"]
 wasm = []
 parallel = ["dep:rayon"]
 
@@ -28,6 +30,12 @@ serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
 flate2 = { workspace = true, optional = true }
+parquet = { workspace = true, optional = true }
+arrow = { workspace = true, optional = true }
+noodles-cram = { workspace = true, optional = true }
+noodles-sam = { workspace = true, optional = true }
+noodles-fasta = { workspace = true, optional = true }
+noodles-core = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

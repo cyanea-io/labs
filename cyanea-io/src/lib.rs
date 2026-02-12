@@ -25,6 +25,12 @@ pub mod sam;
 #[cfg(feature = "bam")]
 pub mod bam;
 
+#[cfg(feature = "parquet")]
+pub mod parquet;
+
+#[cfg(feature = "cram")]
+pub mod cram;
+
 // Re-exports for convenience.
 
 #[cfg(feature = "csv")]
@@ -44,3 +50,12 @@ pub use sam::{parse_sam, sam_stats, sam_stats_from_path, SamRecord, SamStats};
 
 #[cfg(feature = "bam")]
 pub use bam::{parse_bam, bam_stats, BamReference};
+
+#[cfg(feature = "parquet")]
+pub use parquet::{
+    parquet_info, parquet_interval_stats, parquet_variant_stats, read_intervals_parquet,
+    read_variants_parquet, write_intervals_parquet, write_variants_parquet, ParquetInfo,
+};
+
+#[cfg(feature = "cram")]
+pub use cram::{cram_stats, cram_stats_default, parse_cram, parse_cram_default, CramConfig};
