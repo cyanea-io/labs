@@ -44,6 +44,10 @@ All three alignment modes (global, local, semi-global) are fully implemented wit
 | `SubstitutionMatrix::blosum45()` | BLOSUM45 |
 | `SubstitutionMatrix::blosum80()` | BLOSUM80 |
 | `SubstitutionMatrix::pam250()` | PAM250 |
+| `SubstitutionMatrix::pam40()` | PAM40 (gap_open: -10, gap_extend: -2) |
+| `SubstitutionMatrix::pam120()` | PAM120 (gap_open: -11, gap_extend: -1) |
+| `SubstitutionMatrix::pam200()` | PAM200 (gap_open: -11, gap_extend: -1) |
+| `SubstitutionMatrix::blosum30()` | BLOSUM30 (gap_open: -14, gap_extend: -4) |
 
 ### Alignment functions
 
@@ -175,7 +179,7 @@ All three alignment modes (global, local, semi-global) are fully implemented wit
 
 ## Tests
 
-200 tests with `--features metal` (includes GPU dispatch tests on macOS).
+209 tests with `--features metal` (includes GPU dispatch tests on macOS).
 
 ## Source Files
 

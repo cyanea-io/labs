@@ -4,7 +4,7 @@ Unified file format parsing for bioinformatics and tabular data. Each parser is 
 
 ## Status: Complete
 
-CSV, VCF, BED, GFF3, SAM, BAM, CRAM, and Parquet parsers are fully implemented. Each format includes both raw record parsing and summary statistics.
+CSV, VCF, BED, BEDPE, GFF3, SAM, BAM, CRAM, and Parquet parsers are fully implemented. Each format includes both raw record parsing and summary statistics.
 
 ## Public API
 
@@ -91,6 +91,17 @@ Reuses `SamRecord` and `SamStats` from the SAM module. The `cram` feature implie
 
 The `parquet` feature implies `vcf` and `bed` (reuses `VcfStats`, `BedStats`, `Variant`, `GenomicInterval`).
 
+### BEDPE (`bedpe.rs`, `bed` feature)
+
+| Type/Function | Description |
+|---------------|-------------|
+| `BedpeRecord` | Paired-end record: `interval1`, `interval2` (as `GenomicInterval`), `name`, `score` |
+| `parse_bedpe(path) -> Result<Vec<BedpeRecord>>` | Parse BEDPE file (6 required + 4 optional columns) |
+| `BedpeStats` | `record_count`, `total_span`, `inter_chromosomal`, `intra_chromosomal`, `chromosomes` |
+| `bedpe_stats(path) -> Result<BedpeStats>` | Summary statistics |
+
+BEDPE format: 6 required columns (chrom1/start1/end1/chrom2/start2/end2), 4 optional (name/score/strand1/strand2). Skips `#`, `track`, and `browser` header lines. Feature-gated behind `bed`.
+
 ## Feature Flags
 
 | Flag | Default | Description |
@@ -117,7 +128,7 @@ The `parquet` feature implies `vcf` and `bed` (reuses `VcfStats`, `BedStats`, `V
 
 ## Tests
 
-3 tests with default features (CSV only), 71 tests with all features enabled: CSV (3), VCF (5), BED (9), GFF3 (8), SAM (17), BAM (14), CRAM (7), Parquet (8).
+3 tests with default features (CSV only), 81 tests with all features enabled: CSV (3), VCF (5), BED (9), BEDPE (10), GFF3 (8), SAM (17), BAM (14), CRAM (7), Parquet (8).
 
 ## Source Files
 
@@ -132,3 +143,4 @@ The `parquet` feature implies `vcf` and `bed` (reuses `VcfStats`, `BedStats`, `V
 | `bam.rs` | 855 | BAM binary alignment parsing |
 | `cram.rs` | 446 | CRAM reference-based alignment |
 | `parquet.rs` | 591 | Apache Parquet columnar format |
+| `bedpe.rs` | 358 | BEDPE paired-end interval parsing |

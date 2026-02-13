@@ -35,6 +35,7 @@
 //! ```
 
 pub mod alphabet;
+pub mod bwt;
 pub mod codon;
 pub mod fasta;
 #[cfg(feature = "std")]
@@ -98,3 +99,6 @@ pub use pssm::{dna_mapping, protein_mapping, Pssm, PssmDna, PssmProtein};
 
 // Re-export ORF finder
 pub use orf::{find_orfs, find_orfs_both_strands, find_orfs_with_codons, OrfResult, Strand};
+
+// Re-export BWT
+pub use bwt::Bwt;

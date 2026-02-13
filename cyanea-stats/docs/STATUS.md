@@ -87,6 +87,77 @@ All statistical functionality is implemented including descriptive statistics, c
 
 When the `blas` feature is enabled, `pca` dispatches to an ndarray-based implementation (`blas_pca.rs`) that uses matrix multiply for covariance computation and power iteration, which can leverage BLAS for acceleration.
 
+### Bayesian statistics (`bayesian.rs`)
+
+Conjugate prior distributions for Bayesian updating.
+
+| Type | Description |
+|------|-------------|
+| `Beta` | Beta distribution (conjugate prior for binomial likelihood) |
+| `Gamma` | Gamma distribution (conjugate prior for Poisson likelihood) |
+| `NormalConjugate` | Normal-Normal conjugate model (known observation variance) |
+| `Dirichlet` | Dirichlet distribution (conjugate prior for multinomial likelihood) |
+
+**Beta methods:**
+
+| Method | Description |
+|--------|-------------|
+| `new(alpha, beta) -> Result<Self>` | Create with shape parameters (alpha, beta > 0) |
+| `update_binomial(&self, successes, trials) -> Self` | Posterior after observing binomial data |
+
+Implements `Distribution` trait (`pdf`, `cdf`, `mean`, `variance`).
+
+**Gamma methods:**
+
+| Method | Description |
+|--------|-------------|
+| `new(shape, rate) -> Result<Self>` | Create with shape and rate (both > 0) |
+| `update_poisson(&self, count) -> Self` | Posterior after observing a Poisson count |
+| `update_poisson_batch(&self, counts) -> Self` | Posterior after observing multiple Poisson counts |
+
+Implements `Distribution` trait (`pdf`, `cdf`, `mean`, `variance`).
+
+**NormalConjugate methods:**
+
+| Method | Description |
+|--------|-------------|
+| `new(prior_mu, prior_var, obs_var) -> Result<Self>` | Create with prior mean, prior variance, and observation variance |
+| `update(&self, observation) -> Self` | Posterior after one observation |
+| `update_batch(&self, observations) -> Self` | Posterior after multiple observations |
+| `posterior_mean(&self) -> f64` | Posterior mean |
+| `posterior_variance(&self) -> f64` | Posterior variance |
+
+**Dirichlet methods:**
+
+| Method | Description |
+|--------|-------------|
+| `new(alpha: Vec<f64>) -> Result<Self>` | Create from concentration parameters (all > 0) |
+| `symmetric(k, alpha) -> Result<Self>` | Create symmetric Dirichlet with k categories |
+| `update_multinomial(&self, counts) -> Self` | Posterior after observing multinomial counts |
+| `mean(&self) -> Vec<f64>` | Expected category probabilities |
+| `variance(&self) -> Vec<f64>` | Variance for each category |
+| `ln_pdf(&self, x) -> Result<f64>` | Log probability density |
+
+### Combinatorics (`combinatorics.rs`)
+
+Exact and log-space combinatorial functions with overflow protection.
+
+| Function | Description |
+|----------|-------------|
+| `factorial(n) -> Option<u64>` | Exact factorial (None if n > 20) |
+| `ln_factorial(n) -> f64` | Log-space factorial via ln_gamma(n+1) |
+| `binomial(n, k) -> Option<u64>` | Exact binomial coefficient with overflow check |
+| `ln_binomial(n, k) -> Result<f64>` | Log-space binomial coefficient |
+| `permutations(n, k) -> Option<u64>` | Exact k-permutations of n |
+| `ln_permutations(n, k) -> Result<f64>` | Log-space permutations |
+| `multinomial(n, counts) -> Option<u64>` | Exact multinomial coefficient |
+| `ln_multinomial(n, counts) -> Result<f64>` | Log-space multinomial coefficient |
+| `combinations(n, k) -> Combinations` | Iterator over all k-element subsets of [0, n) |
+
+| Type | Description |
+|------|-------------|
+| `Combinations` | Iterator yielding `Vec<usize>` subsets in lexicographic order |
+
 ## Feature Flags
 
 | Flag | Default | Description |
@@ -105,7 +176,7 @@ When the `blas` feature is enabled, `pca` dispatches to an ndarray-based impleme
 
 ## Tests
 
-127 tests across 10 source files.
+167 tests across 12 source files.
 
 ## Source Files
 
@@ -121,3 +192,5 @@ When the `blas` feature is enabled, `pca` dispatches to an ndarray-based impleme
 | `effect_size.rs` | 253 | Cohen's d, eta-squared, odds ratio, relative risk |
 | `reduction.rs` | 284 | PCA dimensionality reduction |
 | `blas_pca.rs` | 117 | BLAS-accelerated PCA via ndarray (feature-gated, internal to reduction) |
+| `bayesian.rs` | 568 | Bayesian conjugate priors (Beta, Gamma, NormalConjugate, Dirichlet) |
+| `combinatorics.rs` | 311 | Combinatorial functions (factorial, binomial, permutations, multinomial, combinations) |

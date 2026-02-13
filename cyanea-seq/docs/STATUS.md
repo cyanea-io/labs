@@ -255,6 +255,24 @@ Bidirectional FM-Index for strand-aware search on DNA sequences. Indexes `text#r
 | `backward_search(&self, pattern: &[u8]) -> BiInterval` | Full backward search for a pattern |
 | `smems(&self, query: &[u8], min_len: usize) -> Vec<(usize, usize, BiInterval)>` | Enumerate super-maximal exact matches (query_start, query_end, interval) |
 
+### BWT utilities (`bwt.rs`)
+
+Standalone Burrows-Wheeler Transform construction and inversion.
+
+| Type | Description |
+|------|-------------|
+| `Bwt` | Burrows-Wheeler Transform with primary index |
+
+**Bwt methods:**
+
+| Method | Description |
+|--------|-------------|
+| `build(text: &[u8]) -> Self` | Build BWT from text (SA-via-sort, sentinel appended internally) |
+| `as_bytes(&self) -> &[u8]` | The BWT string |
+| `primary_index(&self) -> usize` | Position of sentinel in the BWT |
+| `len(&self) -> usize` | Length of BWT (text length + 1) |
+| `invert(&self) -> Vec<u8>` | Reconstruct original text via LF-mapping |
+
 ### MinHash sketching (`minhash.rs`)
 
 Bottom-k MinHash and scaled FracMinHash sketching for rapid genome comparison. Estimates Jaccard similarity, containment, and average nucleotide identity (ANI) between DNA sequences without full alignment. Uses canonical k-mers (min of forward and reverse complement hash) for strand-agnostic sketching.
@@ -312,7 +330,7 @@ Bottom-k MinHash and scaled FracMinHash sketching for rapid genome comparison. E
 
 ## Tests
 
-205 tests across 18 source files.
+215 tests across 19 source files.
 
 ## Source Files
 
@@ -336,3 +354,4 @@ Bottom-k MinHash and scaled FracMinHash sketching for rapid genome comparison. E
 | `orf.rs` | 288 | Open reading frame finder |
 | `fasta_index.rs` | 421 | FASTA indexed reader (.fai) |
 | `fmd_index.rs` | 732 | Bidirectional FM-Index (FMD-Index) |
+| `bwt.rs` | 225 | Standalone BWT construction and inversion |

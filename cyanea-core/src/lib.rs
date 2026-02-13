@@ -11,6 +11,9 @@
 pub mod error;
 pub mod traits;
 pub mod hash;
+pub mod prob;
+pub mod bitvec;
+pub mod fenwick;
 
 #[cfg(feature = "std")]
 pub mod compress;
@@ -20,3 +23,6 @@ pub mod mmap;
 
 pub use error::{CyaneaError, Result};
 pub use traits::*;
+pub use prob::{LogProb, PhredProb};
+pub use bitvec::{RankSelectBitVec, WaveletMatrix};
+pub use fenwick::FenwickTree;

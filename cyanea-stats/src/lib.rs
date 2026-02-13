@@ -27,6 +27,8 @@
 //! assert!((stats.mean - 5.0).abs() < 1e-10);
 //! ```
 
+pub mod bayesian;
+pub mod combinatorics;
 pub mod correction;
 pub mod correlation;
 pub mod descriptive;
@@ -36,6 +38,11 @@ pub mod rank;
 pub mod reduction;
 pub mod testing;
 
+pub use bayesian::{Beta, Dirichlet, Gamma, NormalConjugate};
+pub use combinatorics::{
+    binomial, combinations, factorial, ln_binomial, ln_factorial, ln_multinomial, ln_permutations,
+    multinomial, permutations, Combinations,
+};
 pub use correction::CorrectionMethod;
 pub use correlation::CorrelationMatrix;
 pub use descriptive::DescriptiveStats;

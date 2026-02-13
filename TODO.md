@@ -6,18 +6,18 @@ Last updated: 2026-02-13
 
 ---
 
-## Status: All 13 crates complete (1218+ tests)
+## Status: All 13 crates complete (1324+ tests)
 
 Every crate has a `docs/STATUS.md` with full API documentation.
 
 | Crate | Status | Tests |
 |-------|--------|------:|
-| cyanea-core | Complete | 14 |
-| cyanea-seq | Complete (FASTA, FASTQ, k-mers, 2-bit encoding, suffix arrays, FM-index, FMD-Index, MinHash, pattern matching, PSSM, ORF finder, FASTA indexed reader) | 205 |
-| cyanea-io | Complete (CSV, VCF, BED, GFF3, SAM, BAM, CRAM, Parquet) | 71 |
-| cyanea-align | Complete (NW, SW, semi-global, banded, MSA, SIMD SW, seed-and-extend, minimizers, WFA, GPU dispatch, POA, LCSk++, pair HMM) | 200 |
+| cyanea-core | Complete (traits, errors, hashing, compression, mmap, probability types, bitvectors, Fenwick tree) | 58 |
+| cyanea-seq | Complete (FASTA, FASTQ, k-mers, 2-bit encoding, suffix arrays, FM-index, FMD-Index, BWT, MinHash, pattern matching, PSSM, ORF finder, FASTA indexed reader) | 215 |
+| cyanea-io | Complete (CSV, VCF, BED, BEDPE, GFF3, SAM, BAM, CRAM, Parquet) | 81 |
+| cyanea-align | Complete (NW, SW, semi-global, banded, MSA, SIMD SW, seed-and-extend, minimizers, WFA, GPU dispatch, POA, LCSk++, pair HMM, PAM40/120/200, BLOSUM30) | 209 |
 | cyanea-omics | Complete (genomic coords, intervals, matrices, variants, AnnData, h5ad, zarr) | 99 |
-| cyanea-stats | Complete (descriptive, correlation, hypothesis tests, distributions, PCA, effect sizes, chi-squared, Fisher's exact) | 127 |
+| cyanea-stats | Complete (descriptive, correlation, hypothesis tests, distributions, PCA, effect sizes, chi-squared, Fisher's exact, Bayesian conjugate priors, combinatorics) | 167 |
 | cyanea-ml | Complete (clustering, distances, embeddings, KNN, PCA, t-SNE, UMAP, random forest, regression, HMM) | 161 |
 | cyanea-chem | Complete (SMILES, SDF V2000/V3000, fingerprints, MACCS keys, properties, substructure, stereochemistry, canonical SMILES) | 79 |
 | cyanea-struct | Complete (PDB, mmCIF, geometry, DSSP, Kabsch, contact maps, Ramachandran) | 76 |
@@ -135,16 +135,16 @@ Every crate has a `docs/STATUS.md` with full API documentation.
 - [x] Sparse alignment (LCSk++) for long sequences
 - [x] Pair HMM (Match/Insert/Delete states, log-space)
 
-### Medium-Value (roadmap only)
+### Medium-Value
 
-- [ ] Additional PAM matrices (PAM40, PAM120, PAM200) + BLOSUM30 → `cyanea-align`
-- [ ] BWT utilities (standalone construction/querying) → `cyanea-seq`
-- [ ] LogProb / PHREDProb newtypes → `cyanea-core`
-- [ ] Bayesian statistics (conjugate priors) → `cyanea-stats`
-- [ ] Rank/select bitvectors, wavelet matrix → `cyanea-core`
-- [ ] Fenwick tree → `cyanea-core`
-- [ ] BEDPE format → `cyanea-io`
-- [ ] Combinatorics utilities → `cyanea-stats`
+- [x] Additional PAM matrices (PAM40, PAM120, PAM200) + BLOSUM30 → `cyanea-align`
+- [x] BWT utilities (standalone construction/querying) → `cyanea-seq`
+- [x] LogProb / PhredProb newtypes → `cyanea-core`
+- [x] Bayesian statistics (conjugate priors: Beta, Gamma, NormalConjugate, Dirichlet) → `cyanea-stats`
+- [x] Rank/select bitvectors, wavelet matrix → `cyanea-core`
+- [x] Fenwick tree → `cyanea-core`
+- [x] BEDPE format → `cyanea-io`
+- [x] Combinatorics utilities (factorial, binomial, permutations, multinomial, combinations iterator) → `cyanea-stats`
 
 ---
 

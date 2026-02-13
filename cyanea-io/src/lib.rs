@@ -16,6 +16,9 @@ pub mod vcf;
 #[cfg(feature = "bed")]
 pub mod bed;
 
+#[cfg(feature = "bed")]
+pub mod bedpe;
+
 #[cfg(feature = "gff")]
 pub mod gff;
 
@@ -41,6 +44,9 @@ pub use vcf::{parse_vcf, vcf_stats, VcfStats};
 
 #[cfg(feature = "bed")]
 pub use bed::{bed_stats, parse_bed, parse_bed_intervals, BedRecord, BedStats};
+
+#[cfg(feature = "bed")]
+pub use bedpe::{bedpe_stats, parse_bedpe, BedpeRecord, BedpeStats};
 
 #[cfg(feature = "gff")]
 pub use gff::{gff3_stats, parse_gff3, GffStats};
