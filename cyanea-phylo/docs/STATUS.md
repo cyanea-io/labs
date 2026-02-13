@@ -119,7 +119,7 @@ All phylogenetics functionality is implemented including tree representation, Ne
 
 ## Tests
 
-101 tests across 10 source files.
+110 tests across 10 source files.
 
 ## Source Files
 
