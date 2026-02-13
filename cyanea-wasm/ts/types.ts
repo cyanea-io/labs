@@ -47,16 +47,48 @@ export interface FastqRecord {
  * CIGAR operation describing how aligned sequences relate.
  *
  * Serde serialization of the Rust enum produces tagged objects like:
- *   { "Match": 4 }
- *   { "Mismatch": 1 }
- *   { "Insertion": 2 }
- *   { "Deletion": 1 }
+ *   { "Match": 4 }      — SAM '=' (sequence match)
+ *   { "Mismatch": 1 }   — SAM 'X' (sequence mismatch)
+ *   { "Insertion": 2 }  — SAM 'I' (insertion in query)
+ *   { "Deletion": 1 }   — SAM 'D' (deletion from query)
+ *   { "AlnMatch": 10 }  — SAM 'M' (alignment match, ambiguous)
+ *   { "Skip": 100 }     — SAM 'N' (skipped region / intron)
+ *   { "SoftClip": 5 }   — SAM 'S' (soft clipping)
+ *   { "HardClip": 3 }   — SAM 'H' (hard clipping)
+ *   { "Padding": 1 }    — SAM 'P' (silent deletion from padded ref)
  */
 export type CigarOp =
   | { Match: number }
   | { Mismatch: number }
   | { Insertion: number }
-  | { Deletion: number };
+  | { Deletion: number }
+  | { AlnMatch: number }
+  | { Skip: number }
+  | { SoftClip: number }
+  | { HardClip: number }
+  | { Padding: number };
+
+/** Statistics computed from a CIGAR string. */
+export interface CigarStats {
+  /** Compact CIGAR string representation. */
+  cigar_string: string;
+  /** Reference bases consumed (M, =, X, D, N). */
+  reference_consumed: number;
+  /** Query bases consumed (M, =, X, I, S). */
+  query_consumed: number;
+  /** Aligned columns (M, =, X, I, D). */
+  alignment_columns: number;
+  /** Sequence identity: = / (M + = + X + I + D). */
+  identity: number;
+  /** Number of gap openings (I or D runs). */
+  gap_count: number;
+  /** Total bases in gaps (I + D). */
+  gap_bases: number;
+  /** Soft-clipped bases. */
+  soft_clipped: number;
+  /** Hard-clipped bases. */
+  hard_clipped: number;
+}
 
 /** Result of a pairwise sequence alignment. */
 export interface AlignmentResult {

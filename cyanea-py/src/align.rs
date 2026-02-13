@@ -232,6 +232,140 @@ fn poa_consensus(sequences: Vec<Vec<u8>>) -> PyResult<Vec<u8>> {
 }
 
 // ---------------------------------------------------------------------------
+// CIGAR utilities
+// ---------------------------------------------------------------------------
+
+/// CIGAR statistics result.
+#[pyclass(frozen, get_all)]
+pub struct CigarStats {
+    pub cigar_string: String,
+    pub reference_consumed: usize,
+    pub query_consumed: usize,
+    pub alignment_columns: usize,
+    pub identity: f64,
+    pub gap_count: usize,
+    pub gap_bases: usize,
+    pub soft_clipped: usize,
+    pub hard_clipped: usize,
+}
+
+/// Parse a SAM CIGAR string into a list of (op_char, length) tuples.
+///
+/// Accepts the full SAM alphabet (M, I, D, N, S, H, P, =, X) and ``*``.
+///
+/// >>> parse_cigar("10M3I4D")
+/// [('M', 10), ('I', 3), ('D', 4)]
+#[pyfunction]
+fn parse_cigar(cigar: &str) -> PyResult<Vec<(char, usize)>> {
+    let ops = cyanea_align::cigar::parse_cigar(cigar).into_pyresult()?;
+    Ok(ops.iter().map(|op| (op.code(), op.len())).collect())
+}
+
+/// Validate a CIGAR string against SAM spec rules.
+///
+/// Returns ``None`` on success; raises ``ValueError`` on invalid CIGAR.
+#[pyfunction]
+fn validate_cigar(cigar: &str) -> PyResult<()> {
+    let ops = cyanea_align::cigar::parse_cigar(cigar).into_pyresult()?;
+    cyanea_align::cigar::validate_cigar(&ops).into_pyresult()
+}
+
+/// Compute statistics from a CIGAR string.
+///
+/// Returns a :class:`CigarStats` object with reference/query consumed,
+/// identity, gap counts, and clipping totals.
+#[pyfunction]
+fn cigar_stats(cigar: &str) -> PyResult<CigarStats> {
+    let ops = cyanea_align::cigar::parse_cigar(cigar).into_pyresult()?;
+    let (soft, hard) = cyanea_align::cigar::clipped_bases(&ops);
+    Ok(CigarStats {
+        cigar_string: cyanea_align::cigar::cigar_string(&ops),
+        reference_consumed: cyanea_align::cigar::reference_consumed(&ops),
+        query_consumed: cyanea_align::cigar::query_consumed(&ops),
+        alignment_columns: cyanea_align::cigar::alignment_columns(&ops),
+        identity: cyanea_align::cigar::identity(&ops),
+        gap_count: cyanea_align::cigar::gap_count(&ops),
+        gap_bases: cyanea_align::cigar::gap_bases(&ops),
+        soft_clipped: soft,
+        hard_clipped: hard,
+    })
+}
+
+/// Reconstruct gapped alignment from CIGAR and ungapped sequences.
+///
+/// Returns a tuple of ``(aligned_query, aligned_target)`` byte sequences.
+#[pyfunction]
+fn cigar_to_alignment(cigar: &str, query: &[u8], target: &[u8]) -> PyResult<(Vec<u8>, Vec<u8>)> {
+    let ops = cyanea_align::cigar::parse_cigar(cigar).into_pyresult()?;
+    cyanea_align::cigar::cigar_to_alignment(&ops, query, target).into_pyresult()
+}
+
+/// Extract a CIGAR string from a gapped alignment (using =/X distinction).
+///
+/// Both sequences must have the same length, with ``b'-'`` for gaps.
+#[pyfunction]
+fn alignment_to_cigar(query: &[u8], target: &[u8]) -> PyResult<String> {
+    let ops = cyanea_align::cigar::alignment_to_cigar(query, target).into_pyresult()?;
+    Ok(cyanea_align::cigar::cigar_string(&ops))
+}
+
+/// Generate a SAM MD:Z tag from CIGAR and ungapped sequences.
+#[pyfunction]
+fn generate_md_tag(cigar: &str, query: &[u8], reference: &[u8]) -> PyResult<String> {
+    let ops = cyanea_align::cigar::parse_cigar(cigar).into_pyresult()?;
+    cyanea_align::cigar::generate_md_tag(&ops, query, reference).into_pyresult()
+}
+
+/// Merge adjacent same-type CIGAR operations.
+#[pyfunction]
+fn merge_cigar(cigar: &str) -> PyResult<String> {
+    let ops = cyanea_align::cigar::parse_cigar(cigar).into_pyresult()?;
+    Ok(cyanea_align::cigar::cigar_string(
+        &cyanea_align::cigar::merge_adjacent(&ops),
+    ))
+}
+
+/// Reverse CIGAR operation order.
+#[pyfunction]
+fn reverse_cigar(cigar: &str) -> PyResult<String> {
+    let ops = cyanea_align::cigar::parse_cigar(cigar).into_pyresult()?;
+    Ok(cyanea_align::cigar::cigar_string(
+        &cyanea_align::cigar::reverse_cigar(&ops),
+    ))
+}
+
+/// Collapse =/X operations into M (alignment match).
+#[pyfunction]
+fn collapse_cigar(cigar: &str) -> PyResult<String> {
+    let ops = cyanea_align::cigar::parse_cigar(cigar).into_pyresult()?;
+    Ok(cyanea_align::cigar::cigar_string(
+        &cyanea_align::cigar::collapse_matches(&ops),
+    ))
+}
+
+/// Convert hard clips (H) to soft clips (S).
+#[pyfunction]
+fn hard_clip_to_soft(cigar: &str) -> PyResult<String> {
+    let ops = cyanea_align::cigar::parse_cigar(cigar).into_pyresult()?;
+    Ok(cyanea_align::cigar::cigar_string(
+        &cyanea_align::cigar::hard_clip_to_soft(&ops),
+    ))
+}
+
+/// Split CIGAR at a reference coordinate.
+///
+/// Returns a tuple of ``(left_cigar, right_cigar)`` strings.
+#[pyfunction]
+fn split_cigar(cigar: &str, ref_pos: usize) -> PyResult<(String, String)> {
+    let ops = cyanea_align::cigar::parse_cigar(cigar).into_pyresult()?;
+    let (left, right) = cyanea_align::cigar::split_at_reference(&ops, ref_pos);
+    Ok((
+        cyanea_align::cigar::cigar_string(&left),
+        cyanea_align::cigar::cigar_string(&right),
+    ))
+}
+
+// ---------------------------------------------------------------------------
 // Submodule registration
 // ---------------------------------------------------------------------------
 
@@ -239,12 +373,24 @@ pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(parent.py(), "align")?;
     m.add_class::<AlignmentResult>()?;
     m.add_class::<MsaResult>()?;
+    m.add_class::<CigarStats>()?;
     m.add_function(wrap_pyfunction!(align_dna, &m)?)?;
     m.add_function(wrap_pyfunction!(align_protein, &m)?)?;
     m.add_function(wrap_pyfunction!(align_batch, &m)?)?;
     m.add_function(wrap_pyfunction!(align_banded, &m)?)?;
     m.add_function(wrap_pyfunction!(progressive_msa, &m)?)?;
     m.add_function(wrap_pyfunction!(poa_consensus, &m)?)?;
+    m.add_function(wrap_pyfunction!(parse_cigar, &m)?)?;
+    m.add_function(wrap_pyfunction!(validate_cigar, &m)?)?;
+    m.add_function(wrap_pyfunction!(cigar_stats, &m)?)?;
+    m.add_function(wrap_pyfunction!(cigar_to_alignment, &m)?)?;
+    m.add_function(wrap_pyfunction!(alignment_to_cigar, &m)?)?;
+    m.add_function(wrap_pyfunction!(generate_md_tag, &m)?)?;
+    m.add_function(wrap_pyfunction!(merge_cigar, &m)?)?;
+    m.add_function(wrap_pyfunction!(reverse_cigar, &m)?)?;
+    m.add_function(wrap_pyfunction!(collapse_cigar, &m)?)?;
+    m.add_function(wrap_pyfunction!(hard_clip_to_soft, &m)?)?;
+    m.add_function(wrap_pyfunction!(split_cigar, &m)?)?;
     parent.add_submodule(&m)?;
     Ok(())
 }

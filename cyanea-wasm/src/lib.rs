@@ -52,6 +52,10 @@ pub use seq::{
 
 // align
 pub use align::{align_dna, align_dna_custom, align_protein, align_batch};
+pub use align::{
+    parse_cigar, validate_cigar, cigar_stats, cigar_to_alignment, alignment_to_cigar,
+    generate_md_tag, merge_cigar, reverse_cigar, collapse_cigar, hard_clip_to_soft, split_cigar,
+};
 
 // stats
 pub use stats::{

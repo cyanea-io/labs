@@ -16,6 +16,8 @@
 import type {
   FastaStats,
   FastqRecord,
+  CigarOp,
+  CigarStats,
   AlignmentResult,
   AlignmentMode,
   SubstitutionMatrix,
@@ -40,6 +42,8 @@ import type {
 export type {
   FastaStats,
   FastqRecord,
+  CigarOp,
+  CigarStats,
   AlignmentResult,
   AlignmentMode,
   SubstitutionMatrix,
@@ -81,6 +85,17 @@ import {
   align_dna_custom as _raw_align_dna_custom,
   align_protein as _raw_align_protein,
   align_batch as _raw_align_batch,
+  parse_cigar as _raw_parse_cigar,
+  validate_cigar as _raw_validate_cigar,
+  cigar_stats as _raw_cigar_stats,
+  cigar_to_alignment as _raw_cigar_to_alignment,
+  alignment_to_cigar as _raw_alignment_to_cigar,
+  generate_md_tag as _raw_generate_md_tag,
+  merge_cigar as _raw_merge_cigar,
+  reverse_cigar as _raw_reverse_cigar,
+  collapse_cigar as _raw_collapse_cigar,
+  hard_clip_to_soft as _raw_hard_clip_to_soft,
+  split_cigar as _raw_split_cigar,
   describe as _raw_describe,
   pearson as _raw_pearson,
   spearman as _raw_spearman,
@@ -293,6 +308,134 @@ export namespace Align {
     return unwrap<AlignmentResult[]>(
       _raw_align_batch(pairsJson, mode, matchScore, mismatchScore, gapOpen, gapExtend),
     );
+  }
+
+  // -- CIGAR utilities --
+
+  /**
+   * Parse a SAM CIGAR string into an array of operations.
+   *
+   * Accepts the full SAM alphabet (M, I, D, N, S, H, P, =, X) and `*`.
+   *
+   * @param cigar - CIGAR string (e.g. "10M3I4D2S")
+   */
+  export function parseCigar(cigar: string): CigarOp[] {
+    return unwrap<CigarOp[]>(_raw_parse_cigar(cigar));
+  }
+
+  /**
+   * Validate a CIGAR string against SAM spec rules.
+   *
+   * Returns `true` if valid.
+   * @throws CyaneaError if the CIGAR is invalid
+   */
+  export function validateCigar(cigar: string): boolean {
+    return unwrap<boolean>(_raw_validate_cigar(cigar));
+  }
+
+  /**
+   * Compute statistics from a CIGAR string.
+   *
+   * @param cigar - CIGAR string
+   */
+  export function cigarStats(cigar: string): CigarStats {
+    return unwrap<CigarStats>(_raw_cigar_stats(cigar));
+  }
+
+  /**
+   * Reconstruct gapped alignment from CIGAR and ungapped sequences.
+   *
+   * @param cigar - CIGAR string
+   * @param query - Ungapped query sequence
+   * @param target - Ungapped target/reference sequence
+   * @returns Object with `aligned_query` and `aligned_target` byte arrays
+   */
+  export function cigarToAlignment(
+    cigar: string,
+    query: string,
+    target: string,
+  ): { aligned_query: number[]; aligned_target: number[] } {
+    return unwrap<{ aligned_query: number[]; aligned_target: number[] }>(
+      _raw_cigar_to_alignment(cigar, query, target),
+    );
+  }
+
+  /**
+   * Extract a CIGAR string from a gapped alignment (using =/X distinction).
+   *
+   * Both sequences must be the same length, with `-` for gaps.
+   *
+   * @param query - Gapped query sequence
+   * @param target - Gapped target sequence
+   * @returns CIGAR string
+   */
+  export function alignmentToCigar(query: string, target: string): string {
+    return unwrap<string>(_raw_alignment_to_cigar(query, target));
+  }
+
+  /**
+   * Generate a SAM MD:Z tag from CIGAR and ungapped sequences.
+   *
+   * @param cigar - CIGAR string
+   * @param query - Ungapped query sequence
+   * @param reference - Ungapped reference sequence
+   */
+  export function generateMdTag(cigar: string, query: string, reference: string): string {
+    return unwrap<string>(_raw_generate_md_tag(cigar, query, reference));
+  }
+
+  /**
+   * Merge adjacent same-type CIGAR operations.
+   *
+   * @param cigar - CIGAR string
+   * @returns Merged CIGAR string
+   */
+  export function mergeCigar(cigar: string): string {
+    return unwrap<string>(_raw_merge_cigar(cigar));
+  }
+
+  /**
+   * Reverse CIGAR operation order.
+   *
+   * @param cigar - CIGAR string
+   * @returns Reversed CIGAR string
+   */
+  export function reverseCigar(cigar: string): string {
+    return unwrap<string>(_raw_reverse_cigar(cigar));
+  }
+
+  /**
+   * Collapse =/X operations into M (alignment match).
+   *
+   * @param cigar - CIGAR string
+   * @returns Collapsed CIGAR string
+   */
+  export function collapseCigar(cigar: string): string {
+    return unwrap<string>(_raw_collapse_cigar(cigar));
+  }
+
+  /**
+   * Convert hard clips (H) to soft clips (S).
+   *
+   * @param cigar - CIGAR string
+   * @returns Converted CIGAR string
+   */
+  export function hardClipToSoft(cigar: string): string {
+    return unwrap<string>(_raw_hard_clip_to_soft(cigar));
+  }
+
+  /**
+   * Split CIGAR at a reference coordinate.
+   *
+   * @param cigar - CIGAR string
+   * @param refPos - 0-based reference position to split at
+   * @returns Object with `left` and `right` CIGAR strings
+   */
+  export function splitCigar(
+    cigar: string,
+    refPos: number,
+  ): { left: string; right: string } {
+    return unwrap<{ left: string; right: string }>(_raw_split_cigar(cigar, refPos));
   }
 }
 

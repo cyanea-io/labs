@@ -153,6 +153,198 @@ pub fn align_batch(
     }
 }
 
+// ── CIGAR utility functions ──────────────────────────────────────────────
+
+/// CIGAR statistics returned as a JSON object.
+#[derive(serde::Serialize)]
+struct CigarStats {
+    cigar_string: String,
+    reference_consumed: usize,
+    query_consumed: usize,
+    alignment_columns: usize,
+    identity: f64,
+    gap_count: usize,
+    gap_bases: usize,
+    soft_clipped: usize,
+    hard_clipped: usize,
+}
+
+/// Parse a SAM CIGAR string and return the operations as JSON.
+///
+/// Returns a JSON array of CIGAR operations (e.g. `[{"AlnMatch":10},{"Insertion":3}]`).
+/// Accepts the full SAM alphabet (M, I, D, N, S, H, P, =, X) and `*` for unavailable.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn parse_cigar(cigar: &str) -> String {
+    wasm_result(cyanea_align::cigar::parse_cigar(cigar))
+}
+
+/// Validate a CIGAR string against SAM spec rules.
+///
+/// Returns `{"ok": true}` if valid, or `{"error": "..."}` describing the violation.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn validate_cigar(cigar: &str) -> String {
+    let ops = match cyanea_align::cigar::parse_cigar(cigar) {
+        Ok(ops) => ops,
+        Err(e) => return wasm_err(e),
+    };
+    match cyanea_align::cigar::validate_cigar(&ops) {
+        Ok(()) => wasm_ok(&true),
+        Err(e) => wasm_err(e),
+    }
+}
+
+/// Compute statistics from a CIGAR string.
+///
+/// Returns a JSON object with reference/query consumed, alignment columns,
+/// identity, gap counts, and clipping totals.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn cigar_stats(cigar: &str) -> String {
+    let ops = match cyanea_align::cigar::parse_cigar(cigar) {
+        Ok(ops) => ops,
+        Err(e) => return wasm_err(e),
+    };
+    let (soft, hard) = cyanea_align::cigar::clipped_bases(&ops);
+    wasm_ok(&CigarStats {
+        cigar_string: cyanea_align::cigar::cigar_string(&ops),
+        reference_consumed: cyanea_align::cigar::reference_consumed(&ops),
+        query_consumed: cyanea_align::cigar::query_consumed(&ops),
+        alignment_columns: cyanea_align::cigar::alignment_columns(&ops),
+        identity: cyanea_align::cigar::identity(&ops),
+        gap_count: cyanea_align::cigar::gap_count(&ops),
+        gap_bases: cyanea_align::cigar::gap_bases(&ops),
+        soft_clipped: soft,
+        hard_clipped: hard,
+    })
+}
+
+/// Reconstruct gapped alignment from CIGAR + ungapped sequences.
+///
+/// Returns `{"ok": {"aligned_query": [...], "aligned_target": [...]}}`.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn cigar_to_alignment(cigar: &str, query: &str, target: &str) -> String {
+    let ops = match cyanea_align::cigar::parse_cigar(cigar) {
+        Ok(ops) => ops,
+        Err(e) => return wasm_err(e),
+    };
+    match cyanea_align::cigar::cigar_to_alignment(&ops, query.as_bytes(), target.as_bytes()) {
+        Ok((aq, at)) => {
+            #[derive(serde::Serialize)]
+            struct GappedAlignment {
+                aligned_query: Vec<u8>,
+                aligned_target: Vec<u8>,
+            }
+            wasm_ok(&GappedAlignment {
+                aligned_query: aq,
+                aligned_target: at,
+            })
+        }
+        Err(e) => wasm_err(e),
+    }
+}
+
+/// Extract CIGAR from a gapped alignment (using =/X distinction).
+///
+/// Both `query` and `target` must be gapped strings (same length, `-` for gaps).
+/// Returns a CIGAR string.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn alignment_to_cigar(query: &str, target: &str) -> String {
+    match cyanea_align::cigar::alignment_to_cigar(query.as_bytes(), target.as_bytes()) {
+        Ok(ops) => wasm_ok(&cyanea_align::cigar::cigar_string(&ops)),
+        Err(e) => wasm_err(e),
+    }
+}
+
+/// Generate a SAM MD:Z tag from CIGAR + ungapped sequences.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn generate_md_tag(cigar: &str, query: &str, reference: &str) -> String {
+    let ops = match cyanea_align::cigar::parse_cigar(cigar) {
+        Ok(ops) => ops,
+        Err(e) => return wasm_err(e),
+    };
+    wasm_result(cyanea_align::cigar::generate_md_tag(
+        &ops,
+        query.as_bytes(),
+        reference.as_bytes(),
+    ))
+}
+
+/// Merge adjacent same-type CIGAR operations.
+///
+/// Returns the merged CIGAR string.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn merge_cigar(cigar: &str) -> String {
+    let ops = match cyanea_align::cigar::parse_cigar(cigar) {
+        Ok(ops) => ops,
+        Err(e) => return wasm_err(e),
+    };
+    wasm_ok(&cyanea_align::cigar::cigar_string(
+        &cyanea_align::cigar::merge_adjacent(&ops),
+    ))
+}
+
+/// Reverse CIGAR operation order.
+///
+/// Returns the reversed CIGAR string.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn reverse_cigar(cigar: &str) -> String {
+    let ops = match cyanea_align::cigar::parse_cigar(cigar) {
+        Ok(ops) => ops,
+        Err(e) => return wasm_err(e),
+    };
+    wasm_ok(&cyanea_align::cigar::cigar_string(
+        &cyanea_align::cigar::reverse_cigar(&ops),
+    ))
+}
+
+/// Collapse =/X operations into M (alignment match).
+///
+/// Returns the collapsed CIGAR string.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn collapse_cigar(cigar: &str) -> String {
+    let ops = match cyanea_align::cigar::parse_cigar(cigar) {
+        Ok(ops) => ops,
+        Err(e) => return wasm_err(e),
+    };
+    wasm_ok(&cyanea_align::cigar::cigar_string(
+        &cyanea_align::cigar::collapse_matches(&ops),
+    ))
+}
+
+/// Convert hard clips (H) to soft clips (S).
+///
+/// Returns the converted CIGAR string.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn hard_clip_to_soft(cigar: &str) -> String {
+    let ops = match cyanea_align::cigar::parse_cigar(cigar) {
+        Ok(ops) => ops,
+        Err(e) => return wasm_err(e),
+    };
+    wasm_ok(&cyanea_align::cigar::cigar_string(
+        &cyanea_align::cigar::hard_clip_to_soft(&ops),
+    ))
+}
+
+/// Split CIGAR at a reference coordinate, returning two CIGAR strings.
+///
+/// Returns `{"ok": {"left": "...", "right": "..."}}`.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn split_cigar(cigar: &str, ref_pos: usize) -> String {
+    let ops = match cyanea_align::cigar::parse_cigar(cigar) {
+        Ok(ops) => ops,
+        Err(e) => return wasm_err(e),
+    };
+    let (left, right) = cyanea_align::cigar::split_at_reference(&ops, ref_pos);
+    #[derive(serde::Serialize)]
+    struct SplitResult {
+        left: String,
+        right: String,
+    }
+    wasm_ok(&SplitResult {
+        left: cyanea_align::cigar::cigar_string(&left),
+        right: cyanea_align::cigar::cigar_string(&right),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -228,5 +420,118 @@ mod tests {
         let json = align_dna("CGT", "AACGTAA", "semiglobal");
         let v: serde_json::Value = serde_json::from_str(&json).unwrap();
         assert_eq!(v["ok"]["score"].as_i64().unwrap(), 6);
+    }
+
+    // -- CIGAR utilities --
+
+    #[test]
+    fn parse_cigar_valid() {
+        let json = parse_cigar("10M3I4D2S");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let ops = v["ok"].as_array().unwrap();
+        assert_eq!(ops.len(), 4);
+        assert_eq!(ops[0]["AlnMatch"], 10);
+        assert_eq!(ops[1]["Insertion"], 3);
+        assert_eq!(ops[2]["Deletion"], 4);
+        assert_eq!(ops[3]["SoftClip"], 2);
+    }
+
+    #[test]
+    fn parse_cigar_invalid() {
+        let json = parse_cigar("10Z");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert!(v["error"].is_string());
+    }
+
+    #[test]
+    fn validate_cigar_valid() {
+        let json = validate_cigar("5H3S10M2I3M1D5M3S5H");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(v["ok"], true);
+    }
+
+    #[test]
+    fn validate_cigar_invalid() {
+        let json = validate_cigar("5M3M"); // adjacent same-type
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert!(v["error"].is_string());
+    }
+
+    #[test]
+    fn cigar_stats_basic() {
+        let json = cigar_stats("10M3I4D2S5H");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let s = &v["ok"];
+        assert_eq!(s["reference_consumed"], 14); // M(10) + D(4)
+        assert_eq!(s["query_consumed"], 15);     // M(10) + I(3) + S(2)
+        assert_eq!(s["alignment_columns"], 17);  // M(10) + I(3) + D(4)
+        assert_eq!(s["gap_count"], 2);           // I, D
+        assert_eq!(s["gap_bases"], 7);           // 3 + 4
+        assert_eq!(s["soft_clipped"], 2);
+        assert_eq!(s["hard_clipped"], 5);
+    }
+
+    #[test]
+    fn cigar_to_alignment_roundtrip() {
+        let json = cigar_to_alignment("3=1I2=1D1=", "ACGTACG", "ACGACGA");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let aq: Vec<u8> = v["ok"]["aligned_query"]
+            .as_array().unwrap().iter()
+            .map(|x| x.as_u64().unwrap() as u8).collect();
+        let at: Vec<u8> = v["ok"]["aligned_target"]
+            .as_array().unwrap().iter()
+            .map(|x| x.as_u64().unwrap() as u8).collect();
+        assert_eq!(aq, b"ACGTAC-G");
+        assert_eq!(at, b"ACG-ACGA");
+    }
+
+    #[test]
+    fn alignment_to_cigar_basic() {
+        let json = alignment_to_cigar("ACGTAC-G", "ACG-ACGA");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(v["ok"], "3=1I2=1D1X");
+    }
+
+    #[test]
+    fn md_tag_generation() {
+        let json = generate_md_tag("3=1X2=", "ACGAAC", "ACGTAC");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(v["ok"], "3T2");
+    }
+
+    #[test]
+    fn merge_cigar_combines() {
+        let json = merge_cigar("3M2M1I1I");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(v["ok"], "5M2I");
+    }
+
+    #[test]
+    fn reverse_cigar_order() {
+        let json = reverse_cigar("3=2I1D");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(v["ok"], "1D2I3=");
+    }
+
+    #[test]
+    fn collapse_cigar_eq_x_to_m() {
+        let json = collapse_cigar("3=2X1=");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(v["ok"], "6M");
+    }
+
+    #[test]
+    fn hard_clip_to_soft_conversion() {
+        let json = hard_clip_to_soft("5H10M3H");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(v["ok"], "5S10M3S");
+    }
+
+    #[test]
+    fn split_cigar_basic() {
+        let json = split_cigar("10M", 4);
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(v["ok"]["left"], "4M");
+        assert_eq!(v["ok"]["right"], "6M");
     }
 }
