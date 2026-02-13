@@ -179,6 +179,105 @@ fn bam_stats(path: &str) -> PyResult<PySamStats> {
 }
 
 // ---------------------------------------------------------------------------
+// Full record parsing
+// ---------------------------------------------------------------------------
+
+/// A VCF variant record.
+#[pyclass(frozen, get_all)]
+pub struct PyVcfRecord {
+    pub chrom: String,
+    pub position: u64,
+    pub id: String,
+    pub ref_allele: String,
+    pub alt_alleles: Vec<String>,
+    pub quality: Option<f64>,
+    pub filter: String,
+}
+
+/// Parse a VCF file and return all variant records.
+#[pyfunction]
+fn parse_vcf(path: &str) -> PyResult<Vec<PyVcfRecord>> {
+    let variants = cyanea_io::parse_vcf(path).into_pyresult()?;
+    Ok(variants
+        .into_iter()
+        .map(|v| {
+            let filter_str = format!("{:?}", v.filter);
+            PyVcfRecord {
+                chrom: v.chrom,
+                position: v.position,
+                id: v.id.unwrap_or_default(),
+                ref_allele: String::from_utf8_lossy(&v.ref_allele).into_owned(),
+                alt_alleles: v
+                    .alt_alleles
+                    .iter()
+                    .map(|a| String::from_utf8_lossy(a).into_owned())
+                    .collect(),
+                quality: v.quality,
+                filter: filter_str,
+            }
+        })
+        .collect())
+}
+
+/// A BED record.
+#[pyclass(frozen, get_all)]
+pub struct PyBedRecord {
+    pub chrom: String,
+    pub start: u64,
+    pub end: u64,
+    pub name: Option<String>,
+    pub score: Option<u32>,
+}
+
+/// Parse a BED file and return all records.
+#[pyfunction]
+fn parse_bed(path: &str) -> PyResult<Vec<PyBedRecord>> {
+    let records = cyanea_io::parse_bed(path).into_pyresult()?;
+    Ok(records
+        .into_iter()
+        .map(|r| PyBedRecord {
+            chrom: r.interval.chrom,
+            start: r.interval.start,
+            end: r.interval.end,
+            name: r.name,
+            score: r.score,
+        })
+        .collect())
+}
+
+/// A GFF3 gene record.
+#[pyclass(frozen, get_all)]
+pub struct PyGff3Gene {
+    pub id: String,
+    pub name: String,
+    pub chrom: String,
+    pub start: u64,
+    pub end: u64,
+    pub strand: String,
+    pub gene_type: String,
+    pub transcript_count: usize,
+}
+
+/// Parse a GFF3 file and return gene records.
+#[pyfunction]
+fn parse_gff3(path: &str) -> PyResult<Vec<PyGff3Gene>> {
+    let genes = cyanea_io::parse_gff3(path).into_pyresult()?;
+    Ok(genes
+        .into_iter()
+        .map(|g| PyGff3Gene {
+            id: g.gene_id,
+            name: g.gene_name,
+            chrom: g.chrom,
+            start: g.start,
+            end: g.end,
+            strand: format!("{:?}", g.strand),
+            gene_type: format!("{:?}", g.gene_type),
+            transcript_count: g.transcripts.len(),
+        })
+        .collect())
+}
+
+// ---------------------------------------------------------------------------
 // Submodule registration
 // ---------------------------------------------------------------------------
 
@@ -190,6 +289,9 @@ pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Gff3Stats>()?;
     m.add_class::<PySamRecord>()?;
     m.add_class::<PySamStats>()?;
+    m.add_class::<PyVcfRecord>()?;
+    m.add_class::<PyBedRecord>()?;
+    m.add_class::<PyGff3Gene>()?;
     m.add_function(wrap_pyfunction!(csv_info, &m)?)?;
     m.add_function(wrap_pyfunction!(vcf_stats, &m)?)?;
     m.add_function(wrap_pyfunction!(bed_stats, &m)?)?;
@@ -198,6 +300,9 @@ pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sam_stats, &m)?)?;
     m.add_function(wrap_pyfunction!(parse_bam, &m)?)?;
     m.add_function(wrap_pyfunction!(bam_stats, &m)?)?;
+    m.add_function(wrap_pyfunction!(parse_vcf, &m)?)?;
+    m.add_function(wrap_pyfunction!(parse_bed, &m)?)?;
+    m.add_function(wrap_pyfunction!(parse_gff3, &m)?)?;
     parent.add_submodule(&m)?;
     Ok(())
 }

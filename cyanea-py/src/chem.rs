@@ -137,6 +137,34 @@ fn canonical_smiles(smiles: &str) -> PyResult<String> {
     Ok(cyanea_chem::canonical_smiles(&mol))
 }
 
+/// Parse an SDF string (may contain multiple molecules).
+#[pyfunction]
+fn parse_sdf(input: &str) -> PyResult<Vec<Molecule>> {
+    let results = cyanea_chem::sdf::parse_sdf(input);
+    let mut molecules = Vec::new();
+    for r in results {
+        molecules.push(Molecule {
+            inner: r.into_pyresult()?,
+        });
+    }
+    Ok(molecules)
+}
+
+/// Parse an SDF file from disk.
+#[pyfunction]
+fn parse_sdf_file(path: &str) -> PyResult<Vec<Molecule>> {
+    let mols = cyanea_chem::sdf::parse_sdf_file(path).into_pyresult()?;
+    Ok(mols.into_iter().map(|m| Molecule { inner: m }).collect())
+}
+
+/// Compute MACCS-like 166-key structural fingerprint (on-bit indices).
+#[pyfunction]
+fn maccs_fingerprint(smiles: &str) -> PyResult<Vec<usize>> {
+    let mol = cyanea_chem::parse_smiles(smiles).into_pyresult()?;
+    let fp = cyanea_chem::maccs::maccs_fingerprint(&mol);
+    Ok((0..166).filter(|&i| fp.get_bit(i)).collect())
+}
+
 // ---------------------------------------------------------------------------
 // Submodule registration
 // ---------------------------------------------------------------------------
@@ -149,6 +177,9 @@ pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(molecular_properties, &m)?)?;
     m.add_function(wrap_pyfunction!(tanimoto, &m)?)?;
     m.add_function(wrap_pyfunction!(canonical_smiles, &m)?)?;
+    m.add_function(wrap_pyfunction!(parse_sdf, &m)?)?;
+    m.add_function(wrap_pyfunction!(parse_sdf_file, &m)?)?;
+    m.add_function(wrap_pyfunction!(maccs_fingerprint, &m)?)?;
     parent.add_submodule(&m)?;
     Ok(())
 }

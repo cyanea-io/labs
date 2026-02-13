@@ -139,15 +139,112 @@ fn align_batch(
 }
 
 // ---------------------------------------------------------------------------
+// Banded alignment
+// ---------------------------------------------------------------------------
+
+/// Banded DNA alignment (restricts DP to diagonal band for speed).
+#[pyfunction]
+#[pyo3(signature = (query, target, *, mode="global", bandwidth=50, match_score=2, mismatch_score=-1, gap_open=-5, gap_extend=-2))]
+fn align_banded(
+    query: &[u8],
+    target: &[u8],
+    mode: &str,
+    bandwidth: usize,
+    match_score: i32,
+    mismatch_score: i32,
+    gap_open: i32,
+    gap_extend: i32,
+) -> PyResult<AlignmentResult> {
+    let matrix =
+        cyanea_align::ScoringMatrix::new(match_score, mismatch_score, gap_open, gap_extend)
+            .into_pyresult()?;
+    let scoring = cyanea_align::ScoringScheme::Simple(matrix);
+    let result = match mode {
+        "global" => cyanea_align::simd::banded_nw(query, target, &scoring, bandwidth),
+        "local" => cyanea_align::simd::banded_sw(query, target, &scoring, bandwidth),
+        "semiglobal" => cyanea_align::simd::banded_semi_global(query, target, &scoring, bandwidth),
+        _ => {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "unknown alignment mode: {mode} (expected 'local', 'global', or 'semiglobal')"
+            )))
+        }
+    };
+    Ok(AlignmentResult::from(result.into_pyresult()?))
+}
+
+// ---------------------------------------------------------------------------
+// MSA
+// ---------------------------------------------------------------------------
+
+/// Multiple sequence alignment result.
+#[pyclass(frozen, get_all)]
+pub struct MsaResult {
+    pub aligned: Vec<Vec<u8>>,
+    pub n_columns: usize,
+}
+
+/// Progressive multiple sequence alignment.
+#[pyfunction]
+#[pyo3(signature = (sequences, *, mode="dna", match_score=2, mismatch_score=-1, gap_open=-5, gap_extend=-2))]
+fn progressive_msa(
+    sequences: Vec<Vec<u8>>,
+    mode: &str,
+    match_score: i32,
+    mismatch_score: i32,
+    gap_open: i32,
+    gap_extend: i32,
+) -> PyResult<MsaResult> {
+    let refs: Vec<&[u8]> = sequences.iter().map(|s| s.as_slice()).collect();
+    let scoring = match mode {
+        "dna" => {
+            let matrix = cyanea_align::ScoringMatrix::new(match_score, mismatch_score, gap_open, gap_extend)
+                .into_pyresult()?;
+            cyanea_align::ScoringScheme::Simple(matrix)
+        }
+        "protein" => cyanea_align::ScoringScheme::Substitution(cyanea_align::SubstitutionMatrix::blosum62()),
+        _ => {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "unknown MSA mode: {mode} (expected 'dna' or 'protein')"
+            )))
+        }
+    };
+    let result = cyanea_align::msa::progressive_msa(&refs, &scoring).into_pyresult()?;
+    Ok(MsaResult {
+        aligned: result.aligned,
+        n_columns: result.n_columns,
+    })
+}
+
+/// POA (Partial Order Alignment) consensus from multiple sequences.
+#[pyfunction]
+fn poa_consensus(sequences: Vec<Vec<u8>>) -> PyResult<Vec<u8>> {
+    if sequences.len() < 2 {
+        return Err(pyo3::exceptions::PyValueError::new_err(
+            "POA requires at least 2 sequences",
+        ));
+    }
+    let scoring = cyanea_align::poa::PoaScoring::default();
+    let mut graph = cyanea_align::poa::PoaGraph::from_sequence(&sequences[0]);
+    for seq in &sequences[1..] {
+        graph.add_sequence(seq, &scoring).into_pyresult()?;
+    }
+    Ok(graph.consensus())
+}
+
+// ---------------------------------------------------------------------------
 // Submodule registration
 // ---------------------------------------------------------------------------
 
 pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(parent.py(), "align")?;
     m.add_class::<AlignmentResult>()?;
+    m.add_class::<MsaResult>()?;
     m.add_function(wrap_pyfunction!(align_dna, &m)?)?;
     m.add_function(wrap_pyfunction!(align_protein, &m)?)?;
     m.add_function(wrap_pyfunction!(align_batch, &m)?)?;
+    m.add_function(wrap_pyfunction!(align_banded, &m)?)?;
+    m.add_function(wrap_pyfunction!(progressive_msa, &m)?)?;
+    m.add_function(wrap_pyfunction!(poa_consensus, &m)?)?;
     parent.add_submodule(&m)?;
     Ok(())
 }

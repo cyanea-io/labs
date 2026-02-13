@@ -28,18 +28,19 @@ import { Align } from "./index.js";
 
 /** Whether we're running in a Node.js worker_threads context. */
 const isNode =
-  typeof globalThis.process !== "undefined" &&
-  typeof globalThis.process.versions?.node === "string";
+  typeof (globalThis as Record<string, unknown>).process !== "undefined" &&
+  typeof ((globalThis as Record<string, unknown>).process as Record<string, unknown>)?.versions === "object";
 
 /**
  * Post a message to the main thread, abstracting over browser Worker
  * (self.postMessage) and Node.js worker_threads (parentPort.postMessage).
  */
+/** Cached parentPort for Node.js worker_threads. Set during initialize(). */
+let nodeParentPort: import("worker_threads").MessagePort | null | undefined;
+
 function post(msg: WorkerToMainMessage): void {
-  if (isNode) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { parentPort } = require("worker_threads") as typeof import("worker_threads");
-    parentPort?.postMessage(msg);
+  if (isNode && nodeParentPort) {
+    nodeParentPort.postMessage(msg);
   } else {
     (self as unknown as { postMessage(msg: unknown): void }).postMessage(msg);
   }
@@ -170,9 +171,9 @@ async function initialize(): Promise<void> {
 
     // Register message handler
     if (isNode) {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const { parentPort } = require("worker_threads") as typeof import("worker_threads");
-      parentPort?.on("message", (msg: MainToWorkerMessage) => {
+      const wt = await import("worker_threads");
+      nodeParentPort = wt.parentPort;
+      nodeParentPort?.on("message", (msg: MainToWorkerMessage) => {
         void handleMessage(msg);
       });
     } else {

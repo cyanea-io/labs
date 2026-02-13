@@ -164,16 +164,83 @@ fn build_distance_matrix(
 }
 
 // ---------------------------------------------------------------------------
+// NEXUS I/O
+// ---------------------------------------------------------------------------
+
+/// A parsed NEXUS file containing taxa and trees.
+#[pyclass(frozen, get_all)]
+pub struct NexusFile {
+    pub taxa: Vec<String>,
+    pub tree_names: Vec<String>,
+    pub tree_newicks: Vec<String>,
+}
+
+/// Parse a NEXUS format string.
+#[pyfunction]
+fn parse_nexus(input: &str) -> PyResult<NexusFile> {
+    let nf = cyanea_phylo::nexus::parse(input).into_pyresult()?;
+    let mut tree_names = Vec::new();
+    let mut tree_newicks = Vec::new();
+    for t in &nf.trees {
+        tree_names.push(t.name.clone());
+        tree_newicks.push(cyanea_phylo::write_newick(&t.tree));
+    }
+    Ok(NexusFile {
+        taxa: nf.taxa,
+        tree_names,
+        tree_newicks,
+    })
+}
+
+/// Write NEXUS format from taxa and Newick strings.
+#[pyfunction]
+fn write_nexus(taxa: Vec<String>, tree_names: Vec<String>, tree_newicks: Vec<String>) -> PyResult<String> {
+    if tree_names.len() != tree_newicks.len() {
+        return Err(pyo3::exceptions::PyValueError::new_err(
+            "tree_names and tree_newicks must have the same length",
+        ));
+    }
+    let mut trees = Vec::new();
+    for (name, newick) in tree_names.iter().zip(tree_newicks.iter()) {
+        let tree = cyanea_phylo::parse_newick(newick).into_pyresult()?;
+        trees.push((name.as_str(), tree));
+    }
+    let refs: Vec<(&str, &cyanea_phylo::PhyloTree)> = trees.iter().map(|(n, t)| (*n, t)).collect();
+    Ok(cyanea_phylo::nexus::write(&taxa, &refs))
+}
+
+// ---------------------------------------------------------------------------
+// Tree comparison
+// ---------------------------------------------------------------------------
+
+/// Normalized Robinson-Foulds distance (0.0-1.0).
+#[pyfunction]
+fn robinson_foulds_normalized(tree1: &PhyloTree, tree2: &PhyloTree) -> PyResult<f64> {
+    cyanea_phylo::robinson_foulds_normalized(&tree1.inner, &tree2.inner).into_pyresult()
+}
+
+/// Branch score distance (branch-length-aware tree distance).
+#[pyfunction]
+fn branch_score_distance(tree1: &PhyloTree, tree2: &PhyloTree) -> PyResult<f64> {
+    cyanea_phylo::branch_score_distance(&tree1.inner, &tree2.inner).into_pyresult()
+}
+
+// ---------------------------------------------------------------------------
 // Submodule registration
 // ---------------------------------------------------------------------------
 
 pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(parent.py(), "phylo")?;
     m.add_class::<PhyloTree>()?;
+    m.add_class::<NexusFile>()?;
     m.add_function(wrap_pyfunction!(parse_newick, &m)?)?;
     m.add_function(wrap_pyfunction!(evolutionary_distance, &m)?)?;
     m.add_function(wrap_pyfunction!(upgma, &m)?)?;
     m.add_function(wrap_pyfunction!(neighbor_joining, &m)?)?;
+    m.add_function(wrap_pyfunction!(parse_nexus, &m)?)?;
+    m.add_function(wrap_pyfunction!(write_nexus, &m)?)?;
+    m.add_function(wrap_pyfunction!(robinson_foulds_normalized, &m)?)?;
+    m.add_function(wrap_pyfunction!(branch_score_distance, &m)?)?;
     parent.add_submodule(&m)?;
     Ok(())
 }

@@ -207,7 +207,7 @@ fn kmeans(
 
 #[cfg(feature = "numpy")]
 mod np {
-    use numpy::{PyArray1, PyArray2};
+    use numpy::{PyArray1, PyArray2, PyArrayMethods};
     use pyo3::prelude::*;
 
     use crate::error::IntoPyResult;
@@ -311,6 +311,372 @@ mod np {
 }
 
 // ---------------------------------------------------------------------------
+// DBSCAN
+// ---------------------------------------------------------------------------
+
+/// DBSCAN clustering result.
+#[pyclass(frozen, get_all)]
+struct DbscanResult {
+    labels: Vec<i32>,
+    n_clusters: usize,
+}
+
+/// DBSCAN density-based clustering.
+///
+/// Labels of -1 indicate noise points.
+#[pyfunction]
+#[pyo3(signature = (data, n_features, eps=0.5, min_samples=5, metric="euclidean"))]
+fn dbscan(
+    data: Vec<f64>,
+    n_features: usize,
+    eps: f64,
+    min_samples: usize,
+    metric: &str,
+) -> PyResult<DbscanResult> {
+    let metric = parse_metric(metric)?;
+    let config = cyanea_ml::DbscanConfig {
+        eps,
+        min_samples,
+        metric,
+    };
+    let rows: Vec<&[f64]> = data.chunks_exact(n_features).collect();
+    let r = cyanea_ml::dbscan(&rows, &config).into_pyresult()?;
+    Ok(DbscanResult {
+        labels: r.labels,
+        n_clusters: r.n_clusters,
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Hierarchical clustering
+// ---------------------------------------------------------------------------
+
+/// Hierarchical clustering result.
+#[pyclass(frozen, get_all)]
+struct HierarchicalResult {
+    labels: Vec<usize>,
+    merge_distances: Vec<f64>,
+}
+
+/// Agglomerative hierarchical clustering.
+#[pyfunction]
+#[pyo3(signature = (data, n_features, n_clusters=2, linkage="average", metric="euclidean"))]
+fn hierarchical(
+    data: Vec<f64>,
+    n_features: usize,
+    n_clusters: usize,
+    linkage: &str,
+    metric: &str,
+) -> PyResult<HierarchicalResult> {
+    let metric = parse_metric(metric)?;
+    let linkage_enum = match linkage {
+        "single" => cyanea_ml::Linkage::Single,
+        "complete" => cyanea_ml::Linkage::Complete,
+        "average" => cyanea_ml::Linkage::Average,
+        "ward" => cyanea_ml::Linkage::Ward,
+        _ => {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "unknown linkage: {linkage} (expected 'single', 'complete', 'average', or 'ward')"
+            )))
+        }
+    };
+    let rows: Vec<&[f64]> = data.chunks_exact(n_features).collect();
+    let dm = cyanea_ml::distance::pairwise_distances(&rows, metric).into_pyresult()?;
+    let config = cyanea_ml::HierarchicalConfig {
+        n_clusters,
+        linkage: linkage_enum,
+    };
+    let r = cyanea_ml::hierarchical(&dm, &config).into_pyresult()?;
+    let merge_distances: Vec<f64> = r.merge_history.iter().map(|m| m.distance).collect();
+    Ok(HierarchicalResult {
+        labels: r.labels,
+        merge_distances,
+    })
+}
+
+// ---------------------------------------------------------------------------
+// KNN
+// ---------------------------------------------------------------------------
+
+/// K-Nearest Neighbors model.
+#[pyclass]
+struct KnnModel {
+    inner: cyanea_ml::KnnModel,
+}
+
+#[pymethods]
+impl KnnModel {
+    /// Fit a KNN model from row-major data.
+    #[new]
+    #[pyo3(signature = (data, n_features, k=5, metric="euclidean"))]
+    fn new(data: Vec<f64>, n_features: usize, k: usize, metric: &str) -> PyResult<Self> {
+        let metric = parse_metric(metric)?;
+        let config = cyanea_ml::KnnConfig { k, metric };
+        let inner = cyanea_ml::KnnModel::fit(&data, n_features, config).into_pyresult()?;
+        Ok(Self { inner })
+    }
+
+    /// Find k nearest neighbors. Returns list of (index, distance).
+    fn neighbors(&self, query: Vec<f64>) -> PyResult<Vec<(usize, f64)>> {
+        self.inner.neighbors(&query).into_pyresult()
+    }
+
+    /// Classify a query point by majority vote.
+    fn classify(&self, query: Vec<f64>, labels: Vec<i32>) -> PyResult<i32> {
+        self.inner.classify(&query, &labels).into_pyresult()
+    }
+
+    /// Regress: predict target as mean of k nearest targets.
+    fn regress(&self, query: Vec<f64>, targets: Vec<f64>) -> PyResult<f64> {
+        self.inner.regress(&query, &targets).into_pyresult()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "KnnModel(n_samples={}, n_features={})",
+            self.inner.n_samples(),
+            self.inner.n_features()
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Linear regression
+// ---------------------------------------------------------------------------
+
+/// Linear regression model.
+#[pyclass]
+struct LinearRegression {
+    inner: cyanea_ml::LinearRegression,
+}
+
+#[pymethods]
+impl LinearRegression {
+    /// Fit OLS linear regression from row-major data and targets.
+    #[new]
+    fn new(data: Vec<f64>, n_features: usize, targets: Vec<f64>) -> PyResult<Self> {
+        let inner =
+            cyanea_ml::LinearRegression::fit(&data, n_features, &targets).into_pyresult()?;
+        Ok(Self { inner })
+    }
+
+    /// Learned weights (one per feature).
+    #[getter]
+    fn weights(&self) -> Vec<f64> {
+        self.inner.weights.clone()
+    }
+
+    /// Learned bias (intercept).
+    #[getter]
+    fn bias(&self) -> f64 {
+        self.inner.bias
+    }
+
+    /// R-squared (coefficient of determination).
+    #[getter]
+    fn r_squared(&self) -> f64 {
+        self.inner.r_squared
+    }
+
+    /// Predict a single query.
+    fn predict(&self, query: Vec<f64>) -> PyResult<f64> {
+        self.inner.predict(&query).into_pyresult()
+    }
+
+    /// Predict a batch of queries (row-major).
+    fn predict_batch(&self, queries: Vec<f64>) -> PyResult<Vec<f64>> {
+        self.inner.predict_batch(&queries).into_pyresult()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "LinearRegression(n_features={}, r_squared={:.4})",
+            self.inner.n_features, self.inner.r_squared
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Decision tree
+// ---------------------------------------------------------------------------
+
+/// Decision tree classifier.
+#[pyclass]
+struct DecisionTree {
+    inner: cyanea_ml::DecisionTree,
+}
+
+#[pymethods]
+impl DecisionTree {
+    /// Fit a decision tree classifier.
+    #[new]
+    #[pyo3(signature = (data, n_features, labels, max_depth=10))]
+    fn new(data: Vec<f64>, n_features: usize, labels: Vec<usize>, max_depth: usize) -> PyResult<Self> {
+        let inner =
+            cyanea_ml::DecisionTree::fit(&data, n_features, &labels, max_depth).into_pyresult()?;
+        Ok(Self { inner })
+    }
+
+    /// Predict class label for a single sample.
+    fn predict(&self, sample: Vec<f64>) -> usize {
+        self.inner.predict(&sample)
+    }
+
+    /// Predict class labels for a batch (row-major).
+    fn predict_batch(&self, data: Vec<f64>, n_features: usize) -> Vec<usize> {
+        self.inner.predict_batch(&data, n_features)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Random forest
+// ---------------------------------------------------------------------------
+
+/// Random forest classifier.
+#[pyclass]
+struct RandomForest {
+    inner: cyanea_ml::RandomForest,
+}
+
+#[pymethods]
+impl RandomForest {
+    /// Fit a random forest classifier.
+    #[new]
+    #[pyo3(signature = (data, n_features, labels, n_trees=10, max_depth=5, seed=42))]
+    fn new(
+        data: Vec<f64>,
+        n_features: usize,
+        labels: Vec<usize>,
+        n_trees: usize,
+        max_depth: usize,
+        seed: u64,
+    ) -> PyResult<Self> {
+        let config = cyanea_ml::RandomForestConfig {
+            n_trees,
+            max_depth,
+            max_features: None,
+            seed,
+        };
+        let inner =
+            cyanea_ml::RandomForest::fit(&data, n_features, &labels, &config).into_pyresult()?;
+        Ok(Self { inner })
+    }
+
+    /// Predict class label for a single sample.
+    fn predict(&self, sample: Vec<f64>) -> usize {
+        self.inner.predict(&sample)
+    }
+
+    /// Predict class labels for a batch (row-major).
+    fn predict_batch(&self, data: Vec<f64>, n_features: usize) -> Vec<usize> {
+        self.inner.predict_batch(&data, n_features)
+    }
+
+    /// Feature importance scores.
+    fn feature_importances(&self, n_features: usize) -> Vec<f64> {
+        self.inner.feature_importance(n_features)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// HMM
+// ---------------------------------------------------------------------------
+
+/// Hidden Markov Model.
+#[pyclass]
+struct HmmModel {
+    inner: cyanea_ml::HmmModel,
+}
+
+#[pymethods]
+impl HmmModel {
+    /// Create an HMM with given parameters.
+    ///
+    /// - initial: flat array of initial probabilities (n_states)
+    /// - transition: flat row-major transition matrix (n_states × n_states)
+    /// - emission: flat row-major emission matrix (n_states × n_symbols)
+    #[new]
+    fn new(
+        n_states: usize,
+        n_symbols: usize,
+        initial: Vec<f64>,
+        transition: Vec<f64>,
+        emission: Vec<f64>,
+    ) -> PyResult<Self> {
+        let inner =
+            cyanea_ml::HmmModel::new(n_states, n_symbols, initial, transition, emission)
+                .into_pyresult()?;
+        Ok(Self { inner })
+    }
+
+    /// Viterbi decoding. Returns (most_likely_path, log_probability).
+    fn viterbi(&self, observations: Vec<usize>) -> PyResult<(Vec<usize>, f64)> {
+        self.inner.viterbi(&observations).into_pyresult()
+    }
+
+    /// Forward algorithm. Returns log-likelihood of observations.
+    fn log_likelihood(&self, observations: Vec<usize>) -> PyResult<f64> {
+        self.inner.log_likelihood(&observations).into_pyresult()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "HmmModel(n_states={}, n_symbols={})",
+            self.inner.n_states(),
+            self.inner.n_symbols()
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Normalization
+// ---------------------------------------------------------------------------
+
+/// Min-max normalize data to [0, 1].
+#[pyfunction]
+fn normalize_min_max(data: Vec<f64>) -> PyResult<Vec<f64>> {
+    let mut out = data;
+    cyanea_ml::normalize::min_max(&mut out).into_pyresult()?;
+    Ok(out)
+}
+
+/// Z-score normalize data (zero mean, unit variance).
+#[pyfunction]
+fn normalize_z_score(data: Vec<f64>) -> PyResult<Vec<f64>> {
+    let mut out = data;
+    cyanea_ml::normalize::z_score(&mut out).into_pyresult()?;
+    Ok(out)
+}
+
+/// L2-normalize data to unit norm.
+#[pyfunction]
+fn normalize_l2(data: Vec<f64>) -> PyResult<Vec<f64>> {
+    let mut out = data;
+    cyanea_ml::normalize::l2_normalize(&mut out).into_pyresult()?;
+    Ok(out)
+}
+
+// ---------------------------------------------------------------------------
+// Cluster evaluation
+// ---------------------------------------------------------------------------
+
+/// Silhouette score (mean across all non-noise samples).
+#[pyfunction]
+#[pyo3(signature = (data, n_features, labels))]
+fn silhouette_score(data: Vec<f64>, n_features: usize, labels: Vec<i32>) -> PyResult<f64> {
+    let rows: Vec<&[f64]> = data.chunks_exact(n_features).collect();
+    cyanea_ml::silhouette_score(&rows, &labels).into_pyresult()
+}
+
+/// Per-sample silhouette coefficients.
+#[pyfunction]
+#[pyo3(signature = (data, n_features, labels))]
+fn silhouette_samples(data: Vec<f64>, n_features: usize, labels: Vec<i32>) -> PyResult<Vec<f64>> {
+    let rows: Vec<&[f64]> = data.chunks_exact(n_features).collect();
+    cyanea_ml::silhouette_samples(&rows, &labels).into_pyresult()
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -331,19 +697,39 @@ fn parse_metric(metric: &str) -> PyResult<cyanea_ml::DistanceMetric> {
 
 pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(parent.py(), "ml")?;
+    // Distance functions
     m.add_function(wrap_pyfunction!(euclidean_distance, &m)?)?;
     m.add_function(wrap_pyfunction!(manhattan_distance, &m)?)?;
     m.add_function(wrap_pyfunction!(hamming_distance, &m)?)?;
     m.add_function(wrap_pyfunction!(cosine_similarity, &m)?)?;
     m.add_function(wrap_pyfunction!(pairwise_distances, &m)?)?;
+    // Dimensionality reduction
     m.add_function(wrap_pyfunction!(umap, &m)?)?;
     m.add_function(wrap_pyfunction!(pca, &m)?)?;
     m.add_function(wrap_pyfunction!(tsne, &m)?)?;
+    // Clustering
     m.add_function(wrap_pyfunction!(kmeans, &m)?)?;
+    m.add_function(wrap_pyfunction!(dbscan, &m)?)?;
+    m.add_function(wrap_pyfunction!(hierarchical, &m)?)?;
+    // Normalization
+    m.add_function(wrap_pyfunction!(normalize_min_max, &m)?)?;
+    m.add_function(wrap_pyfunction!(normalize_z_score, &m)?)?;
+    m.add_function(wrap_pyfunction!(normalize_l2, &m)?)?;
+    // Evaluation
+    m.add_function(wrap_pyfunction!(silhouette_score, &m)?)?;
+    m.add_function(wrap_pyfunction!(silhouette_samples, &m)?)?;
+    // Classes
     m.add_class::<UmapResult>()?;
     m.add_class::<PcaResult>()?;
     m.add_class::<TsneResult>()?;
     m.add_class::<KMeansResult>()?;
+    m.add_class::<DbscanResult>()?;
+    m.add_class::<HierarchicalResult>()?;
+    m.add_class::<KnnModel>()?;
+    m.add_class::<LinearRegression>()?;
+    m.add_class::<DecisionTree>()?;
+    m.add_class::<RandomForest>()?;
+    m.add_class::<HmmModel>()?;
 
     #[cfg(feature = "numpy")]
     {

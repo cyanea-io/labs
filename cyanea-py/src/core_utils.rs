@@ -29,6 +29,25 @@ fn zstd_decompress(data: &[u8]) -> PyResult<Vec<u8>> {
     cyanea_core::compress::zstd_decompress(data).into_pyresult()
 }
 
+/// Compress data using gzip at the given level (0–9).
+#[pyfunction]
+#[pyo3(signature = (data, *, level=6))]
+fn gzip_compress(data: &[u8], level: u32) -> PyResult<Vec<u8>> {
+    cyanea_core::compress::gzip_compress(data, level).into_pyresult()
+}
+
+/// Decompress gzip-compressed data.
+#[pyfunction]
+fn gzip_decompress(data: &[u8]) -> PyResult<Vec<u8>> {
+    cyanea_core::compress::gzip_decompress(data).into_pyresult()
+}
+
+/// Auto-detect compression format and decompress.
+#[pyfunction]
+fn decompress(data: &[u8]) -> PyResult<Vec<u8>> {
+    cyanea_core::compress::decompress(data).into_pyresult()
+}
+
 // ---------------------------------------------------------------------------
 // Submodule registration
 // ---------------------------------------------------------------------------
@@ -39,6 +58,9 @@ pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sha256_file, &m)?)?;
     m.add_function(wrap_pyfunction!(zstd_compress, &m)?)?;
     m.add_function(wrap_pyfunction!(zstd_decompress, &m)?)?;
+    m.add_function(wrap_pyfunction!(gzip_compress, &m)?)?;
+    m.add_function(wrap_pyfunction!(gzip_decompress, &m)?)?;
+    m.add_function(wrap_pyfunction!(decompress, &m)?)?;
     parent.add_submodule(&m)?;
     Ok(())
 }

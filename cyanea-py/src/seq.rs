@@ -308,6 +308,192 @@ fn fastq_stats(path: &str) -> PyResult<FastqStats> {
 }
 
 // ---------------------------------------------------------------------------
+// Pattern matching
+// ---------------------------------------------------------------------------
+
+/// Boyer-Moore-Horspool exact pattern search. Returns match positions.
+#[pyfunction]
+fn horspool(text: &[u8], pattern: &[u8]) -> Vec<usize> {
+    cyanea_seq::pattern::horspool(text, pattern)
+}
+
+/// Knuth-Morris-Pratt exact pattern search. Returns match positions.
+#[pyfunction]
+fn kmp(text: &[u8], pattern: &[u8]) -> Vec<usize> {
+    cyanea_seq::pattern::kmp(text, pattern)
+}
+
+/// Shift-And bitparallel exact matching (patterns ≤ 64 chars).
+#[pyfunction]
+fn shift_and(text: &[u8], pattern: &[u8]) -> Vec<usize> {
+    cyanea_seq::pattern::shift_and(text, pattern)
+}
+
+/// BNDM bitparallel exact matching (patterns ≤ 64 chars).
+#[pyfunction]
+fn bndm(text: &[u8], pattern: &[u8]) -> Vec<usize> {
+    cyanea_seq::pattern::bndm(text, pattern)
+}
+
+/// Backward Oracle Matching exact pattern search.
+#[pyfunction]
+fn bom(text: &[u8], pattern: &[u8]) -> Vec<usize> {
+    cyanea_seq::pattern::bom(text, pattern)
+}
+
+/// Myers bit-parallel approximate matching (patterns ≤ 64 chars).
+///
+/// Returns list of (end_position, edit_distance) tuples.
+#[pyfunction]
+fn myers_search(text: &[u8], pattern: &[u8], max_dist: usize) -> Vec<(usize, usize)> {
+    cyanea_seq::pattern::myers_bitparallel(text, pattern, max_dist)
+}
+
+/// Ukkonen cut-off approximate matching.
+///
+/// Returns list of (end_position, edit_distance) tuples.
+#[pyfunction]
+fn ukkonen_search(text: &[u8], pattern: &[u8], max_dist: usize) -> Vec<(usize, usize)> {
+    cyanea_seq::pattern::ukkonen(text, pattern, max_dist)
+}
+
+// ---------------------------------------------------------------------------
+// ORF finder
+// ---------------------------------------------------------------------------
+
+/// An open reading frame found in a sequence.
+#[pyclass(frozen, get_all)]
+pub struct OrfResult {
+    pub start: usize,
+    pub end: usize,
+    pub frame: usize,
+    pub strand: String,
+    pub sequence: Vec<u8>,
+}
+
+/// Find open reading frames on the forward strand.
+#[pyfunction]
+#[pyo3(signature = (seq, min_length=100))]
+fn find_orfs(seq: &[u8], min_length: usize) -> Vec<OrfResult> {
+    cyanea_seq::find_orfs(seq, min_length)
+        .into_iter()
+        .map(|o| OrfResult {
+            start: o.start,
+            end: o.end,
+            frame: o.frame,
+            strand: format!("{:?}", o.strand),
+            sequence: o.sequence,
+        })
+        .collect()
+}
+
+/// Find open reading frames on both strands.
+#[pyfunction]
+#[pyo3(signature = (seq, min_length=100))]
+fn find_orfs_both_strands(seq: &[u8], min_length: usize) -> Vec<OrfResult> {
+    cyanea_seq::find_orfs_both_strands(seq, min_length)
+        .into_iter()
+        .map(|o| OrfResult {
+            start: o.start,
+            end: o.end,
+            frame: o.frame,
+            strand: format!("{:?}", o.strand),
+            sequence: o.sequence,
+        })
+        .collect()
+}
+
+// ---------------------------------------------------------------------------
+// FM-Index
+// ---------------------------------------------------------------------------
+
+/// An FM-Index for fast substring search on a text.
+#[pyclass]
+pub struct FmIndex {
+    inner: cyanea_seq::FmIndex,
+}
+
+#[pymethods]
+impl FmIndex {
+    /// Build an FM-Index from the given text.
+    #[new]
+    fn new(text: &[u8]) -> Self {
+        Self {
+            inner: cyanea_seq::FmIndex::build(text),
+        }
+    }
+
+    /// Return all positions where pattern occurs in the indexed text.
+    fn search(&self, pattern: &[u8]) -> Vec<usize> {
+        self.inner.search(pattern)
+    }
+
+    /// Count occurrences of pattern without returning positions.
+    fn count(&self, pattern: &[u8]) -> usize {
+        self.inner.count(pattern)
+    }
+
+    fn __repr__(&self) -> String {
+        "FmIndex(...)".to_string()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MinHash sketching
+// ---------------------------------------------------------------------------
+
+/// A MinHash sketch for sequence similarity estimation.
+#[pyclass]
+pub struct MinHashSketch {
+    inner: cyanea_seq::minhash::MinHash,
+}
+
+#[pymethods]
+impl MinHashSketch {
+    /// Create a MinHash sketch from a sequence.
+    #[new]
+    #[pyo3(signature = (seq, k=21, sketch_size=1000))]
+    fn new(seq: &[u8], k: usize, sketch_size: usize) -> PyResult<Self> {
+        let inner =
+            cyanea_seq::minhash::MinHash::from_sequence(seq, k, sketch_size).into_pyresult()?;
+        Ok(Self { inner })
+    }
+
+    /// Jaccard similarity with another sketch.
+    fn jaccard(&self, other: &MinHashSketch) -> PyResult<f64> {
+        self.inner.jaccard(&other.inner).into_pyresult()
+    }
+
+    /// Containment of this sketch in another.
+    fn containment(&self, other: &MinHashSketch) -> PyResult<f64> {
+        self.inner.containment(&other.inner).into_pyresult()
+    }
+
+    /// Average nucleotide identity estimate.
+    fn ani(&self, other: &MinHashSketch) -> PyResult<f64> {
+        self.inner.ani(&other.inner).into_pyresult()
+    }
+
+    /// The raw hash values in the sketch.
+    fn hashes(&self) -> Vec<u64> {
+        self.inner.hashes().to_vec()
+    }
+
+    /// Number of hashes in the sketch.
+    fn __len__(&self) -> usize {
+        self.inner.len()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "MinHashSketch(k={}, sketch_size={})",
+            self.inner.k(),
+            self.inner.sketch_size()
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Submodule registration
 // ---------------------------------------------------------------------------
 
@@ -319,9 +505,21 @@ pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<FastaStats>()?;
     m.add_class::<FastqStats>()?;
     m.add_class::<FastqRecord>()?;
+    m.add_class::<OrfResult>()?;
+    m.add_class::<FmIndex>()?;
+    m.add_class::<MinHashSketch>()?;
     m.add_function(wrap_pyfunction!(fasta_stats, &m)?)?;
     m.add_function(wrap_pyfunction!(parse_fastq, &m)?)?;
     m.add_function(wrap_pyfunction!(fastq_stats, &m)?)?;
+    m.add_function(wrap_pyfunction!(horspool, &m)?)?;
+    m.add_function(wrap_pyfunction!(kmp, &m)?)?;
+    m.add_function(wrap_pyfunction!(shift_and, &m)?)?;
+    m.add_function(wrap_pyfunction!(bndm, &m)?)?;
+    m.add_function(wrap_pyfunction!(bom, &m)?)?;
+    m.add_function(wrap_pyfunction!(myers_search, &m)?)?;
+    m.add_function(wrap_pyfunction!(ukkonen_search, &m)?)?;
+    m.add_function(wrap_pyfunction!(find_orfs, &m)?)?;
+    m.add_function(wrap_pyfunction!(find_orfs_both_strands, &m)?)?;
     parent.add_submodule(&m)?;
     Ok(())
 }

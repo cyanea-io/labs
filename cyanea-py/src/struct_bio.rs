@@ -143,6 +143,133 @@ fn kabsch_align(
     Ok((result.rmsd, aligned))
 }
 
+/// Parse mmCIF (PDBx) format text into a Structure.
+#[pyfunction]
+fn parse_mmcif(content: &str) -> PyResult<Structure> {
+    let inner = cyanea_struct::parse_mmcif(content).into_pyresult()?;
+    Ok(Structure { inner })
+}
+
+// ---------------------------------------------------------------------------
+// Contact maps
+// ---------------------------------------------------------------------------
+
+/// Contact map entry: (residue_i, residue_j, distance).
+#[pyclass(frozen, get_all)]
+pub struct Contact {
+    pub residue_i: usize,
+    pub residue_j: usize,
+    pub distance: f64,
+}
+
+/// Compute CA-CA contact map for a chain.
+///
+/// Returns contacts below the cutoff distance.
+#[pyfunction]
+#[pyo3(signature = (structure, chain_index=0, cutoff=8.0))]
+fn contact_map(structure: &Structure, chain_index: usize, cutoff: f64) -> PyResult<Vec<Contact>> {
+    let chain = structure.inner.chains.get(chain_index).ok_or_else(|| {
+        pyo3::exceptions::PyIndexError::new_err(format!(
+            "chain index {chain_index} out of range (structure has {} chains)",
+            structure.inner.chains.len()
+        ))
+    })?;
+    let cm = cyanea_struct::compute_contact_map(chain).into_pyresult()?;
+    let pairs = cm.contacts_below(cutoff);
+    Ok(pairs
+        .into_iter()
+        .map(|(i, j)| Contact {
+            residue_i: i,
+            residue_j: j,
+            distance: cm.get(i, j),
+        })
+        .collect())
+}
+
+// ---------------------------------------------------------------------------
+// Ramachandran
+// ---------------------------------------------------------------------------
+
+/// Ramachandran angles for a single residue.
+#[pyclass(frozen, get_all)]
+pub struct RamachandranEntry {
+    pub residue_num: usize,
+    pub residue_name: String,
+    pub phi: f64,
+    pub psi: f64,
+    pub region: String,
+}
+
+/// Compute Ramachandran phi/psi angles for all residues in a structure.
+#[pyfunction]
+fn ramachandran(structure: &Structure) -> PyResult<Vec<RamachandranEntry>> {
+    let report = cyanea_struct::ramachandran_report(&structure.inner).into_pyresult()?;
+    Ok(report
+        .into_iter()
+        .map(|(num, name, phi, psi, region)| RamachandranEntry {
+            residue_num: num,
+            residue_name: name,
+            phi,
+            psi,
+            region: format!("{:?}", region),
+        })
+        .collect())
+}
+
+// ---------------------------------------------------------------------------
+// B-factor analysis
+// ---------------------------------------------------------------------------
+
+/// Per-residue average B-factor.
+#[pyclass(frozen, get_all)]
+pub struct ResidueBfactor {
+    pub residue_num: usize,
+    pub residue_name: String,
+    pub bfactor: f64,
+}
+
+/// Compute per-residue average B-factors.
+#[pyfunction]
+fn residue_bfactors(structure: &Structure) -> PyResult<Vec<ResidueBfactor>> {
+    let bfactors = cyanea_struct::residue_bfactors(&structure.inner).into_pyresult()?;
+    Ok(bfactors
+        .into_iter()
+        .map(|(num, name, bf)| ResidueBfactor {
+            residue_num: num,
+            residue_name: name,
+            bfactor: bf,
+        })
+        .collect())
+}
+
+/// B-factor statistics for a chain.
+#[pyclass(frozen, get_all)]
+pub struct ChainBfactorStats {
+    pub chain_id: String,
+    pub mean: f64,
+    pub std_dev: f64,
+    pub min: f64,
+    pub max: f64,
+    pub median: f64,
+}
+
+/// Compute per-chain B-factor statistics.
+#[pyfunction]
+fn chain_bfactors(structure: &Structure) -> PyResult<Vec<ChainBfactorStats>> {
+    let stats = cyanea_struct::chain_bfactors(&structure.inner).into_pyresult()?;
+    Ok(stats
+        .into_iter()
+        .map(|(id, s)| ChainBfactorStats {
+            chain_id: id,
+            mean: s.mean,
+            std_dev: s.std_dev,
+            min: s.min,
+            max: s.max,
+            median: s.median,
+        })
+        .collect())
+}
+
 // ---------------------------------------------------------------------------
 // Submodule registration
 // ---------------------------------------------------------------------------
@@ -151,9 +278,18 @@ pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(parent.py(), "struct_bio")?;
     m.add_class::<Structure>()?;
     m.add_class::<SecondaryStructureAssignment>()?;
+    m.add_class::<Contact>()?;
+    m.add_class::<RamachandranEntry>()?;
+    m.add_class::<ResidueBfactor>()?;
+    m.add_class::<ChainBfactorStats>()?;
     m.add_function(wrap_pyfunction!(parse_pdb, &m)?)?;
+    m.add_function(wrap_pyfunction!(parse_mmcif, &m)?)?;
     m.add_function(wrap_pyfunction!(rmsd, &m)?)?;
     m.add_function(wrap_pyfunction!(kabsch_align, &m)?)?;
+    m.add_function(wrap_pyfunction!(contact_map, &m)?)?;
+    m.add_function(wrap_pyfunction!(ramachandran, &m)?)?;
+    m.add_function(wrap_pyfunction!(residue_bfactors, &m)?)?;
+    m.add_function(wrap_pyfunction!(chain_bfactors, &m)?)?;
     parent.add_submodule(&m)?;
     Ok(())
 }
