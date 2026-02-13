@@ -34,3 +34,7 @@ proptest = { workspace = true }
 [[bench]]
 name = "align"
 harness = false
+
+[[bench]]
+name = "simd"
+harness = false

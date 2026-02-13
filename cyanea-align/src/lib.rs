@@ -38,7 +38,7 @@ pub use needleman_wunsch::needleman_wunsch;
 pub use smith_waterman::smith_waterman;
 pub use semi_global::semi_global;
 pub use batch::align_batch;
-pub use simd_sw::sw_simd_score;
+pub use simd_sw::{sw_simd_score, sw_scalar_score};
 pub use minimizers::{minimizers, find_seed_matches, Minimizer};
 pub use seed_extend::{seed_extend_align, chain_seeds, Seed, SeedChain};
 pub use wfa::wfa_align;

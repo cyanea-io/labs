@@ -57,6 +57,26 @@ pub fn sw_simd_score(
     Ok(sw_score_scalar(query, target, scoring))
 }
 
+/// Score-only Smith-Waterman using the scalar (non-SIMD) implementation.
+///
+/// Useful for benchmarking SIMD speedup against the pure-scalar baseline.
+///
+/// # Errors
+///
+/// Returns an error if either sequence is empty.
+pub fn sw_scalar_score(
+    query: &[u8],
+    target: &[u8],
+    scoring: &ScoringScheme,
+) -> Result<i32> {
+    if query.is_empty() || target.is_empty() {
+        return Err(CyaneaError::InvalidInput(
+            "sequences must not be empty".into(),
+        ));
+    }
+    Ok(sw_score_scalar(query, target, scoring))
+}
+
 // ---------------------------------------------------------------------------
 // Scalar fallback — Gotoh 3-matrix SW, O(mn) time, O(n) space
 // ---------------------------------------------------------------------------

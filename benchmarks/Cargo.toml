@@ -1,0 +1,15 @@
+[package]
+name = "cyanea-benchmarks"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+cyanea-seq = { path = "../cyanea-seq" }
+cyanea-align = { path = "../cyanea-align", features = ["simd"] }
+bio = "3"
+criterion = { workspace = true }
+
+[[bench]]
+name = "vs_rust_bio"
+harness = false

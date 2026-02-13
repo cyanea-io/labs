@@ -50,9 +50,9 @@ Every crate has a `docs/STATUS.md` with full API documentation.
 - [ ] GPU alignment benchmarks (Criterion)
 
 ### Competitive benchmarks
-- [ ] Head-to-head vs rust-bio (SW, FM-index)
-- [ ] Benchmark matrix: scalar vs SSE4.1 vs AVX2 vs NEON
-- [ ] Results published in `benchmarks/README.md`
+- [x] Head-to-head vs rust-bio (SW, FM-index)
+- [x] Benchmark matrix: scalar vs SSE4.1 vs AVX2 vs NEON
+- [x] Results published in `benchmarks/README.md`
 
 ---
 
