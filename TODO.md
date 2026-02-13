@@ -6,7 +6,7 @@ Last updated: 2026-02-12
 
 ---
 
-## Status: All 13 crates complete (1055+ tests)
+## Status: All 13 crates complete (1130+ tests)
 
 Every crate has a `docs/STATUS.md` with full API documentation.
 
@@ -14,15 +14,15 @@ Every crate has a `docs/STATUS.md` with full API documentation.
 |-------|--------|------:|
 | cyanea-core | Complete | 14 |
 | cyanea-seq | Complete (FASTA, FASTQ, k-mers, 2-bit encoding, suffix arrays, FM-index, MinHash) | 111 |
-| cyanea-io | Complete (CSV, VCF, BED, GFF3, SAM, BAM) | 56 |
+| cyanea-io | Complete (CSV, VCF, BED, GFF3, SAM, BAM, CRAM, Parquet) | 71 |
 | cyanea-align | Complete (NW, SW, semi-global, banded, MSA, SIMD SW, seed-and-extend, minimizers, WFA, GPU dispatch) | 138 |
-| cyanea-omics | Complete (genomic coords, intervals, matrices, variants, AnnData, single-cell) | 87 |
+| cyanea-omics | Complete (genomic coords, intervals, matrices, variants, AnnData, h5ad, zarr) | 99 |
 | cyanea-stats | Complete (descriptive, correlation, hypothesis tests, distributions, PCA, effect sizes, chi-squared, Fisher's exact) | 127 |
 | cyanea-ml | Complete (clustering, distances, embeddings, KNN, PCA, t-SNE, UMAP, random forest, regression, HMM) | 161 |
 | cyanea-chem | Complete (SMILES, SDF V2000/V3000, fingerprints, MACCS keys, properties, substructure, stereochemistry, canonical SMILES) | 79 |
 | cyanea-struct | Complete (PDB, mmCIF, geometry, DSSP, Kabsch, contact maps, Ramachandran) | 76 |
-| cyanea-phylo | Complete (Newick, NEXUS, distances, UPGMA/NJ, Fitch/Sankoff, ML likelihood, bootstrap) | 101 |
-| cyanea-gpu | CPU backend complete; CUDA/Metal kernel stubs | 43 |
+| cyanea-phylo | Complete (Newick, NEXUS, distances, UPGMA/NJ, Fitch/Sankoff, ML likelihood, bootstrap) | 110 |
+| cyanea-gpu | Complete (CPU + CUDA + Metal backends, buffers, ops) | 61 |
 | cyanea-wasm | Complete (JSON API for seq, io, align, stats, ml, chem, struct, phylo) | 83 |
 | cyanea-py | Complete (seq, align, stats, ml, chem, struct, phylo, io submodules) | — |
 
@@ -43,10 +43,10 @@ Every crate has a `docs/STATUS.md` with full API documentation.
 - [x] Proptest verification: WFA score equals NW score
 
 ### GPU backends (`cyanea-gpu`)
-- [x] Metal compute shader stubs (matrix ops, pairwise distance, reductions)
-- [x] CUDA kernel stubs
+- [x] Metal compute shaders (matrix ops, pairwise distance, reductions)
+- [x] CUDA kernels (cudarc/NVRTC, f64)
 - [x] GPU-accelerated Smith-Waterman batch alignment dispatch in `cyanea-align`
-- [ ] Metal kernel integration testing on Apple Silicon
+- [x] Metal kernel integration testing on Apple Silicon (61 tests)
 - [ ] GPU alignment benchmarks (Criterion)
 
 ### Competitive benchmarks
@@ -61,9 +61,12 @@ Every crate has a `docs/STATUS.md` with full API documentation.
 ### File formats (`cyanea-io`)
 - [x] SAM text parser (feature-gated)
 - [x] BAM parser with BGZF decompression (feature-gated behind `bam`)
-- [ ] CRAM parser
-- [ ] Parquet reader/writer
-- [ ] HDF5/Zarr reader
+- [x] CRAM parser (feature-gated behind `cram`, noodles-cram 0.72)
+- [x] Parquet reader/writer (feature-gated behind `parquet`, arrow/parquet 54)
+
+### File formats (`cyanea-omics`)
+- [x] Zarr v3 directory-based I/O (feature-gated behind `zarr`, zarrs 0.18)
+- [x] HDF5-backed AnnData `.h5ad` format (feature-gated behind `h5ad`)
 
 ### Sequences (`cyanea-seq`)
 - [x] Suffix arrays
@@ -103,7 +106,8 @@ Every crate has a `docs/STATUS.md` with full API documentation.
 
 ### Omics (`cyanea-omics`)
 - [x] AnnData in-memory
-- [ ] HDF5-backed AnnData (`.h5ad` format)
+- [x] HDF5-backed AnnData (`.h5ad` format, feature-gated behind `h5ad`)
+- [x] Zarr v3 directory-based I/O (feature-gated behind `zarr`)
 
 ---
 
