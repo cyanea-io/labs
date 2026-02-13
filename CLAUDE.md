@@ -1,6 +1,6 @@
 # Cyanea Labs
 
-Rust bioinformatics ecosystem — 13 crates, 1130+ tests, targeting native, WASM, Python, and Elixir NIFs.
+Rust bioinformatics ecosystem — 13 crates, 1218+ tests, targeting native, WASM, Python, and Elixir NIFs.
 
 ## Workspace
 
@@ -20,9 +20,9 @@ All crates are complete. Each has `docs/STATUS.md` with full API docs.
 | Crate | Purpose | Tests | Key deps |
 |-------|---------|------:|----------|
 | **cyanea-core** | Traits, errors, SHA-256, zstd, mmap | 14 | thiserror, sha2, zstd, flate2, memmap2 |
-| **cyanea-seq** | DNA/RNA/protein, FASTA/FASTQ, k-mers, 2-bit encoding, suffix array, FM-index, MinHash | 111 | cyanea-core, needletail |
+| **cyanea-seq** | DNA/RNA/protein, FASTA/FASTQ, k-mers, 2-bit encoding, suffix array, FM-index, MinHash, pattern matching, PSSM/motif scanning, ORF finder, FASTA indexed reader (.fai), FMD-Index | 205 | cyanea-core, needletail |
 | **cyanea-io** | CSV, VCF, BED, GFF3, SAM, BAM, CRAM, Parquet (feature-gated) | 71 | cyanea-core, cyanea-omics, csv, flate2, noodles, arrow/parquet |
-| **cyanea-align** | NW, SW, semi-global, MSA, banded, seed-and-extend, minimizers, WFA, GPU dispatch | 138 | cyanea-core |
+| **cyanea-align** | NW, SW, semi-global, MSA, banded, seed-and-extend, minimizers, WFA, GPU dispatch, POA, LCSk++ sparse alignment, pair HMM | 200 | cyanea-core |
 | **cyanea-omics** | Genomic coords, intervals, matrices, variants, AnnData, h5ad, zarr | 99 | cyanea-core, zarrs |
 | **cyanea-stats** | Descriptive, correlation, hypothesis tests, distributions, PCA, effect sizes | 127 | cyanea-core |
 | **cyanea-ml** | Clustering, distances, embeddings, KNN, PCA, t-SNE, UMAP, random forest, HMM | 161 | cyanea-core |
@@ -65,6 +65,9 @@ All crates are complete. Each has `docs/STATUS.md` with full API docs.
 - Python bindings use `IntoPyResult` trait for `CyaneaError → PyErr` conversion
 - Workspace shared deps in root `Cargo.toml` `[workspace.dependencies]`
 - Seed-and-extend: `chain_seeds(seeds, k, max_gap)` scores each seed at `k` points with gap penalty
+- Pattern matching algorithms in `cyanea-seq::pattern` work on `&[u8]` for generality; bitparallel methods (shift_and, bndm, myers) limited to patterns ≤ 64
+- FMD-Index (`cyanea-seq::fmd_index`) indexes `text#revcomp(text)$` for bidirectional search and SMEM enumeration
+- POA (`cyanea-align::poa`) uses Lee 2002 algorithm: DP alignment against DAG with topological sort
 
 ### Testing
 - Unit tests inline (`#[cfg(test)]` modules at bottom of each file)

@@ -37,10 +37,16 @@
 pub mod alphabet;
 pub mod codon;
 pub mod fasta;
+#[cfg(feature = "std")]
+pub mod fasta_index;
 pub mod fastq;
 pub mod fm_index;
+pub mod fmd_index;
 pub mod kmer;
 pub mod minhash;
+pub mod orf;
+pub mod pattern;
+pub mod pssm;
 pub mod quality;
 pub mod seq;
 pub mod suffix;
@@ -68,6 +74,10 @@ pub use quality::{PhredEncoding, QualityScores};
 // Re-export FASTA types
 pub use fasta::{parse_fasta_stats, FastaStats};
 
+// Re-export indexed FASTA types
+#[cfg(feature = "std")]
+pub use fasta_index::{FastaIndex, FastaIndexEntry, IndexedFastaReader};
+
 // Re-export FASTQ types
 pub use fastq::{parse_fastq_file, parse_fastq_stats, FastqRecord, FastqStats};
 
@@ -75,6 +85,16 @@ pub use fastq::{parse_fastq_file, parse_fastq_stats, FastqRecord, FastqStats};
 pub use twobit::TwoBitSequence;
 pub use suffix::SuffixArray;
 pub use fm_index::FmIndex;
+pub use fmd_index::{FmdIndex, BiInterval};
 
 // Re-export MinHash sketching types
 pub use minhash::{MinHash, FracMinHash};
+
+// Re-export pattern matching algorithms
+pub use pattern::{bndm, bom, horspool, kmp, myers_bitparallel, shift_and, ukkonen};
+
+// Re-export PSSM types and helpers
+pub use pssm::{dna_mapping, protein_mapping, Pssm, PssmDna, PssmProtein};
+
+// Re-export ORF finder
+pub use orf::{find_orfs, find_orfs_both_strands, find_orfs_with_codons, OrfResult, Strand};

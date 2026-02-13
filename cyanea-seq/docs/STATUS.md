@@ -146,6 +146,115 @@ FM-Index for O(m) exact pattern matching on DNA sequences via backward search. B
 | `search(&self, pattern: &[u8]) -> Vec<usize>` | Find all occurrence positions of pattern (O(m) search + O(k) lookup, sorted) |
 | `count(&self, pattern: &[u8]) -> usize` | Count occurrences without returning positions (more efficient than `search`) |
 
+### Pattern matching (`pattern.rs`)
+
+7 exact and approximate string matching algorithms operating on `&[u8]` for generality. Bitparallel methods (Shift-And, BNDM, Myers) limited to patterns of length 64 or less.
+
+**Exact matching:**
+
+| Function | Description |
+|----------|-------------|
+| `horspool(text: &[u8], pattern: &[u8]) -> Vec<usize>` | Boyer-Moore-Horspool exact matching, O(n/m) average case |
+| `kmp(text: &[u8], pattern: &[u8]) -> Vec<usize>` | Knuth-Morris-Pratt exact matching, O(n+m) |
+| `shift_and(text: &[u8], pattern: &[u8]) -> Vec<usize>` | Shift-And bitparallel exact matching (pattern <= 64) |
+| `bndm(text: &[u8], pattern: &[u8]) -> Vec<usize>` | BNDM bitparallel exact matching (pattern <= 64) |
+| `bom(text: &[u8], pattern: &[u8]) -> Vec<usize>` | Backward Oracle Matching exact matching |
+
+**Approximate matching:**
+
+| Function | Description |
+|----------|-------------|
+| `myers_bitparallel(text: &[u8], pattern: &[u8], max_dist: usize) -> Vec<(usize, usize)>` | Myers bit-parallel approximate matching (pattern <= 64), returns (end_position, edit_distance) |
+| `ukkonen(text: &[u8], pattern: &[u8], max_dist: usize) -> Vec<(usize, usize)>` | Ukkonen cut-off approximate matching, returns (end_position, edit_distance) |
+
+### PSSM / Motif scanning (`pssm.rs`)
+
+Position-Specific Scoring Matrix with const generic alphabet size for DNA and protein motif scanning.
+
+| Type | Description |
+|------|-------------|
+| `Pssm<const N: usize>` | Position-Specific Scoring Matrix with const generic alphabet size |
+| `PssmDna` | Type alias for `Pssm<4>` (DNA alphabet) |
+| `PssmProtein` | Type alias for `Pssm<20>` (protein alphabet) |
+
+**Pssm methods:**
+
+| Method | Description |
+|--------|-------------|
+| `from_counts(counts: &[Vec<f64>], pseudocount: f64, background: &[f64], mapping: fn(u8) -> Option<usize>) -> Result<Self>` | Build from count matrix with pseudocounts and background frequencies |
+| `score(seq: &[u8], mapping: fn(u8) -> Option<usize>) -> Result<f64>` | Score a sequence window of length equal to the PSSM |
+| `scan(seq: &[u8], threshold: f64, mapping: fn(u8) -> Option<usize>) -> Result<Vec<(usize, f64)>>` | Scan for motif hits above threshold, returns (position, score) |
+| `information_content() -> Vec<f64>` | Per-position information content in bits |
+
+**Helper functions:**
+
+| Function | Description |
+|----------|-------------|
+| `dna_mapping(b: u8) -> Option<usize>` | Map DNA base to column index (A=0, C=1, G=2, T=3) |
+| `protein_mapping(b: u8) -> Option<usize>` | Map amino acid to column index (20 standard residues) |
+
+### ORF finder (`orf.rs`)
+
+Open reading frame detection across forward and reverse complement strands with configurable start/stop codons.
+
+| Type | Description |
+|------|-------------|
+| `OrfResult` | ORF result: `start`, `end`, `frame`, `strand`, `sequence` |
+| `Strand` | Enum: `Forward`, `Reverse` |
+
+| Function | Description |
+|----------|-------------|
+| `find_orfs(seq: &[u8], min_length: usize) -> Vec<OrfResult>` | Find ORFs in all 3 forward reading frames |
+| `find_orfs_both_strands(seq: &[u8], min_length: usize) -> Vec<OrfResult>` | Find ORFs in all 6 reading frames (forward + reverse complement) |
+| `find_orfs_with_codons(seq: &[u8], min_length: usize, start_codons: &[&[u8]], stop_codons: &[&[u8]]) -> Vec<OrfResult>` | Find ORFs with configurable start and stop codons |
+
+### FASTA indexed reader (`fasta_index.rs`)
+
+Random access FASTA reading using `.fai` index files. Feature-gated behind `std`.
+
+| Type | Description |
+|------|-------------|
+| `FastaIndex` | Parsed `.fai` index with entries keyed by sequence name |
+| `FastaIndexEntry` | Entry for one sequence: `name`, `length`, `offset`, `line_bases`, `line_width` |
+| `IndexedFastaReader` | Random access FASTA reader using an index |
+
+**FastaIndex methods:**
+
+| Method | Description |
+|--------|-------------|
+| `from_file(path: &Path) -> Result<Self>` | Parse an existing `.fai` index file |
+| `build(fasta_path: &Path) -> Result<Self>` | Build an index from a FASTA file |
+| `write(path: &Path) -> Result<()>` | Write the index to a `.fai` file |
+
+**IndexedFastaReader methods:**
+
+| Method | Description |
+|--------|-------------|
+| `open(fasta_path: &Path, fai_path: &Path) -> Result<Self>` | Open a FASTA file with its index |
+| `fetch(name: &str, start: usize, end: usize) -> Result<Vec<u8>>` | Fetch a region by sequence name and coordinates |
+| `fetch_all(name: &str) -> Result<Vec<u8>>` | Fetch the full sequence by name |
+
+### FMD-Index (`fmd_index.rs`)
+
+Bidirectional FM-Index for strand-aware search on DNA sequences. Indexes `text#reverse_complement(text)$` to support both forward and backward extension of search intervals, enabling super-maximal exact match (SMEM) enumeration.
+
+| Type | Description |
+|------|-------------|
+| `FmdIndex` | Bidirectional FM-Index over `text#revcomp(text)$` |
+| `BiInterval` | Bidirectional interval: `lower`, `size`, `lower_rev` |
+
+**FmdIndex methods:**
+
+| Method | Description |
+|--------|-------------|
+| `new(seq: &[u8]) -> Self` | Build from a DNA sequence |
+| `init_interval(c: u8) -> BiInterval` | Initialize a bidirectional interval with a single character |
+| `extend_backward(&self, interval: &BiInterval, c: u8) -> BiInterval` | Extend search backward (prepend character) |
+| `extend_forward(&self, interval: &BiInterval, c: u8) -> BiInterval` | Extend search forward (append character) |
+| `locate(&self, interval: &BiInterval) -> Vec<usize>` | Get text positions from a bidirectional interval |
+| `backward_search(&self, pattern: &[u8]) -> BiInterval` | Full backward search for a pattern |
+| `smems(&self, query: &[u8], min_len: usize) -> Vec<(usize, usize, BiInterval)>` | Enumerate super-maximal exact matches (query_start, query_end, interval) |
+
 ### MinHash sketching (`minhash.rs`)
 
 Bottom-k MinHash and scaled FracMinHash sketching for rapid genome comparison. Estimates Jaccard similarity, containment, and average nucleotide identity (ANI) between DNA sequences without full alignment. Uses canonical k-mers (min of forward and reverse complement hash) for strand-agnostic sketching.
@@ -203,7 +312,7 @@ Bottom-k MinHash and scaled FracMinHash sketching for rapid genome comparison. E
 
 ## Tests
 
-111 tests across 13 source files.
+205 tests across 18 source files.
 
 ## Source Files
 
@@ -222,3 +331,8 @@ Bottom-k MinHash and scaled FracMinHash sketching for rapid genome comparison. E
 | `suffix.rs` | 635 | Suffix array (SA-IS algorithm) |
 | `fm_index.rs` | 355 | FM-Index (BWT backward search) |
 | `minhash.rs` | 833 | MinHash and FracMinHash sketching |
+| `pattern.rs` | 631 | Exact and approximate pattern matching (7 algorithms) |
+| `pssm.rs` | 370 | Position-Specific Scoring Matrix / motif scanning |
+| `orf.rs` | 288 | Open reading frame finder |
+| `fasta_index.rs` | 421 | FASTA indexed reader (.fai) |
+| `fmd_index.rs` | 732 | Bidirectional FM-Index (FMD-Index) |

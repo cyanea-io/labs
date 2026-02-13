@@ -23,9 +23,12 @@ pub mod batch;
 pub mod simd;
 pub mod simd_sw;
 pub mod msa;
+pub mod poa;
 pub mod minimizers;
 pub mod seed_extend;
 pub mod wfa;
+pub mod lcsk;
+pub mod pair_hmm;
 
 pub mod gpu;
 
@@ -39,6 +42,11 @@ pub use simd_sw::sw_simd_score;
 pub use minimizers::{minimizers, find_seed_matches, Minimizer};
 pub use seed_extend::{seed_extend_align, chain_seeds, Seed, SeedChain};
 pub use wfa::wfa_align;
+pub use lcsk::{sparse_align, find_kmer_matches, lcsk_plusplus, SparseAlignResult};
+pub use poa::{PoaGraph, PoaScoring};
+pub use pair_hmm::{
+    pair_hmm_forward, pair_hmm_viterbi, PairHmmAlignment, PairHmmParams, PairHmmState,
+};
 
 /// Convenience function: align two sequences using the specified mode and scoring.
 ///

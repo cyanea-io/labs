@@ -95,6 +95,68 @@ All three alignment modes (global, local, semi-global) are fully implemented wit
 - CUDA backend: NVRTC-compiled kernel, cudarc driver API
 - CPU fallback always available (also used when batch size < `min_pairs_for_gpu`)
 
+### LCSk++ sparse alignment (`lcsk.rs`)
+
+| Type | Description |
+|------|-------------|
+| `SparseAlignResult` | Result: `score`, `anchors: Vec<(usize, usize)>`, `num_matches` |
+
+| Function | Description |
+|----------|-------------|
+| `find_kmer_matches(a, b, k) -> Vec<(usize, usize)>` | Find shared k-mer positions between two sequences |
+| `lcsk_plusplus(matches, k) -> (usize, Vec<(usize, usize)>)` | LCSk++ algorithm with Fenwick tree for O(n log n) DP |
+| `sparse_align(a, b, k) -> Result<SparseAlignResult>` | Full pipeline: find k-mer matches, LCSk++, chain |
+
+**Implementation details:**
+
+- Coordinate compression maps match positions to a compact index space
+- Fenwick tree (binary indexed tree) enables O(log n) prefix-maximum queries for DP
+- Pipeline: enumerate shared k-mers → sort matches → LCSk++ DP → traceback anchors
+
+### Partial Order Alignment — POA (`poa.rs`)
+
+| Type | Description |
+|------|-------------|
+| `PoaGraph` | Directed acyclic graph for multiple sequence alignment |
+| `PoaScoring` | Scoring parameters (default: match=2, mismatch=-1, gap=-2) |
+
+| Method | Description |
+|--------|-------------|
+| `PoaGraph::from_sequence(seq) -> Self` | Initialize graph with first sequence |
+| `PoaGraph::add_sequence(seq, scoring) -> Result<()>` | Align and integrate a new sequence into the graph |
+| `PoaGraph::consensus() -> Vec<u8>` | Heaviest-path consensus sequence |
+| `PoaGraph::topological_sort() -> Vec<usize>` | Topological ordering of graph nodes |
+| `PoaGraph::to_dot() -> String` | DOT format visualization of the graph |
+| `PoaGraph::num_nodes() -> usize` | Number of nodes in the graph |
+| `PoaGraph::num_sequences() -> usize` | Number of sequences integrated into the graph |
+
+**Implementation details:**
+
+- Lee 2002 algorithm: DP alignment against DAG with traceback and integration
+- Each node stores a base, successor/predecessor edges, and sequence membership
+- New sequences are aligned against the topologically sorted graph, then merged via traceback
+
+### Pair HMM (`pair_hmm.rs`)
+
+| Type | Description |
+|------|-------------|
+| `PairHmmParams` | Log-space transition and emission parameters |
+| `PairHmmState` | Enum: `Match`, `InsertX`, `InsertY` |
+| `PairHmmAlignment` | Result: `score`, `states: Vec<PairHmmState>` |
+
+| Function | Description |
+|----------|-------------|
+| `PairHmmParams::default()` | Standard parameters for the three-state model |
+| `pair_hmm_forward(a, b, params) -> Result<f64>` | Forward algorithm (log-likelihood of sequence pair) |
+| `pair_hmm_viterbi(a, b, params) -> Result<(f64, PairHmmAlignment)>` | Viterbi decoding with traceback |
+
+**Implementation details:**
+
+- Three-state model: M (match/mismatch), X (insert in seq_a), Y (insert in seq_b)
+- All computation in log-space for numerical stability
+- `log_sum_exp` helper avoids underflow in the forward algorithm
+- Viterbi traceback produces the most probable state path through M/X/Y states
+
 ## Feature Flags
 
 | Flag | Default | Description |
@@ -113,7 +175,7 @@ All three alignment modes (global, local, semi-global) are fully implemented wit
 
 ## Tests
 
-138 tests with `--features metal` (includes GPU dispatch tests on macOS).
+200 tests with `--features metal` (includes GPU dispatch tests on macOS).
 
 ## Source Files
 
@@ -134,3 +196,6 @@ All three alignment modes (global, local, semi-global) are fully implemented wit
 | `gpu/cuda_align.rs` | 186 | CUDA banded affine-gap aligner |
 | `gpu/kernels/align.metal` | 183 | MSL banded affine-gap kernel |
 | `gpu/kernels/align.cu` | 143 | CUDA C banded affine-gap kernel |
+| `lcsk.rs` | 598 | LCSk++ sparse alignment with Fenwick tree |
+| `poa.rs` | 766 | Partial Order Alignment (Lee 2002 DAG alignment) |
+| `pair_hmm.rs` | 697 | Pair HMM forward algorithm and Viterbi decoding |

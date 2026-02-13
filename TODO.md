@@ -2,20 +2,20 @@
 
 > Best-in-class Rust bioinformatics ecosystem targeting CPU, GPU, WASM (browser), and BEAM (Elixir NIFs).
 
-Last updated: 2026-02-12
+Last updated: 2026-02-13
 
 ---
 
-## Status: All 13 crates complete (1130+ tests)
+## Status: All 13 crates complete (1218+ tests)
 
 Every crate has a `docs/STATUS.md` with full API documentation.
 
 | Crate | Status | Tests |
 |-------|--------|------:|
 | cyanea-core | Complete | 14 |
-| cyanea-seq | Complete (FASTA, FASTQ, k-mers, 2-bit encoding, suffix arrays, FM-index, MinHash) | 111 |
+| cyanea-seq | Complete (FASTA, FASTQ, k-mers, 2-bit encoding, suffix arrays, FM-index, FMD-Index, MinHash, pattern matching, PSSM, ORF finder, FASTA indexed reader) | 205 |
 | cyanea-io | Complete (CSV, VCF, BED, GFF3, SAM, BAM, CRAM, Parquet) | 71 |
-| cyanea-align | Complete (NW, SW, semi-global, banded, MSA, SIMD SW, seed-and-extend, minimizers, WFA, GPU dispatch) | 138 |
+| cyanea-align | Complete (NW, SW, semi-global, banded, MSA, SIMD SW, seed-and-extend, minimizers, WFA, GPU dispatch, POA, LCSk++, pair HMM) | 200 |
 | cyanea-omics | Complete (genomic coords, intervals, matrices, variants, AnnData, h5ad, zarr) | 99 |
 | cyanea-stats | Complete (descriptive, correlation, hypothesis tests, distributions, PCA, effect sizes, chi-squared, Fisher's exact) | 127 |
 | cyanea-ml | Complete (clustering, distances, embeddings, KNN, PCA, t-SNE, UMAP, random forest, regression, HMM) | 161 |
@@ -108,6 +108,43 @@ Every crate has a `docs/STATUS.md` with full API documentation.
 - [x] AnnData in-memory
 - [x] HDF5-backed AnnData (`.h5ad` format, feature-gated behind `h5ad`)
 - [x] Zarr v3 directory-based I/O (feature-gated behind `zarr`)
+
+---
+
+## P1.5 — Competitive Parity (rust-bio gaps)
+
+### High-Value (implement now)
+
+#### Pattern matching suite (`cyanea-seq`)
+- [x] Myers bit-parallel approximate matching
+- [x] Horspool (Boyer-Moore-Horspool)
+- [x] KMP (Knuth-Morris-Pratt)
+- [x] Shift-And bitparallel
+- [x] BNDM bitparallel
+- [x] BOM (Backward Oracle Matching)
+- [x] Ukkonen cut-off approximate matching
+
+#### Sequence analysis (`cyanea-seq`)
+- [x] PSSM / Motif scanning (DNA + Protein)
+- [x] ORF finder (configurable start/stop codons, min length, all 6 frames)
+- [x] FASTA indexed reader (.fai) for random access
+- [x] FMD-Index (bidirectional FM-index for strand-aware search)
+
+#### Alignment algorithms (`cyanea-align`)
+- [x] Partial Order Alignment (POA) for long-read consensus
+- [x] Sparse alignment (LCSk++) for long sequences
+- [x] Pair HMM (Match/Insert/Delete states, log-space)
+
+### Medium-Value (roadmap only)
+
+- [ ] Additional PAM matrices (PAM40, PAM120, PAM200) + BLOSUM30 → `cyanea-align`
+- [ ] BWT utilities (standalone construction/querying) → `cyanea-seq`
+- [ ] LogProb / PHREDProb newtypes → `cyanea-core`
+- [ ] Bayesian statistics (conjugate priors) → `cyanea-stats`
+- [ ] Rank/select bitvectors, wavelet matrix → `cyanea-core`
+- [ ] Fenwick tree → `cyanea-core`
+- [ ] BEDPE format → `cyanea-io`
+- [ ] Combinatorics utilities → `cyanea-stats`
 
 ---
 
