@@ -30,6 +30,8 @@ pub mod seed_extend;
 pub mod wfa;
 pub mod lcsk;
 pub mod pair_hmm;
+pub mod spliced;
+pub mod xdrop;
 
 pub mod gpu;
 
@@ -47,6 +49,14 @@ pub use lcsk::{sparse_align, find_kmer_matches, lcsk_plusplus, SparseAlignResult
 pub use poa::{PoaGraph, PoaScoring};
 pub use pair_hmm::{
     pair_hmm_forward, pair_hmm_viterbi, PairHmmAlignment, PairHmmParams, PairHmmState,
+};
+pub use spliced::{
+    chain_exons, detect_splice_site, spliced_align, ExonAlignment, SpliceSiteType,
+    SplicedAlignParams, SplicedAlignResult,
+};
+pub use xdrop::{
+    xdrop_extend_left, xdrop_extend_right, xdrop_seed_extend, zdrop_extend_left,
+    zdrop_extend_right, zdrop_seed_extend, ExtensionResult, XDropParams, ZDropParams,
 };
 
 /// Convenience function: align two sequences using the specified mode and scoring.

@@ -273,6 +273,74 @@ Standalone Burrows-Wheeler Transform construction and inversion.
 | `len(&self) -> usize` | Length of BWT (text length + 1) |
 | `invert(&self) -> Vec<u8>` | Reconstruct original text via LF-mapping |
 
+### Quality trimming & filtering (`trim.rs`)
+
+Quality trimming, adapter removal, and read filtering for FASTQ records. Two-level API: low-level functions on `&[u8]` slices return composable `TrimRange` values, high-level functions operate on `FastqRecord`. `TrimPipeline` builder chains operations in Trimmomatic-style order with batch statistics.
+
+**Core type:**
+
+| Type | Description |
+|------|-------------|
+| `TrimRange` | Half-open range `[start, end)` describing which bases to keep |
+| `TrimPipeline` | Configurable read-processing pipeline builder |
+| `TrimReport` | Batch processing statistics (kept/filtered counts, adapter hits, base counts) |
+
+**Low-level trim functions** (operate on `&[u8]` quality/sequence slices, return `TrimRange`):
+
+| Function | Description |
+|----------|-------------|
+| `trim_sliding_window(quality, window_size, threshold) -> TrimRange` | Trimmomatic SLIDINGWINDOW — O(n) running sum, cut when window mean drops below threshold |
+| `trim_leading(quality, threshold) -> TrimRange` | Remove 5' bases below quality threshold |
+| `trim_trailing(quality, threshold) -> TrimRange` | Remove 3' bases below quality threshold |
+| `trim_quality_3prime(quality, threshold) -> TrimRange` | BWA-style — maximize suffix sum of (threshold - Q) from 3' end |
+| `find_adapter_3prime(seq, adapter, max_mismatches) -> usize` | Sliding overlap at 3' end, longest-first, returns cut position |
+| `shannon_entropy(seq) -> f64` | Base composition entropy (max 2.0 for DNA) |
+| `intersect_ranges(ranges) -> TrimRange` | Compose multiple trim ranges via intersection |
+
+**High-level functions** (operate on `&FastqRecord`):
+
+| Function | Description |
+|----------|-------------|
+| `apply_trim(record, range) -> Option<FastqRecord>` | New trimmed record, or None if range is empty |
+| `trim_adapter(record, adapter, max_mismatches) -> FastqRecord` | Record with adapter removed |
+| `filter_by_length(record, min, max) -> Option<&FastqRecord>` | None if outside range |
+| `filter_low_complexity(record, min_entropy) -> Option<&FastqRecord>` | None if entropy below threshold |
+| `filter_by_quality(record, min_quality) -> Option<&FastqRecord>` | None if mean Q below threshold |
+
+**Adapter constants** (`trim::adapters`):
+
+| Constant | Description |
+|----------|-------------|
+| `TRUSEQ_UNIVERSAL` | Illumina TruSeq Universal Adapter (33 bp) |
+| `TRUSEQ_INDEXED` | Illumina TruSeq Indexed Adapter (33 bp) |
+| `NEXTERA_READ1` | Nextera Transposase Read 1 (33 bp) |
+| `NEXTERA_READ2` | Nextera Transposase Read 2 (34 bp) |
+| `SMALL_RNA_3P` | Illumina Small RNA 3' Adapter (21 bp) |
+| `TRUSEQ_PREFIX` | Common 12-base prefix shared by TruSeq adapters |
+| `ALL_ILLUMINA` | All standard Illumina adapters for batch searching |
+
+**TrimPipeline methods:**
+
+| Method | Description |
+|--------|-------------|
+| `new() -> Self` | Create an empty pipeline (no-op by default) |
+| `adapter(self, adapter: &[u8]) -> Self` | Add a single adapter sequence |
+| `illumina_adapters(self) -> Self` | Add all standard Illumina adapters |
+| `adapter_mismatches(self, max: usize) -> Self` | Set max mismatches for adapter matching (default 1) |
+| `leading(self, threshold: u8) -> Self` | Trim 5' bases below threshold |
+| `trailing(self, threshold: u8) -> Self` | Trim 3' bases below threshold |
+| `sliding_window(self, window_size: usize, threshold: f64) -> Self` | Trimmomatic-style sliding window (mutually exclusive with `bwa_quality`) |
+| `bwa_quality(self, threshold: u8) -> Self` | BWA-style 3' trim (mutually exclusive with `sliding_window`) |
+| `min_length(self, len: usize) -> Self` | Discard reads shorter than `len` |
+| `max_length(self, len: usize) -> Self` | Discard reads longer than `len` |
+| `min_mean_quality(self, quality: f64) -> Self` | Discard reads with mean Q below threshold |
+| `min_entropy(self, entropy: f64) -> Self` | Discard low-complexity reads below entropy threshold |
+| `process(&self, record: &FastqRecord) -> Option<FastqRecord>` | Process a single record |
+| `process_batch(&self, records: &[FastqRecord]) -> Vec<FastqRecord>` | Process a batch, returning only passing records |
+| `process_batch_with_stats(&self, records: &[FastqRecord]) -> TrimReport` | Process a batch with detailed statistics |
+
+Pipeline operation order (Trimmomatic convention): adapter trim → leading → trailing → sliding window/BWA → length filter → quality filter → complexity filter.
+
 ### MinHash sketching (`minhash.rs`)
 
 Bottom-k MinHash and scaled FracMinHash sketching for rapid genome comparison. Estimates Jaccard similarity, containment, and average nucleotide identity (ANI) between DNA sequences without full alignment. Uses canonical k-mers (min of forward and reverse complement hash) for strand-agnostic sketching.
@@ -330,13 +398,13 @@ Bottom-k MinHash and scaled FracMinHash sketching for rapid genome comparison. E
 
 ## Tests
 
-215 tests across 19 source files.
+258 tests across 20 source files.
 
 ## Source Files
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `lib.rs` | 81 | Module declarations, re-exports |
+| `lib.rs` | 108 | Module declarations, re-exports |
 | `alphabet.rs` | 94 | Alphabet trait and implementations |
 | `types.rs` | 283 | ValidatedSeq generic type |
 | `seq.rs` | 197 | Sequence-specific methods |
@@ -354,4 +422,5 @@ Bottom-k MinHash and scaled FracMinHash sketching for rapid genome comparison. E
 | `orf.rs` | 288 | Open reading frame finder |
 | `fasta_index.rs` | 421 | FASTA indexed reader (.fai) |
 | `fmd_index.rs` | 732 | Bidirectional FM-Index (FMD-Index) |
+| `trim.rs` | 1154 | Quality trimming, adapter removal, filtering, TrimPipeline |
 | `bwt.rs` | 225 | Standalone BWT construction and inversion |

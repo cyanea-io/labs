@@ -7,7 +7,7 @@
 use cyanea_core::Result;
 
 use crate::alphabet::{DnaAlphabet, ProteinAlphabet, RnaAlphabet};
-use crate::codon;
+use crate::codon::{self, GeneticCode};
 use crate::kmer::KmerIter;
 use crate::seq::ValidatedSeq;
 
@@ -91,6 +91,12 @@ impl DnaSequence {
         self.transcribe().translate()
     }
 
+    /// Translate DNA to protein using a specific genetic code table.
+    pub fn translate_with(&self, code: &GeneticCode) -> Result<ProteinSequence> {
+        let protein_bytes = code.translate_sequence(self.as_ref());
+        ProteinSequence::new(&protein_bytes)
+    }
+
     /// GC content as a fraction in [0.0, 1.0].
     ///
     /// Only counts unambiguous G and C bases. Returns 0.0 for empty sequences.
@@ -131,6 +137,12 @@ impl RnaSequence {
     /// Translate RNA to protein using the standard genetic code.
     pub fn translate(&self) -> Result<ProteinSequence> {
         let protein_bytes = codon::translate_sequence(self.as_ref());
+        ProteinSequence::new(&protein_bytes)
+    }
+
+    /// Translate RNA to protein using a specific genetic code table.
+    pub fn translate_with(&self, code: &GeneticCode) -> Result<ProteinSequence> {
+        let protein_bytes = code.translate_sequence(self.as_ref());
         ProteinSequence::new(&protein_bytes)
     }
 

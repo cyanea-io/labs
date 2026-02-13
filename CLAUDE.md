@@ -1,6 +1,6 @@
 # Cyanea Labs
 
-Rust bioinformatics ecosystem — 13 crates, 1324+ tests, targeting native, WASM, Python, and Elixir NIFs.
+Rust bioinformatics ecosystem — 13 crates, 1440+ tests, targeting native, WASM, Python, and Elixir NIFs.
 
 ## Workspace
 
@@ -20,9 +20,9 @@ All crates are complete. Each has `docs/STATUS.md` with full API docs.
 | Crate | Purpose | Tests | Key deps |
 |-------|---------|------:|----------|
 | **cyanea-core** | Traits, errors, SHA-256, zstd, mmap, log-space probability types, rank/select bitvectors, wavelet matrix, Fenwick tree | 58 | thiserror, sha2, zstd, flate2, memmap2 |
-| **cyanea-seq** | DNA/RNA/protein, FASTA/FASTQ, k-mers, 2-bit encoding, suffix array, FM-index, BWT, MinHash, pattern matching, PSSM/motif scanning, ORF finder, FASTA indexed reader (.fai), FMD-Index | 215 | cyanea-core, needletail |
+| **cyanea-seq** | DNA/RNA/protein, FASTA/FASTQ, k-mers, 2-bit encoding, suffix array, FM-index, BWT, MinHash, pattern matching, PSSM/motif scanning, ORF finder, FASTA indexed reader (.fai), FMD-Index, quality trimming/filtering, codon tables (7 NCBI), codon usage/CAI, DUST/SEG/tandem repeat masking | 300 | cyanea-core, needletail |
 | **cyanea-io** | CSV, VCF, BED, BEDPE, GFF3, SAM, BAM, CRAM, Parquet (feature-gated) | 81 | cyanea-core, cyanea-omics, csv, flate2, noodles, arrow/parquet |
-| **cyanea-align** | NW, SW, semi-global, MSA, banded, seed-and-extend, minimizers, WFA, GPU dispatch, POA, LCSk++ sparse alignment, pair HMM, PAM40/120/200, BLOSUM30 | 209 | cyanea-core |
+| **cyanea-align** | NW, SW, semi-global, MSA, banded, seed-and-extend, minimizers, WFA, GPU dispatch, POA, LCSk++ sparse alignment, pair HMM, PAM40/120/200, BLOSUM30, CIGAR utilities, X-drop/Z-drop extension, spliced alignment | 290 | cyanea-core |
 | **cyanea-omics** | Genomic coords, intervals, matrices, variants, AnnData, h5ad, zarr | 99 | cyanea-core, zarrs |
 | **cyanea-stats** | Descriptive, correlation, hypothesis tests, distributions, PCA, effect sizes, Bayesian conjugate priors, combinatorics | 167 | cyanea-core |
 | **cyanea-ml** | Clustering, distances, embeddings, KNN, PCA, t-SNE, UMAP, random forest, HMM | 161 | cyanea-core |
@@ -30,7 +30,7 @@ All crates are complete. Each has `docs/STATUS.md` with full API docs.
 | **cyanea-struct** | PDB, mmCIF, geometry, DSSP, Kabsch, contact maps, Ramachandran | 76 | cyanea-core, sha2 |
 | **cyanea-phylo** | Newick/NEXUS, distances, UPGMA/NJ, Fitch/Sankoff, ML likelihood, bootstrap | 110 | cyanea-core, cyanea-ml (optional) |
 | **cyanea-gpu** | Backend trait, CPU/CUDA/Metal backends, buffers, ops, benchmarks | 61 | cyanea-core, metal-rs, cudarc, criterion (bench) |
-| **cyanea-wasm** | JSON-based WASM bindings (seq, io, align, stats, ml, chem, struct, phylo) | 83 | serde_json, wasm-bindgen |
+| **cyanea-wasm** | JSON-based WASM bindings (seq, io, align, stats, ml, chem, struct, phylo) | 96 | serde_json, wasm-bindgen |
 | **cyanea-py** | Python bindings via PyO3 (seq, align, stats, ml, chem, struct, phylo, io) | — | pyo3 |
 
 ## Conventions
@@ -68,6 +68,7 @@ All crates are complete. Each has `docs/STATUS.md` with full API docs.
 - Pattern matching algorithms in `cyanea-seq::pattern` work on `&[u8]` for generality; bitparallel methods (shift_and, bndm, myers) limited to patterns ≤ 64
 - FMD-Index (`cyanea-seq::fmd_index`) indexes `text#revcomp(text)$` for bidirectional search and SMEM enumeration
 - POA (`cyanea-align::poa`) uses Lee 2002 algorithm: DP alignment against DAG with topological sort
+- CIGAR utilities (`cyanea-align::cigar`) — full SAM alphabet (9 ops: M/I/D/N/S/H/P/=/X), parsing, validation, coordinate queries, statistics, arithmetic (merge/reverse/split/collapse), alignment↔CIGAR conversion, MD tag generation
 
 ### Testing
 - Unit tests inline (`#[cfg(test)]` modules at bottom of each file)

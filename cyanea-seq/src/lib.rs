@@ -44,6 +44,7 @@ pub mod fastq;
 pub mod fm_index;
 pub mod fmd_index;
 pub mod kmer;
+pub mod masking;
 pub mod minhash;
 pub mod orf;
 pub mod pattern;
@@ -51,6 +52,7 @@ pub mod pssm;
 pub mod quality;
 pub mod seq;
 pub mod suffix;
+pub mod trim;
 pub mod twobit;
 pub mod types;
 
@@ -63,8 +65,11 @@ pub use seq::ValidatedSeq;
 // Re-export concrete type aliases and their methods
 pub use types::{DnaSequence, ProteinSequence, RnaSequence};
 
-// Re-export codon translation
-pub use codon::{translate_codon, translate_sequence};
+// Re-export codon translation and analysis
+pub use codon::{
+    classify_substitution, codon_adaptation_index, count_syn_nonsyn_sites, translate_codon,
+    translate_sequence, CodonUsage, GeneticCode, GeneticCodeId, SubstitutionClass,
+};
 
 // Re-export k-mer iterator
 pub use kmer::KmerIter;
@@ -102,3 +107,12 @@ pub use orf::{find_orfs, find_orfs_both_strands, find_orfs_with_codons, OrfResul
 
 // Re-export BWT
 pub use bwt::Bwt;
+
+// Re-export quality trimming and filtering
+pub use trim::{TrimPipeline, TrimRange, TrimReport};
+
+// Re-export masking types
+pub use masking::{
+    apply_mask, dust, find_tandem_repeats, mask_dust, mask_seg, seg, DustParams, MaskMode,
+    MaskResult, MaskSource, MaskedRegion, SegParams, TandemRepeatParams,
+};
