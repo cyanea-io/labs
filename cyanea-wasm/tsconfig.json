@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM", "WebWorker"],
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "strict": true,
+    "outDir": "ts",
+    "rootDir": "ts",
+    "esModuleInterop": true,
+    "skipLibCheck": true
+  },
+  "include": ["ts/**/*.ts"],
+  "exclude": ["node_modules", "pkg"]
+}

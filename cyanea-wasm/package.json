@@ -31,6 +31,14 @@
       "types": "./ts/index.d.ts",
       "import": "./ts/index.js"
     },
+    "./client": {
+      "types": "./ts/client.d.ts",
+      "import": "./ts/client.js"
+    },
+    "./worker": {
+      "types": "./ts/worker.d.ts",
+      "import": "./ts/worker.js"
+    },
     "./types": {
       "types": "./ts/types.d.ts",
       "import": "./ts/types.js"

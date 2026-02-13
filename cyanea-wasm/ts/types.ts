@@ -228,3 +228,85 @@ export type DistanceModel = "p" | "jc" | "k2p";
 
 /** Alphabet name accepted by the validate function. */
 export type Alphabet = "dna" | "rna" | "protein";
+
+// ── Worker Message Protocol ────────────────────────────────────────────────
+
+/** Unique request identifier for correlating Worker messages. */
+export type RequestId = string;
+
+/** Main thread → Worker: call a function. */
+export interface WorkerRequest {
+  type: "call";
+  id: RequestId;
+  method: string;
+  args: unknown[];
+}
+
+/** Main thread → Worker: cancel an in-progress call. */
+export interface WorkerCancel {
+  type: "cancel";
+  id: RequestId;
+}
+
+/** Main thread → Worker: initialize WASM (sent automatically). */
+export interface WorkerInit {
+  type: "init";
+}
+
+/** Worker → Main thread: function returned successfully. */
+export interface WorkerResponseOk {
+  type: "result";
+  id: RequestId;
+  ok: unknown;
+}
+
+/** Worker → Main thread: function threw an error. */
+export interface WorkerResponseErr {
+  type: "result";
+  id: RequestId;
+  error: string;
+}
+
+/** Worker → Main thread: progress update for a long-running call. */
+export interface WorkerProgress {
+  type: "progress";
+  id: RequestId;
+  current: number;
+  total: number;
+  message?: string;
+}
+
+/** Worker → Main thread: WASM loaded and ready. */
+export interface WorkerReady {
+  type: "ready";
+}
+
+/** Worker → Main thread: WASM initialization failed. */
+export interface WorkerInitError {
+  type: "init_error";
+  error: string;
+}
+
+/** Union of all messages sent from the main thread to the Worker. */
+export type MainToWorkerMessage = WorkerRequest | WorkerCancel | WorkerInit;
+
+/** Union of all messages sent from the Worker to the main thread. */
+export type WorkerToMainMessage =
+  | WorkerResponseOk
+  | WorkerResponseErr
+  | WorkerProgress
+  | WorkerReady
+  | WorkerInitError;
+
+/** Progress info passed to onProgress callbacks. */
+export interface ProgressInfo {
+  current: number;
+  total: number;
+  message?: string;
+}
+
+/** Options for Worker calls that support progress and cancellation. */
+export interface CallOptions {
+  signal?: AbortSignal;
+  onProgress?: (info: ProgressInfo) => void;
+}
