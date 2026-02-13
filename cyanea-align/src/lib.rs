@@ -15,6 +15,7 @@
 //! ```
 
 pub mod types;
+pub mod cigar;
 pub mod scoring;
 pub mod needleman_wunsch;
 pub mod smith_waterman;

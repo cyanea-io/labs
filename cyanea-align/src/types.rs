@@ -15,27 +15,47 @@ pub enum AlignmentMode {
 }
 
 /// A single CIGAR operation describing how aligned sequences relate.
+///
+/// The four core variants (`Match`/`=`, `Mismatch`/`X`, `Insertion`/`I`,
+/// `Deletion`/`D`) are produced by alignment algorithms. The five SAM-spec
+/// variants (`AlnMatch`/`M`, `Skip`/`N`, `SoftClip`/`S`, `HardClip`/`H`,
+/// `Padding`/`P`) support round-tripping SAM/BAM CIGAR strings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum CigarOp {
-    /// Matching bases (identical in query and target).
+    /// Matching bases (identical in query and target). SAM op `=`.
     Match(usize),
-    /// Mismatching bases (different in query and target).
+    /// Mismatching bases (different in query and target). SAM op `X`.
     Mismatch(usize),
-    /// Insertion in the query (gap in target).
+    /// Insertion in the query (gap in target). SAM op `I`.
     Insertion(usize),
-    /// Deletion from the query (gap in query).
+    /// Deletion from the query (gap in query). SAM op `D`.
     Deletion(usize),
+    /// Alignment match — may be match or mismatch (ambiguous). SAM op `M`.
+    AlnMatch(usize),
+    /// Skipped region on the reference (e.g. intron in RNA-seq). SAM op `N`.
+    Skip(usize),
+    /// Soft clipping — bases present in SEQ but not aligned. SAM op `S`.
+    SoftClip(usize),
+    /// Hard clipping — bases NOT present in SEQ. SAM op `H`.
+    HardClip(usize),
+    /// Silent deletion from padded reference. SAM op `P`.
+    Padding(usize),
 }
 
 impl CigarOp {
-    /// Single-character CIGAR code: `=` (match), `X` (mismatch), `I`, `D`.
+    /// Single-character SAM CIGAR code.
     pub fn code(&self) -> char {
         match self {
             CigarOp::Match(_) => '=',
             CigarOp::Mismatch(_) => 'X',
             CigarOp::Insertion(_) => 'I',
             CigarOp::Deletion(_) => 'D',
+            CigarOp::AlnMatch(_) => 'M',
+            CigarOp::Skip(_) => 'N',
+            CigarOp::SoftClip(_) => 'S',
+            CigarOp::HardClip(_) => 'H',
+            CigarOp::Padding(_) => 'P',
         }
     }
 
@@ -45,13 +65,42 @@ impl CigarOp {
             CigarOp::Match(n)
             | CigarOp::Mismatch(n)
             | CigarOp::Insertion(n)
-            | CigarOp::Deletion(n) => *n,
+            | CigarOp::Deletion(n)
+            | CigarOp::AlnMatch(n)
+            | CigarOp::Skip(n)
+            | CigarOp::SoftClip(n)
+            | CigarOp::HardClip(n)
+            | CigarOp::Padding(n) => *n,
         }
     }
 
     /// Whether this operation has zero length.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// Whether this operation consumes bases on the reference.
+    pub fn consumes_reference(&self) -> bool {
+        matches!(
+            self,
+            CigarOp::Match(_)
+                | CigarOp::Mismatch(_)
+                | CigarOp::Deletion(_)
+                | CigarOp::AlnMatch(_)
+                | CigarOp::Skip(_)
+        )
+    }
+
+    /// Whether this operation consumes bases on the query.
+    pub fn consumes_query(&self) -> bool {
+        matches!(
+            self,
+            CigarOp::Match(_)
+                | CigarOp::Mismatch(_)
+                | CigarOp::Insertion(_)
+                | CigarOp::AlnMatch(_)
+                | CigarOp::SoftClip(_)
+        )
     }
 }
 
@@ -137,9 +186,22 @@ impl AlignmentResult {
             .sum()
     }
 
-    /// Total length of the alignment (all CIGAR operation lengths).
+    /// Total length of the alignment (M, =, X, I, D columns).
+    ///
+    /// Excludes soft/hard clips, skips, and padding.
     pub fn length(&self) -> usize {
-        self.cigar.iter().map(|op| op.len()).sum()
+        self.cigar
+            .iter()
+            .filter(|op| matches!(
+                op,
+                CigarOp::Match(_)
+                    | CigarOp::Mismatch(_)
+                    | CigarOp::Insertion(_)
+                    | CigarOp::Deletion(_)
+                    | CigarOp::AlnMatch(_)
+            ))
+            .map(|op| op.len())
+            .sum()
     }
 }
 
@@ -282,5 +344,32 @@ mod tests {
         assert_eq!(format!("{}", CigarOp::Mismatch(2)), "2X");
         assert_eq!(format!("{}", CigarOp::Insertion(1)), "1I");
         assert_eq!(format!("{}", CigarOp::Deletion(3)), "3D");
+        assert_eq!(format!("{}", CigarOp::AlnMatch(10)), "10M");
+        assert_eq!(format!("{}", CigarOp::Skip(100)), "100N");
+        assert_eq!(format!("{}", CigarOp::SoftClip(4)), "4S");
+        assert_eq!(format!("{}", CigarOp::HardClip(2)), "2H");
+        assert_eq!(format!("{}", CigarOp::Padding(1)), "1P");
+    }
+
+    #[test]
+    fn consumes_reference_and_query() {
+        assert!(CigarOp::Match(1).consumes_reference());
+        assert!(CigarOp::Match(1).consumes_query());
+        assert!(CigarOp::Mismatch(1).consumes_reference());
+        assert!(CigarOp::Mismatch(1).consumes_query());
+        assert!(!CigarOp::Insertion(1).consumes_reference());
+        assert!(CigarOp::Insertion(1).consumes_query());
+        assert!(CigarOp::Deletion(1).consumes_reference());
+        assert!(!CigarOp::Deletion(1).consumes_query());
+        assert!(CigarOp::AlnMatch(1).consumes_reference());
+        assert!(CigarOp::AlnMatch(1).consumes_query());
+        assert!(CigarOp::Skip(1).consumes_reference());
+        assert!(!CigarOp::Skip(1).consumes_query());
+        assert!(!CigarOp::SoftClip(1).consumes_reference());
+        assert!(CigarOp::SoftClip(1).consumes_query());
+        assert!(!CigarOp::HardClip(1).consumes_reference());
+        assert!(!CigarOp::HardClip(1).consumes_query());
+        assert!(!CigarOp::Padding(1).consumes_reference());
+        assert!(!CigarOp::Padding(1).consumes_query());
     }
 }
