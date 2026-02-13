@@ -47,7 +47,7 @@ Every crate has a `docs/STATUS.md` with full API documentation.
 - [x] CUDA kernels (cudarc/NVRTC, f64)
 - [x] GPU-accelerated Smith-Waterman batch alignment dispatch in `cyanea-align`
 - [x] Metal kernel integration testing on Apple Silicon (61 tests)
-- [ ] GPU alignment benchmarks (Criterion)
+- [x] GPU alignment benchmarks (Criterion)
 
 ### Competitive benchmarks
 - [x] Head-to-head vs rust-bio (SW, FM-index)
