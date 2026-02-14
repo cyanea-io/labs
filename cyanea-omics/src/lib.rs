@@ -33,6 +33,8 @@ pub mod sparse;
 pub mod variant;
 pub mod annotation;
 pub mod single_cell;
+pub mod genome_arithmetic;
+pub mod liftover;
 #[cfg(feature = "h5ad")]
 pub mod h5ad;
 #[cfg(feature = "zarr")]
@@ -45,6 +47,13 @@ pub use sparse::SparseMatrix;
 pub use variant::{Variant, VariantFilter, VariantType, Zygosity};
 pub use annotation::{Exon, Gene, GeneType, Transcript};
 pub use single_cell::ColumnData;
+pub use genome_arithmetic::{
+    ClosestResult, GenomeInfo, JaccardStats, StrandMode,
+    closest, complement, genome_info, intersect, intersect_report_a,
+    jaccard, jaccard_stats, make_sliding_windows, make_windows,
+    merge, subtract, union, windows_around,
+};
+pub use liftover::{ChainFile, LiftoverResult, liftover, liftover_batch, parse_chain};
 #[cfg(feature = "h5ad")]
 pub use h5ad::{read_h5ad, write_h5ad};
 #[cfg(feature = "zarr")]

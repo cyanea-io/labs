@@ -107,6 +107,11 @@ impl IntervalSet {
         }
     }
 
+    /// Borrow the intervals as a slice.
+    pub fn intervals(&self) -> &[GenomicInterval] {
+        &self.intervals
+    }
+
     /// Consume the set and return the inner intervals.
     pub fn into_intervals(self) -> Vec<GenomicInterval> {
         self.intervals
