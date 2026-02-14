@@ -25,6 +25,9 @@ pub mod gff;
 #[cfg(feature = "sam")]
 pub mod sam;
 
+#[cfg(feature = "sam")]
+pub mod pileup;
+
 #[cfg(feature = "bam")]
 pub mod bam;
 
@@ -53,6 +56,12 @@ pub use gff::{gff3_stats, parse_gff3, GffStats};
 
 #[cfg(feature = "sam")]
 pub use sam::{parse_sam, sam_stats, sam_stats_from_path, SamRecord, SamStats};
+
+#[cfg(feature = "sam")]
+pub use pileup::{depth_stats, pileup, pileup_region, pileup_to_mpileup, DepthStats, Pileup, PileupColumn};
+
+#[cfg(all(feature = "sam", feature = "vcf"))]
+pub use pileup::call_snps;
 
 #[cfg(feature = "bam")]
 pub use bam::{parse_bam, bam_stats, BamReference};
