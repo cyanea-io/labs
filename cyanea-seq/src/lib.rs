@@ -41,6 +41,8 @@ pub mod fasta;
 #[cfg(feature = "std")]
 pub mod fasta_index;
 pub mod fastq;
+#[cfg(feature = "std")]
+pub mod paired;
 pub mod fm_index;
 pub mod fmd_index;
 pub mod kmer;
@@ -110,6 +112,17 @@ pub use bwt::Bwt;
 
 // Re-export quality trimming and filtering
 pub use trim::{TrimPipeline, TrimRange, TrimReport};
+#[cfg(feature = "std")]
+pub use trim::{OrphanPolicy, PairedTrimReport, PairedTrimResult};
+
+// Re-export paired-end FASTQ types
+#[cfg(feature = "std")]
+pub use paired::{
+    deinterleave_fastq_file, interleave_fastq_files, parse_interleaved_fastq,
+    parse_paired_fastq_files, parse_paired_fastq_stats, strip_read_suffix, validate_mate_pair,
+    validate_mate_pair_strict, write_interleaved_fastq, write_paired_fastq, MateValidation,
+    PairedFastqRecord, PairedFastqStats,
+};
 
 // Re-export masking types
 pub use masking::{

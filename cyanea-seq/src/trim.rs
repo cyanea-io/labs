@@ -752,6 +752,177 @@ pub struct TrimReport {
 }
 
 // ---------------------------------------------------------------------------
+// Paired-end trimming
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "std")]
+use crate::paired::PairedFastqRecord;
+
+/// How to handle orphan reads where one mate passes and the other doesn't.
+#[cfg(feature = "std")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OrphanPolicy {
+    /// Drop both reads if either fails.
+    DropBoth,
+    /// Keep R1 if it passes, even if R2 fails.
+    KeepFirst,
+    /// Keep R2 if it passes, even if R1 fails.
+    KeepSecond,
+}
+
+/// Result of processing a single read pair through a trim pipeline.
+#[cfg(feature = "std")]
+#[derive(Debug, Clone)]
+pub enum PairedTrimResult {
+    /// Both reads passed all filters.
+    BothPassed(FastqRecord, FastqRecord),
+    /// Only R1 passed.
+    OnlyFirst(FastqRecord),
+    /// Only R2 passed.
+    OnlySecond(FastqRecord),
+    /// Both reads were filtered out.
+    Dropped,
+}
+
+/// Summary statistics from paired-end trim processing.
+#[cfg(feature = "std")]
+#[derive(Debug, Clone)]
+pub struct PairedTrimReport {
+    /// Pairs where both reads passed all filters.
+    pub kept: Vec<PairedFastqRecord>,
+    /// Total number of input pairs.
+    pub total_input: usize,
+    /// Pairs where both reads passed.
+    pub both_passed: usize,
+    /// Pairs where only R1 passed.
+    pub r1_only_passed: usize,
+    /// Pairs where only R2 passed.
+    pub r2_only_passed: usize,
+    /// Pairs where both reads failed.
+    pub both_failed: usize,
+    /// Total bases across all input reads (R1 + R2).
+    pub total_bases_input: u64,
+    /// Total bases across kept output reads (R1 + R2).
+    pub total_bases_output: u64,
+}
+
+#[cfg(feature = "std")]
+impl PairedTrimReport {
+    /// Number of orphan reads (one mate passed, the other didn't).
+    pub fn orphans(&self) -> usize {
+        self.r1_only_passed + self.r2_only_passed
+    }
+
+    /// Fraction of input pairs where both reads survived.
+    pub fn survival_rate(&self) -> f64 {
+        if self.total_input == 0 {
+            return 0.0;
+        }
+        self.both_passed as f64 / self.total_input as f64
+    }
+}
+
+#[cfg(feature = "std")]
+impl TrimPipeline {
+    /// Process a single read pair through the pipeline.
+    ///
+    /// Applies [`process`](Self::process) to each read independently, then
+    /// applies the orphan policy to decide what to keep.
+    pub fn process_paired(
+        &self,
+        r1: &FastqRecord,
+        r2: &FastqRecord,
+        policy: OrphanPolicy,
+    ) -> PairedTrimResult {
+        let r1_result = self.process(r1);
+        let r2_result = self.process(r2);
+
+        match (r1_result, r2_result) {
+            (Some(r1), Some(r2)) => PairedTrimResult::BothPassed(r1, r2),
+            (Some(r1), None) => match policy {
+                OrphanPolicy::KeepFirst => PairedTrimResult::OnlyFirst(r1),
+                _ => PairedTrimResult::Dropped,
+            },
+            (None, Some(r2)) => match policy {
+                OrphanPolicy::KeepSecond => PairedTrimResult::OnlySecond(r2),
+                _ => PairedTrimResult::Dropped,
+            },
+            (None, None) => PairedTrimResult::Dropped,
+        }
+    }
+
+    /// Process a batch of pairs, keeping only those where both reads pass.
+    ///
+    /// Uses [`OrphanPolicy::DropBoth`] — pairs with a single surviving read
+    /// are discarded.
+    pub fn process_paired_batch(
+        &self,
+        pairs: &[PairedFastqRecord],
+    ) -> Vec<PairedFastqRecord> {
+        pairs
+            .iter()
+            .filter_map(|pair| {
+                let r1 = self.process(pair.r1())?;
+                let r2 = self.process(pair.r2())?;
+                Some(PairedFastqRecord::new_unchecked(r1, r2))
+            })
+            .collect()
+    }
+
+    /// Process a batch of pairs and collect detailed statistics.
+    pub fn process_paired_batch_with_stats(
+        &self,
+        pairs: &[PairedFastqRecord],
+    ) -> PairedTrimReport {
+        let total_input = pairs.len();
+        let mut total_bases_input: u64 = 0;
+        let mut total_bases_output: u64 = 0;
+        let mut both_passed: usize = 0;
+        let mut r1_only_passed: usize = 0;
+        let mut r2_only_passed: usize = 0;
+        let mut both_failed: usize = 0;
+        let mut kept = Vec::new();
+
+        for pair in pairs {
+            total_bases_input += pair.r1().sequence().len() as u64;
+            total_bases_input += pair.r2().sequence().len() as u64;
+
+            let r1_result = self.process(pair.r1());
+            let r2_result = self.process(pair.r2());
+
+            match (r1_result, r2_result) {
+                (Some(r1), Some(r2)) => {
+                    total_bases_output += r1.sequence().len() as u64;
+                    total_bases_output += r2.sequence().len() as u64;
+                    both_passed += 1;
+                    kept.push(PairedFastqRecord::new_unchecked(r1, r2));
+                }
+                (Some(_), None) => {
+                    r1_only_passed += 1;
+                }
+                (None, Some(_)) => {
+                    r2_only_passed += 1;
+                }
+                (None, None) => {
+                    both_failed += 1;
+                }
+            }
+        }
+
+        PairedTrimReport {
+            kept,
+            total_input,
+            both_passed,
+            r1_only_passed,
+            r2_only_passed,
+            both_failed,
+            total_bases_input,
+            total_bases_output,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -1148,6 +1319,216 @@ mod proptests {
             if !r1.is_empty() && !r2.is_empty() {
                 prop_assert!(result.start >= s1.max(s2));
                 prop_assert!(result.end <= e1.min(e2).max(result.start));
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+#[cfg(feature = "std")]
+mod paired_tests {
+    use super::*;
+    use crate::paired::PairedFastqRecord;
+    use crate::types::DnaSequence;
+
+    fn make_record(seq: &[u8], quals: &[u8]) -> FastqRecord {
+        let sequence = DnaSequence::new(seq).unwrap();
+        let quality = QualityScores::from_raw(quals.to_vec());
+        FastqRecord::new("test".into(), None, sequence, quality).unwrap()
+    }
+
+    fn make_pair(
+        seq1: &[u8],
+        quals1: &[u8],
+        seq2: &[u8],
+        quals2: &[u8],
+    ) -> PairedFastqRecord {
+        PairedFastqRecord::new_unchecked(make_record(seq1, quals1), make_record(seq2, quals2))
+    }
+
+    #[test]
+    fn paired_both_pass() {
+        let pipeline = TrimPipeline::new().min_mean_quality(10.0);
+        let r1 = make_record(b"ACGT", &[30; 4]);
+        let r2 = make_record(b"TGCA", &[30; 4]);
+        match pipeline.process_paired(&r1, &r2, OrphanPolicy::DropBoth) {
+            PairedTrimResult::BothPassed(_, _) => {}
+            other => panic!("expected BothPassed, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn paired_r1_fails_drop_both() {
+        let pipeline = TrimPipeline::new().min_mean_quality(20.0);
+        let r1 = make_record(b"ACGT", &[5; 4]);
+        let r2 = make_record(b"TGCA", &[30; 4]);
+        match pipeline.process_paired(&r1, &r2, OrphanPolicy::DropBoth) {
+            PairedTrimResult::Dropped => {}
+            other => panic!("expected Dropped, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn paired_r1_fails_keep_second() {
+        let pipeline = TrimPipeline::new().min_mean_quality(20.0);
+        let r1 = make_record(b"ACGT", &[5; 4]);
+        let r2 = make_record(b"TGCA", &[30; 4]);
+        match pipeline.process_paired(&r1, &r2, OrphanPolicy::KeepSecond) {
+            PairedTrimResult::OnlySecond(_) => {}
+            other => panic!("expected OnlySecond, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn paired_r2_fails_keep_first() {
+        let pipeline = TrimPipeline::new().min_mean_quality(20.0);
+        let r1 = make_record(b"ACGT", &[30; 4]);
+        let r2 = make_record(b"TGCA", &[5; 4]);
+        match pipeline.process_paired(&r1, &r2, OrphanPolicy::KeepFirst) {
+            PairedTrimResult::OnlyFirst(_) => {}
+            other => panic!("expected OnlyFirst, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn paired_r2_fails_drop_both() {
+        let pipeline = TrimPipeline::new().min_mean_quality(20.0);
+        let r1 = make_record(b"ACGT", &[30; 4]);
+        let r2 = make_record(b"TGCA", &[5; 4]);
+        match pipeline.process_paired(&r1, &r2, OrphanPolicy::DropBoth) {
+            PairedTrimResult::Dropped => {}
+            other => panic!("expected Dropped, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn paired_both_fail() {
+        let pipeline = TrimPipeline::new().min_mean_quality(20.0);
+        let r1 = make_record(b"ACGT", &[5; 4]);
+        let r2 = make_record(b"TGCA", &[5; 4]);
+        match pipeline.process_paired(&r1, &r2, OrphanPolicy::KeepFirst) {
+            PairedTrimResult::Dropped => {}
+            other => panic!("expected Dropped, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn paired_batch_drop_both() {
+        let pipeline = TrimPipeline::new().min_mean_quality(20.0);
+        let pairs = vec![
+            make_pair(b"ACGT", &[30; 4], b"TGCA", &[30; 4]),
+            make_pair(b"ACGT", &[5; 4], b"TGCA", &[30; 4]),
+        ];
+        let kept = pipeline.process_paired_batch(&pairs);
+        assert_eq!(kept.len(), 1);
+    }
+
+    #[test]
+    fn paired_batch_stats() {
+        let pipeline = TrimPipeline::new().min_mean_quality(20.0);
+        let pairs = vec![
+            make_pair(b"ACGT", &[30; 4], b"TGCA", &[30; 4]), // both pass
+            make_pair(b"ACGT", &[5; 4], b"TGCA", &[30; 4]),  // r1 fails
+            make_pair(b"ACGT", &[30; 4], b"TGCA", &[5; 4]),  // r2 fails
+            make_pair(b"ACGT", &[5; 4], b"TGCA", &[5; 4]),   // both fail
+        ];
+        let report = pipeline.process_paired_batch_with_stats(&pairs);
+        assert_eq!(report.total_input, 4);
+        assert_eq!(report.both_passed, 1);
+        assert_eq!(report.r1_only_passed, 1);
+        assert_eq!(report.r2_only_passed, 1);
+        assert_eq!(report.both_failed, 1);
+        assert_eq!(report.orphans(), 2);
+        assert!((report.survival_rate() - 0.25).abs() < 1e-10);
+        assert_eq!(report.kept.len(), 1);
+    }
+
+    #[test]
+    fn paired_batch_stats_bases() {
+        let pipeline = TrimPipeline::new();
+        let pairs = vec![make_pair(b"ACGTACGT", &[30; 8], b"TGCA", &[30; 4])];
+        let report = pipeline.process_paired_batch_with_stats(&pairs);
+        assert_eq!(report.total_bases_input, 12);
+        assert_eq!(report.total_bases_output, 12);
+    }
+
+    #[test]
+    fn paired_batch_stats_empty() {
+        let pipeline = TrimPipeline::new();
+        let pairs: Vec<PairedFastqRecord> = vec![];
+        let report = pipeline.process_paired_batch_with_stats(&pairs);
+        assert_eq!(report.total_input, 0);
+        assert_eq!(report.both_passed, 0);
+        assert!((report.survival_rate() - 0.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn paired_full_pipeline() {
+        let pipeline = TrimPipeline::new()
+            .adapter(b"AGATCGGAAGAG")
+            .leading(3)
+            .trailing(3)
+            .sliding_window(4, 15.0)
+            .min_length(4);
+
+        let r1 = make_record(b"ACGTACGTACGTACGT", &[30; 16]);
+        let r2 = make_record(b"TGCATGCATGCATGCA", &[30; 16]);
+        match pipeline.process_paired(&r1, &r2, OrphanPolicy::DropBoth) {
+            PairedTrimResult::BothPassed(_, _) => {}
+            other => panic!("expected BothPassed, got {:?}", other),
+        }
+    }
+}
+
+#[cfg(test)]
+#[cfg(feature = "std")]
+mod paired_proptests {
+    use super::*;
+    use crate::types::DnaSequence;
+    use proptest::prelude::*;
+
+    fn dna_and_quality(max_len: usize) -> impl Strategy<Value = (Vec<u8>, Vec<u8>)> {
+        (1..=max_len).prop_flat_map(|len| {
+            let seq = proptest::collection::vec(
+                prop_oneof![Just(b'A'), Just(b'C'), Just(b'G'), Just(b'T')],
+                len,
+            );
+            let qual = proptest::collection::vec(0..=41u8, len);
+            (seq, qual)
+        })
+    }
+
+    proptest! {
+        #[test]
+        fn paired_trimmed_never_longer(
+            (seq1, qual1) in dna_and_quality(100),
+            (seq2, qual2) in dna_and_quality(100),
+        ) {
+            let r1 = {
+                let s = DnaSequence::new(&seq1).unwrap();
+                let q = QualityScores::from_raw(qual1);
+                FastqRecord::new("test".into(), None, s, q).unwrap()
+            };
+            let r2 = {
+                let s = DnaSequence::new(&seq2).unwrap();
+                let q = QualityScores::from_raw(qual2);
+                FastqRecord::new("test".into(), None, s, q).unwrap()
+            };
+
+            let pipeline = TrimPipeline::new()
+                .leading(10)
+                .trailing(10)
+                .sliding_window(4, 15.0);
+
+            match pipeline.process_paired(&r1, &r2, OrphanPolicy::KeepFirst) {
+                PairedTrimResult::BothPassed(tr1, tr2) => {
+                    prop_assert!(tr1.sequence().len() <= r1.sequence().len());
+                    prop_assert!(tr2.sequence().len() <= r2.sequence().len());
+                }
+                PairedTrimResult::OnlyFirst(tr1) => {
+                    prop_assert!(tr1.sequence().len() <= r1.sequence().len());
+                }
+                _ => {}
             }
         }
     }
