@@ -317,7 +317,7 @@ mod tests {
         );
         let stats = bedpe_stats(file.path()).unwrap();
         assert_eq!(stats.record_count, 3);
-        assert_eq!(stats.total_span, 450); // (100+100) + (50+50) + (25+25)
+        assert_eq!(stats.total_span, 350); // (100+100) + (50+50) + (25+25)
         assert_eq!(stats.intra_chromosomal, 2);
         assert_eq!(stats.inter_chromosomal, 1);
         assert_eq!(stats.chromosomes.len(), 3);
