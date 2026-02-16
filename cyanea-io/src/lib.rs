@@ -37,13 +37,16 @@ pub mod parquet;
 #[cfg(feature = "cram")]
 pub mod cram;
 
+#[cfg(feature = "variant-calling")]
+pub mod variant_call;
+
 // Re-exports for convenience.
 
 #[cfg(feature = "csv")]
 pub use csv::{csv_preview, parse_csv_info, CsvInfo};
 
 #[cfg(feature = "vcf")]
-pub use vcf::{parse_vcf, vcf_stats, VcfStats};
+pub use vcf::{parse_vcf, vcf_stats, write_vcf, write_vcf_string, VcfStats};
 
 #[cfg(feature = "bed")]
 pub use bed::{bed_stats, parse_bed, parse_bed_intervals, BedRecord, BedStats};
@@ -61,9 +64,13 @@ pub use sam::{
 };
 
 #[cfg(feature = "sam")]
-pub use pileup::{depth_stats, pileup, pileup_region, pileup_to_mpileup, DepthStats, Pileup, PileupColumn};
+pub use pileup::{
+    depth_stats, pileup, pileup_region, pileup_to_mpileup, DepthStats, InsertionEvidence, Pileup,
+    PileupColumn,
+};
 
 #[cfg(all(feature = "sam", feature = "vcf"))]
+#[allow(deprecated)]
 pub use pileup::call_snps;
 
 #[cfg(feature = "bam")]
@@ -77,3 +84,12 @@ pub use parquet::{
 
 #[cfg(feature = "cram")]
 pub use cram::{cram_stats, cram_stats_default, parse_cram, parse_cram_default, CramConfig};
+
+#[cfg(feature = "variant-calling")]
+pub use variant_call::{
+    call_variants, call_variants_all, variant_call_stats, CalledVariant, Genotype,
+    VariantCallConfig, VariantCallStats,
+};
+
+#[cfg(feature = "variant-calling")]
+pub use vcf::{write_called_vcf, write_called_vcf_string};

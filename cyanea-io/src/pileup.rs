@@ -65,7 +65,7 @@ fn parse_cigar_ops(cigar: &str) -> Result<Vec<CigarOp>> {
 }
 
 /// Map a base to an index: A=0, C=1, G=2, T=3, N=4, del=5.
-fn base_index(base: u8) -> usize {
+pub fn base_index(base: u8) -> usize {
     match base {
         b'A' | b'a' => 0,
         b'C' | b'c' => 1,
@@ -84,6 +84,15 @@ fn is_reverse(flag: u16) -> bool {
 // ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
+
+/// Evidence of an insertion anchored after a reference position.
+#[derive(Debug, Clone)]
+pub struct InsertionEvidence {
+    /// Inserted sequence (upper-case = forward strand, lower-case = reverse strand).
+    pub bases: Vec<u8>,
+    /// Mean Phred quality of the inserted bases.
+    pub mean_quality: u8,
+}
 
 /// Per-position pileup data.
 #[derive(Debug, Clone)]
@@ -104,6 +113,10 @@ pub struct PileupColumn {
     pub base_counts: [u32; 6],
     /// Sum of Phred quality scores per base type: [A, C, G, T, N, del].
     pub quality_sums: [u64; 6],
+    /// Per-read mapping quality at this position.
+    pub mapping_qualities: Vec<u8>,
+    /// Insertions anchored after this position.
+    pub insertions: Vec<InsertionEvidence>,
 }
 
 /// Pileup for a single reference sequence.
@@ -146,6 +159,8 @@ struct ColumnBuilder {
     qualities: Vec<u8>,
     base_counts: [u32; 6],
     quality_sums: [u64; 6],
+    mapping_qualities: Vec<u8>,
+    insertions: Vec<InsertionEvidence>,
 }
 
 impl ColumnBuilder {
@@ -155,15 +170,22 @@ impl ColumnBuilder {
             qualities: Vec::new(),
             base_counts: [0; 6],
             quality_sums: [0; 6],
+            mapping_qualities: Vec::new(),
+            insertions: Vec::new(),
         }
     }
 
-    fn add(&mut self, base: u8, qual: u8) {
+    fn add(&mut self, base: u8, qual: u8, mapq: u8) {
         self.bases.push(base);
         self.qualities.push(qual);
+        self.mapping_qualities.push(mapq);
         let idx = base_index(base);
         self.base_counts[idx] += 1;
         self.quality_sums[idx] += qual as u64;
+    }
+
+    fn add_insertion(&mut self, evidence: InsertionEvidence) {
+        self.insertions.push(evidence);
     }
 
     fn into_column(self, rname: &str, pos: u64, ref_base: u8) -> PileupColumn {
@@ -176,6 +198,8 @@ impl ColumnBuilder {
             qualities: self.qualities,
             base_counts: self.base_counts,
             quality_sums: self.quality_sums,
+            mapping_qualities: self.mapping_qualities,
+            insertions: self.insertions,
         }
     }
 }
@@ -202,6 +226,8 @@ fn walk_read(
     let qual = record.quality.as_bytes();
     let reverse = is_reverse(record.flag);
 
+    let mapq = record.mapq;
+
     for op in &ops {
         match *op {
             CigarOp::Align(len) => {
@@ -225,20 +251,55 @@ fn walk_read(
                         0
                     };
 
-                    columns.entry(ref_pos).or_insert_with(ColumnBuilder::new).add(base, q);
+                    columns.entry(ref_pos).or_insert_with(ColumnBuilder::new).add(base, q, mapq);
                     ref_pos += 1;
                     query_pos += 1;
                 }
             }
             CigarOp::Ins(len) => {
-                // Insertions consume query only — no ref positions covered.
+                // Insertions consume query only — record insertion evidence
+                // anchored at the preceding reference position.
+                if len > 0 && query_pos + len <= seq.len() {
+                    let ins_bases: Vec<u8> = seq[query_pos..query_pos + len]
+                        .iter()
+                        .map(|&b| {
+                            if reverse {
+                                b.to_ascii_lowercase()
+                            } else {
+                                b.to_ascii_uppercase()
+                            }
+                        })
+                        .collect();
+
+                    let mean_q = if qual != b"*" && query_pos + len <= qual.len() {
+                        let sum: u32 = qual[query_pos..query_pos + len]
+                            .iter()
+                            .map(|&q| q.saturating_sub(33) as u32)
+                            .sum();
+                        (sum / len as u32) as u8
+                    } else {
+                        0
+                    };
+
+                    let evidence = InsertionEvidence {
+                        bases: ins_bases,
+                        mean_quality: mean_q,
+                    };
+
+                    // Anchor at preceding ref position, or current if at start.
+                    let anchor = if ref_pos > 0 { ref_pos - 1 } else { ref_pos };
+                    columns
+                        .entry(anchor)
+                        .or_insert_with(ColumnBuilder::new)
+                        .add_insertion(evidence);
+                }
                 query_pos += len;
             }
             CigarOp::Del(len) => {
                 // Deletions consume ref — deposit deletion markers.
                 for _ in 0..len {
                     let del_base = if reverse { b'#' } else { b'*' };
-                    columns.entry(ref_pos).or_insert_with(ColumnBuilder::new).add(del_base, 0);
+                    columns.entry(ref_pos).or_insert_with(ColumnBuilder::new).add(del_base, 0, mapq);
                     ref_pos += 1;
                 }
             }
@@ -469,6 +530,7 @@ pub fn depth_stats(pileup: &Pileup) -> DepthStats {
 ///
 /// Quality is estimated as `-10 * log10(1 - alt_freq)`, capped at 99.
 #[cfg(feature = "vcf")]
+#[deprecated(note = "Use call_variants from the variant-calling feature")]
 pub fn call_snps(
     pileup: &Pileup,
     min_depth: u32,
@@ -860,6 +922,7 @@ mod tests {
     // -- SNP caller tests --
 
     #[cfg(feature = "vcf")]
+    #[allow(deprecated)]
     mod snp_tests {
         use super::*;
 
@@ -1025,5 +1088,66 @@ mod tests {
         assert_eq!(stats.max_depth, 3);
         // sorted depths: [1, 1, 3, 3, 3, 3] → median = (3+3)/2 = 3.0
         assert!((stats.median_depth - 3.0).abs() < f64::EPSILON);
+    }
+
+    // -- Insertion evidence tests --
+
+    #[test]
+    fn test_insertion_evidence_from_cigar() {
+        // 3M2I3M: positions 0-2 aligned, 2-base insertion after pos 2, positions 3-5 aligned
+        let records = vec![make_record(
+            "r1", 0, "chr1", 1, 60, "3M2I3M", "ACGTTAAA", "IIIIIIII",
+        )];
+        let pileups = pileup(&records, None).unwrap();
+        assert_eq!(pileups[0].columns.len(), 6);
+
+        // Insertion anchored at pos 2 (last aligned base before insertion)
+        let anchor_col = &pileups[0].columns[2];
+        assert_eq!(anchor_col.pos, 2);
+        assert_eq!(anchor_col.insertions.len(), 1);
+        assert_eq!(anchor_col.insertions[0].bases, b"TT");
+        assert!(anchor_col.insertions[0].mean_quality > 0);
+    }
+
+    #[test]
+    fn test_insertion_multiple_reads() {
+        // Two reads with same insertion and one with different
+        let records = vec![
+            make_record("r1", 0, "chr1", 1, 60, "2M2I2M", "ACTTGG", "IIIIII"),
+            make_record("r2", 0, "chr1", 1, 60, "2M2I2M", "ACTTGG", "IIIIII"),
+            make_record("r3", 0, "chr1", 1, 60, "2M3I2M", "ACAAATT", "IIIIIII"),
+        ];
+        let pileups = pileup(&records, None).unwrap();
+
+        // All insertions anchored at pos 1 (last aligned base of first 2M)
+        let anchor_col = &pileups[0].columns[1];
+        assert_eq!(anchor_col.insertions.len(), 3);
+    }
+
+    #[test]
+    fn test_mapping_qualities_recorded() {
+        let records = vec![
+            make_record("r1", 0, "chr1", 1, 60, "3M", "ACG", "III"),
+            make_record("r2", 0, "chr1", 1, 30, "3M", "ACG", "III"),
+        ];
+        let pileups = pileup(&records, None).unwrap();
+
+        // Each position should have two mapping qualities
+        for col in &pileups[0].columns {
+            assert_eq!(col.mapping_qualities.len(), 2);
+            assert_eq!(col.mapping_qualities[0], 60);
+            assert_eq!(col.mapping_qualities[1], 30);
+        }
+    }
+
+    #[test]
+    fn test_deletion_has_mapping_quality() {
+        let records = vec![make_record("r1", 0, "chr1", 1, 42, "2M1D2M", "ACGT", "IIII")];
+        let pileups = pileup(&records, None).unwrap();
+
+        // The deletion position should also have mapq
+        let del_col = &pileups[0].columns[2];
+        assert_eq!(del_col.bases, vec![b'*']);
+        assert_eq!(del_col.mapping_qualities, vec![42]);
     }
 }

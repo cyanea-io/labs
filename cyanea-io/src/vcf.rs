@@ -1,11 +1,11 @@
-//! VCF (Variant Call Format) parser.
+//! VCF (Variant Call Format) parser and writer.
 //!
-//! Parses VCF files into [`Variant`] records. Supports VCF 4.x with the
-//! standard 8 mandatory columns (CHROM, POS, ID, REF, ALT, QUAL, FILTER, INFO).
-//! INFO and genotype columns are currently skipped.
+//! Parses VCF files into [`Variant`] records and writes variants to VCF format.
+//! Supports VCF 4.x with the standard 8 mandatory columns
+//! (CHROM, POS, ID, REF, ALT, QUAL, FILTER, INFO).
 
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Write as IoWrite};
 use std::path::Path;
 
 use cyanea_core::{CyaneaError, Result};
@@ -184,6 +184,189 @@ fn parse_vcf_line(line: &str, line_num: usize, path: &Path) -> Result<Variant> {
     })
 }
 
+// ---------------------------------------------------------------------------
+// VCF writing
+// ---------------------------------------------------------------------------
+
+/// Format a FILTER field for VCF output.
+fn format_filter(filter: &VariantFilter) -> String {
+    match filter {
+        VariantFilter::Pass => "PASS".to_string(),
+        VariantFilter::Missing => ".".to_string(),
+        VariantFilter::Fail(reasons) => reasons.join(";"),
+    }
+}
+
+/// Format variants as a VCF 4.3 string (8 mandatory columns, no genotype).
+///
+/// Includes file format header, column header, and one data line per variant.
+pub fn write_vcf_string(variants: &[Variant]) -> String {
+    let mut out = String::new();
+    out.push_str("##fileformat=VCFv4.3\n");
+    out.push_str("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n");
+
+    for v in variants {
+        let id = v.id.as_deref().unwrap_or(".");
+        let ref_str = std::str::from_utf8(&v.ref_allele).unwrap_or(".");
+        let alt_str: Vec<&str> = v
+            .alt_alleles
+            .iter()
+            .map(|a| std::str::from_utf8(a).unwrap_or("."))
+            .collect();
+        let alt = if alt_str.is_empty() {
+            ".".to_string()
+        } else {
+            alt_str.join(",")
+        };
+        let qual = v
+            .quality
+            .map(|q| format!("{:.1}", q))
+            .unwrap_or_else(|| ".".to_string());
+        let filter = format_filter(&v.filter);
+
+        out.push_str(&format!(
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t.\n",
+            v.chrom, v.position, id, ref_str, alt, qual, filter,
+        ));
+    }
+
+    out
+}
+
+/// Write variants to a VCF file (8 mandatory columns, no genotype).
+pub fn write_vcf(variants: &[Variant], path: impl AsRef<Path>) -> Result<()> {
+    let path = path.as_ref();
+    let content = write_vcf_string(variants);
+    let mut file = File::create(path).map_err(|e| {
+        CyaneaError::Io(std::io::Error::new(
+            e.kind(),
+            format!("{}: {}", path.display(), e),
+        ))
+    })?;
+    file.write_all(content.as_bytes()).map_err(|e| {
+        CyaneaError::Io(std::io::Error::new(
+            e.kind(),
+            format!("{}: {}", path.display(), e),
+        ))
+    })?;
+    Ok(())
+}
+
+/// Format called variants as a VCF 4.3 string with genotype columns.
+///
+/// FORMAT: `GT:DP:AD:GQ:PL`. INFO: `DP=N;AF=0.XX;SB=X.XXX`.
+#[cfg(feature = "variant-calling")]
+pub fn write_called_vcf_string(
+    variants: &[crate::variant_call::CalledVariant],
+    sample_name: &str,
+) -> String {
+    use crate::variant_call::Genotype;
+
+    let mut out = String::new();
+    out.push_str("##fileformat=VCFv4.3\n");
+    out.push_str("##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total Depth\">\n");
+    out.push_str("##INFO=<ID=AF,Number=A,Type=Float,Description=\"Allele Frequency\">\n");
+    out.push_str(
+        "##INFO=<ID=SB,Number=1,Type=Float,Description=\"Strand Bias Fisher p-value\">\n",
+    );
+    out.push_str(
+        "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n",
+    );
+    out.push_str(
+        "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read Depth\">\n",
+    );
+    out.push_str(
+        "##FORMAT=<ID=AD,Number=R,Type=Integer,Description=\"Allelic Depths\">\n",
+    );
+    out.push_str(
+        "##FORMAT=<ID=GQ,Number=1,Type=Integer,Description=\"Genotype Quality\">\n",
+    );
+    out.push_str(
+        "##FORMAT=<ID=PL,Number=G,Type=Integer,Description=\"Phred-scaled Likelihoods\">\n",
+    );
+    out.push_str(&format!(
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{}\n",
+        sample_name
+    ));
+
+    for cv in variants {
+        let v = &cv.variant;
+        let id = v.id.as_deref().unwrap_or(".");
+        let ref_str = std::str::from_utf8(&v.ref_allele).unwrap_or(".");
+        let alt_str: Vec<&str> = v
+            .alt_alleles
+            .iter()
+            .map(|a| std::str::from_utf8(a).unwrap_or("."))
+            .collect();
+        let alt = if alt_str.is_empty() {
+            ".".to_string()
+        } else {
+            alt_str.join(",")
+        };
+        let qual = v
+            .quality
+            .map(|q| format!("{:.1}", q))
+            .unwrap_or_else(|| ".".to_string());
+        let filter = format_filter(&v.filter);
+
+        let af = if cv.depth > 0 {
+            cv.allele_depth[1] as f64 / cv.depth as f64
+        } else {
+            0.0
+        };
+        let info = format!("DP={};AF={:.3};SB={:.3}", cv.depth, af, cv.strand_bias_p);
+
+        let gt = match cv.genotype {
+            Genotype::HomRef => "0/0",
+            Genotype::Het => "0/1",
+            Genotype::HomAlt => "1/1",
+        };
+        let gq = cv.genotype_quality.round() as u32;
+        let sample = format!(
+            "{}:{}:{},{}:{}:{},{},{}",
+            gt,
+            cv.depth,
+            cv.allele_depth[0],
+            cv.allele_depth[1],
+            gq,
+            cv.genotype_likelihoods[0],
+            cv.genotype_likelihoods[1],
+            cv.genotype_likelihoods[2],
+        );
+
+        out.push_str(&format!(
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\tGT:DP:AD:GQ:PL\t{}\n",
+            v.chrom, v.position, id, ref_str, alt, qual, filter, info, sample,
+        ));
+    }
+
+    out
+}
+
+/// Write called variants to a VCF file with genotype columns.
+#[cfg(feature = "variant-calling")]
+pub fn write_called_vcf(
+    variants: &[crate::variant_call::CalledVariant],
+    sample_name: &str,
+    path: impl AsRef<Path>,
+) -> Result<()> {
+    let path = path.as_ref();
+    let content = write_called_vcf_string(variants, sample_name);
+    let mut file = File::create(path).map_err(|e| {
+        CyaneaError::Io(std::io::Error::new(
+            e.kind(),
+            format!("{}: {}", path.display(), e),
+        ))
+    })?;
+    file.write_all(content.as_bytes()).map_err(|e| {
+        CyaneaError::Io(std::io::Error::new(
+            e.kind(),
+            format!("{}: {}", path.display(), e),
+        ))
+    })?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -268,5 +451,120 @@ mod tests {
     fn test_vcf_file_not_found() {
         let result = parse_vcf("/nonexistent/file.vcf");
         assert!(result.is_err());
+    }
+
+    // -- VCF writing tests --
+
+    #[test]
+    fn test_write_vcf_string_basic() {
+        let v1 = Variant {
+            chrom: "chr1".to_string(),
+            position: 100,
+            id: Some("rs123".to_string()),
+            ref_allele: b"A".to_vec(),
+            alt_alleles: vec![b"G".to_vec()],
+            quality: Some(30.0),
+            filter: VariantFilter::Pass,
+        };
+        let v2 = Variant {
+            chrom: "chr1".to_string(),
+            position: 200,
+            id: None,
+            ref_allele: b"AC".to_vec(),
+            alt_alleles: vec![b"A".to_vec()],
+            quality: None,
+            filter: VariantFilter::Missing,
+        };
+
+        let output = write_vcf_string(&[v1, v2]);
+
+        assert!(output.starts_with("##fileformat=VCFv4.3\n"));
+        assert!(output.contains("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"));
+        assert!(output.contains("chr1\t100\trs123\tA\tG\t30.0\tPASS\t.\n"));
+        assert!(output.contains("chr1\t200\t.\tAC\tA\t.\t.\t.\n"));
+    }
+
+    #[test]
+    fn test_write_vcf_header() {
+        let output = write_vcf_string(&[]);
+        let lines: Vec<&str> = output.lines().collect();
+        assert_eq!(lines[0], "##fileformat=VCFv4.3");
+        assert_eq!(lines[1], "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO");
+    }
+
+    #[test]
+    fn test_write_vcf_file_roundtrip() {
+        let v = Variant {
+            chrom: "chr1".to_string(),
+            position: 100,
+            id: None,
+            ref_allele: b"A".to_vec(),
+            alt_alleles: vec![b"G".to_vec()],
+            quality: Some(42.0),
+            filter: VariantFilter::Pass,
+        };
+
+        let tmp = NamedTempFile::with_suffix(".vcf").unwrap();
+        super::write_vcf(&[v], tmp.path()).unwrap();
+
+        let parsed = parse_vcf(tmp.path()).unwrap();
+        assert_eq!(parsed.len(), 1);
+        assert_eq!(parsed[0].chrom, "chr1");
+        assert_eq!(parsed[0].position, 100);
+        assert_eq!(parsed[0].ref_allele, b"A");
+        assert_eq!(parsed[0].alt_alleles, vec![b"G".to_vec()]);
+        assert_eq!(parsed[0].filter, VariantFilter::Pass);
+    }
+
+    #[test]
+    fn test_write_vcf_multi_allelic() {
+        let v = Variant {
+            chrom: "chr2".to_string(),
+            position: 300,
+            id: None,
+            ref_allele: b"T".to_vec(),
+            alt_alleles: vec![b"TA".to_vec(), b"TG".to_vec()],
+            quality: Some(50.5),
+            filter: VariantFilter::Fail(vec!["LowQual".to_string()]),
+        };
+
+        let output = write_vcf_string(&[v]);
+        assert!(output.contains("chr2\t300\t.\tT\tTA,TG\t50.5\tLowQual\t.\n"));
+    }
+
+    #[cfg(feature = "variant-calling")]
+    #[test]
+    fn test_write_called_vcf_string() {
+        use crate::variant_call::{CalledVariant, Genotype};
+
+        let variant = Variant {
+            chrom: "chr1".to_string(),
+            position: 100,
+            id: None,
+            ref_allele: b"A".to_vec(),
+            alt_alleles: vec![b"G".to_vec()],
+            quality: Some(45.0),
+            filter: VariantFilter::Pass,
+        };
+
+        let cv = CalledVariant {
+            variant,
+            genotype: Genotype::Het,
+            genotype_quality: 35.0,
+            depth: 20,
+            allele_depth: [10, 10],
+            allele_depth_fwd: [5, 5],
+            allele_depth_rev: [5, 5],
+            strand_bias_p: 1.0,
+            genotype_likelihoods: [150, 0, 200],
+        };
+
+        let output = write_called_vcf_string(&[cv], "SAMPLE1");
+
+        assert!(output.contains("##fileformat=VCFv4.3\n"));
+        assert!(output.contains("##FORMAT=<ID=GT"));
+        assert!(output.contains("SAMPLE1\n"));
+        assert!(output.contains("GT:DP:AD:GQ:PL\t0/1:20:10,10:35:150,0,200\n"));
+        assert!(output.contains("DP=20;AF=0.500;SB=1.000"));
     }
 }

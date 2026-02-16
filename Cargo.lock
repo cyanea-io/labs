@@ -829,6 +829,7 @@ dependencies = [
  "csv",
  "cyanea-core",
  "cyanea-omics",
+ "cyanea-stats",
  "flate2",
  "noodles-core",
  "noodles-cram",
