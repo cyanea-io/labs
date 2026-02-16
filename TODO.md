@@ -6,7 +6,7 @@ Last updated: 2026-02-13
 
 ---
 
-## Status: All 13 crates complete (1560+ tests)
+## Status: All 13 crates complete (1600+ tests)
 
 Every crate has a `docs/STATUS.md` with full API documentation.
 
@@ -17,7 +17,7 @@ Every crate has a `docs/STATUS.md` with full API documentation.
 | cyanea-io | Complete (CSV, VCF, BED, BEDPE, GFF3, SAM, BAM, CRAM, Parquet) | 158 |
 | cyanea-align | Complete (NW, SW, semi-global, banded, MSA, SIMD SW, seed-and-extend, minimizers, WFA, GPU dispatch, POA, LCSk++, pair HMM, PAM40/120/200, BLOSUM30, CIGAR utilities, X-drop/Z-drop, spliced alignment) | 290 |
 | cyanea-omics | Complete (genomic coords, intervals, matrices, variants, AnnData, h5ad, zarr) | 99 |
-| cyanea-stats | Complete (descriptive, correlation, hypothesis tests, distributions, PCA, effect sizes, chi-squared, Fisher's exact, Bayesian conjugate priors, combinatorics) | 167 |
+| cyanea-stats | Complete (descriptive, correlation, hypothesis tests, distributions, PCA, effect sizes, chi-squared, Fisher's exact, Bayesian conjugate priors, combinatorics, population genetics) | 212 |
 | cyanea-ml | Complete (clustering, distances, embeddings, KNN, PCA, t-SNE, UMAP, random forest, regression, HMM) | 161 |
 | cyanea-chem | Complete (SMILES, SDF V2000/V3000, fingerprints, MACCS keys, properties, substructure, stereochemistry, canonical SMILES) | 79 |
 | cyanea-struct | Complete (PDB, mmCIF, geometry, DSSP, Kabsch, contact maps, Ramachandran) | 76 |

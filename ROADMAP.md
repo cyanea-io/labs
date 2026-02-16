@@ -3,7 +3,7 @@
 > Capabilities to add across the labs ecosystem. Organized by impact and implementation complexity.
 > Items here are *new features* — see `TODO.md` for existing infrastructure work (publishing, CI, docs).
 
-Last updated: 2026-02-13
+Last updated: 2026-02-16
 
 ---
 
@@ -55,29 +55,29 @@ Last updated: 2026-02-13
 
 ## T2 — High-Impact Genomics & Omics
 
-### Genome Arithmetic (`cyanea-omics`)
-- [ ] Interval intersection (BEDTools-style)
-- [ ] Interval union, subtraction, complement
-- [ ] Closest interval queries
-- [ ] Window/tile generation across genome
-- [ ] Jaccard similarity between interval sets
-- [ ] Genomic coordinate liftover (chain file parsing)
+### Genome Arithmetic (`cyanea-omics`) — Done
+- [x] Interval intersection (BEDTools-style)
+- [x] Interval union, subtraction, complement
+- [x] Closest interval queries
+- [x] Window/tile generation across genome
+- [x] Jaccard similarity between interval sets
+- [x] Genomic coordinate liftover (chain file parsing)
 
-### Pileup Generation (`cyanea-io` or `cyanea-omics`)
-- [ ] SAM/BAM → per-position pileup
-- [ ] Base counts, quality sums at each position
-- [ ] Variant calling support (simple SNP caller)
-- [ ] Depth-of-coverage calculation
-- [ ] mpileup-compatible output
+### Pileup Generation (`cyanea-io`) — Done
+- [x] SAM/BAM → per-position pileup
+- [x] Base counts, quality sums at each position
+- [x] Variant calling support (Bayesian variant caller with genotype likelihoods)
+- [x] Depth-of-coverage calculation
+- [x] mpileup-compatible output
 
-### Population Genetics (`cyanea-stats` or new `cyanea-popgen`)
-- [ ] Allele frequencies from VCF
-- [ ] Hardy-Weinberg equilibrium test
-- [ ] Fst (fixation index) — Weir-Cockerham and Hudson estimators
-- [ ] Tajima's D
-- [ ] Nucleotide diversity (pi, theta)
-- [ ] Linkage disequilibrium (r², D')
-- [ ] Principal components on genotype matrices (eigenanalysis)
+### Population Genetics (`cyanea-stats::popgen`) — Done
+- [x] Allele frequencies from 012-encoded genotypes
+- [x] Hardy-Weinberg equilibrium test
+- [x] Fst (fixation index) — Weir-Cockerham and Hudson estimators
+- [x] Tajima's D
+- [x] Nucleotide diversity (pi, theta)
+- [x] Linkage disequilibrium (r², D') with EM haplotype estimation
+- [x] Principal components on genotype matrices (eigenanalysis)
 
 ### Differential Expression (`cyanea-stats`)
 - [ ] TPM / FPKM / CPM normalization

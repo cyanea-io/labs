@@ -34,6 +34,7 @@ pub mod correlation;
 pub mod descriptive;
 pub mod distribution;
 pub mod effect_size;
+pub mod popgen;
 pub mod rank;
 pub mod reduction;
 pub mod testing;
@@ -47,5 +48,8 @@ pub use correction::CorrectionMethod;
 pub use correlation::CorrelationMatrix;
 pub use descriptive::DescriptiveStats;
 pub use distribution::{Binomial, ChiSquared, Distribution, FDistribution, Normal, Poisson};
+pub use popgen::{
+    AlleleFrequencies, DiversityStats, FstMethod, FstResult, HweResult, LdResult, TajimaD,
+};
 pub use rank::RankMethod;
 pub use testing::TestResult;
