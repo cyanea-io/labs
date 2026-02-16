@@ -273,6 +273,59 @@ Standalone Burrows-Wheeler Transform construction and inversion.
 | `len(&self) -> usize` | Length of BWT (text length + 1) |
 | `invert(&self) -> Vec<u8>` | Reconstruct original text via LF-mapping |
 
+### Paired-end FASTQ (`paired.rs`)
+
+Paired-end read support for Illumina short-read workflows. Handles separate R1/R2 files and interleaved files with mate validation. Feature-gated behind `std`.
+
+**Core types:**
+
+| Type | Description |
+|------|-------------|
+| `PairedFastqRecord` | Paired-end record containing R1 (forward) and R2 (reverse) `FastqRecord` |
+| `MateValidation` | Enum: `Strict` (requires `/1` `/2`), `Relaxed` (any suffix), `None` (trust order) |
+| `PairedFastqStats` | Per-file `FastqStats` for R1 and R2, plus `pair_count` |
+
+**PairedFastqRecord methods:**
+
+| Method | Description |
+|--------|-------------|
+| `new(r1, r2, validation) -> Result<Self>` | Create with mate validation |
+| `new_unchecked(r1, r2) -> Self` | Create without validation |
+| `r1() -> &FastqRecord` | Forward read |
+| `r2() -> &FastqRecord` | Reverse read |
+| `into_reads() -> (FastqRecord, FastqRecord)` | Consume and return both reads |
+| `pair_name() -> &str` | Shared name (R1 name with read-number suffix stripped) |
+
+**Helper functions:**
+
+| Function | Description |
+|----------|-------------|
+| `strip_read_suffix(name) -> &str` | Strip `/1`, `/2`, `_1`, `_2` suffixes |
+| `validate_mate_pair(r1, r2) -> Result<()>` | Relaxed validation (name prefixes match) |
+| `validate_mate_pair_strict(r1, r2) -> Result<()>` | Strict validation (requires `/1` and `/2` suffixes) |
+
+**Parsing:**
+
+| Function | Description |
+|----------|-------------|
+| `parse_paired_fastq_files(r1_path, r2_path, validation) -> Result<Vec<PairedFastqRecord>>` | Parse separate R1/R2 files in lockstep |
+| `parse_interleaved_fastq(path, validation) -> Result<Vec<PairedFastqRecord>>` | Parse interleaved file (alternating R1/R2) |
+| `parse_paired_fastq_stats(r1_path, r2_path) -> Result<PairedFastqStats>` | Streaming statistics without storing records |
+
+**Writing:**
+
+| Function | Description |
+|----------|-------------|
+| `write_paired_fastq(pairs, r1_path, r2_path, encoding) -> Result<()>` | Write to separate R1/R2 files |
+| `write_interleaved_fastq(pairs, path, encoding) -> Result<()>` | Write to interleaved file |
+
+**Streaming interleave/deinterleave:**
+
+| Function | Description |
+|----------|-------------|
+| `interleave_fastq_files(r1_path, r2_path, output_path, validation) -> Result<u64>` | Interleave two files into one (returns pair count) |
+| `deinterleave_fastq_file(input_path, r1_path, r2_path, validation) -> Result<u64>` | Split interleaved file into R1/R2 (returns pair count) |
+
 ### Quality trimming & filtering (`trim.rs`)
 
 Quality trimming, adapter removal, and read filtering for FASTQ records. Two-level API: low-level functions on `&[u8]` slices return composable `TrimRange` values, high-level functions operate on `FastqRecord`. `TrimPipeline` builder chains operations in Trimmomatic-style order with batch statistics.
@@ -341,6 +394,22 @@ Quality trimming, adapter removal, and read filtering for FASTQ records. Two-lev
 
 Pipeline operation order (Trimmomatic convention): adapter trim → leading → trailing → sliding window/BWA → length filter → quality filter → complexity filter.
 
+**Paired-end trimming** (feature-gated behind `std`):
+
+| Type | Description |
+|------|-------------|
+| `OrphanPolicy` | Enum: `DropBoth`, `KeepFirst` (keep R1 orphans), `KeepSecond` (keep R2 orphans) |
+| `PairedTrimResult` | Enum: `BothPassed(r1, r2)`, `OnlyFirst(r1)`, `OnlySecond(r2)`, `Dropped` |
+| `PairedTrimReport` | Batch stats: `kept`, `total_input`, `both_passed`, `r1_only_passed`, `r2_only_passed`, `both_failed`, base counts |
+
+| Method | Description |
+|--------|-------------|
+| `process_paired(&self, r1, r2, policy) -> PairedTrimResult` | Process a single pair with orphan policy |
+| `process_paired_batch(&self, pairs) -> Vec<PairedFastqRecord>` | Process batch, DropBoth policy |
+| `process_paired_batch_with_stats(&self, pairs) -> PairedTrimReport` | Process batch with detailed statistics |
+| `PairedTrimReport::orphans() -> usize` | Count of pairs where only one mate survived |
+| `PairedTrimReport::survival_rate() -> f64` | Fraction of pairs where both reads passed |
+
 ### MinHash sketching (`minhash.rs`)
 
 Bottom-k MinHash and scaled FracMinHash sketching for rapid genome comparison. Estimates Jaccard similarity, containment, and average nucleotide identity (ANI) between DNA sequences without full alignment. Uses canonical k-mers (min of forward and reverse complement hash) for strand-agnostic sketching.
@@ -398,13 +467,13 @@ Bottom-k MinHash and scaled FracMinHash sketching for rapid genome comparison. E
 
 ## Tests
 
-258 tests across 20 source files.
+353 tests across 21 source files.
 
 ## Source Files
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `lib.rs` | 108 | Module declarations, re-exports |
+| `lib.rs` | 131 | Module declarations, re-exports |
 | `alphabet.rs` | 94 | Alphabet trait and implementations |
 | `types.rs` | 283 | ValidatedSeq generic type |
 | `seq.rs` | 197 | Sequence-specific methods |
@@ -422,5 +491,6 @@ Bottom-k MinHash and scaled FracMinHash sketching for rapid genome comparison. E
 | `orf.rs` | 288 | Open reading frame finder |
 | `fasta_index.rs` | 421 | FASTA indexed reader (.fai) |
 | `fmd_index.rs` | 732 | Bidirectional FM-Index (FMD-Index) |
-| `trim.rs` | 1154 | Quality trimming, adapter removal, filtering, TrimPipeline |
+| `paired.rs` | 1084 | Paired-end FASTQ: types, parsing, writing, interleave/deinterleave |
+| `trim.rs` | 1535 | Quality trimming, adapter removal, filtering, TrimPipeline, paired trimming |
 | `bwt.rs` | 225 | Standalone BWT construction and inversion |
