@@ -2,7 +2,7 @@ node_modules/
 pkg/
 ts/*.js
 ts/*.js.map
+!ts/*.ts
 ts/*.d.ts
 ts/*.d.ts.map
-!ts/*.ts
 package-lock.json
