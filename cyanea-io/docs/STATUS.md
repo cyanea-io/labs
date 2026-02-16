@@ -50,11 +50,18 @@ Coordinate conversion: GFF3 1-based closed coordinates are converted to 0-based 
 
 | Type/Function | Description |
 |---------------|-------------|
-| `SamRecord` | `qname`, `flag`, `rname`, `pos`, `mapq`, `cigar`, `sequence`, `quality` |
+| `SamRecord` | `qname`, `flag`, `rname`, `pos`, `mapq`, `cigar`, `rnext`, `pnext`, `tlen`, `sequence`, `quality` |
 | `parse_sam(path) -> Result<Vec<SamRecord>>` | Parse SAM text format |
 | `SamStats` | `total_reads`, `mapped`, `unmapped`, `avg_mapq`, `mapq_distribution` |
 | `sam_stats(records) -> SamStats` | Compute stats from records |
 | `sam_stats_from_path(path) -> Result<SamStats>` | Streaming SAM statistics |
+| `SamPair` | Paired reads: `r1`, `r2` with `insert_size() -> i64` |
+| `PairedSamStats` | `base` (SamStats), `paired_count`, `proper_pair_count`, `singletons`, `avg_insert_size` |
+| `pair_sam_records(records) -> Vec<SamPair>` | Group records into mate pairs by qname |
+| `filter_proper_pairs(records) -> Vec<&SamRecord>` | Filter records with FLAG 0x2 (proper pair) |
+| `paired_sam_stats(records) -> PairedSamStats` | Compute paired-end statistics |
+
+**Flag helpers on `SamRecord`**: `is_paired()`, `is_proper_pair()`, `is_mate_unmapped()`, `is_reverse()`, `is_mate_reverse()`, `is_first_in_pair()`, `is_second_in_pair()`, `is_secondary()`, `is_supplementary()`
 
 ### BAM (`bam.rs`, `bam` feature)
 
@@ -128,19 +135,19 @@ BEDPE format: 6 required columns (chrom1/start1/end1/chrom2/start2/end2), 4 opti
 
 ## Tests
 
-3 tests with default features (CSV only), 81 tests with all features enabled: CSV (3), VCF (5), BED (9), BEDPE (10), GFF3 (8), SAM (17), BAM (14), CRAM (7), Parquet (8).
+3 tests with default features (CSV only), 127 tests with all features enabled: CSV (3), VCF (5), BED (9), BEDPE (10), GFF3 (9), SAM (32), pileup (32), BAM (12), CRAM (7), Parquet (8).
 
 ## Source Files
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `lib.rs` | 61 | Module declarations, re-exports |
+| `lib.rs` | 79 | Module declarations, re-exports |
 | `csv.rs` | 134 | CSV info extraction |
 | `vcf.rs` | 262 | VCF variant parsing |
 | `bed.rs` | 278 | BED interval parsing |
 | `gff.rs` | 618 | GFF3 hierarchical gene parsing |
-| `sam.rs` | 632 | SAM text alignment parsing |
-| `bam.rs` | 855 | BAM binary alignment parsing |
-| `cram.rs` | 446 | CRAM reference-based alignment |
+| `sam.rs` | 1036 | SAM text alignment parsing, paired-end support |
+| `bam.rs` | 972 | BAM binary alignment parsing |
+| `cram.rs` | 472 | CRAM reference-based alignment |
 | `parquet.rs` | 591 | Apache Parquet columnar format |
 | `bedpe.rs` | 358 | BEDPE paired-end interval parsing |

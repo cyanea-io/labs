@@ -4,7 +4,7 @@ WebAssembly bindings for browser-based bioinformatics. Wraps cyanea-seq, cyanea-
 
 ## Status: Complete
 
-All bindings are implemented with full `wasm-bindgen` annotations (behind the `wasm` feature flag). Functions accept simple types (strings, numbers) and return JSON strings. Includes sequence manipulation, alignment (all modes + batch), statistics, ML distance metrics and UMAP, chemistry (SMILES parsing, fingerprints, similarity, substructure), structural biology (PDB parsing, secondary structure, RMSD), phylogenetics (Newick trees, evolutionary distances, UPGMA/NJ, Robinson-Foulds), SHA-256 hashing, and zstd compression.
+All bindings are implemented with full `wasm-bindgen` annotations (behind the `wasm` feature flag). Functions accept simple types (strings, numbers) and return JSON strings. Includes sequence manipulation, paired-end FASTQ parsing, read trimming, alignment (all modes + batch), statistics, ML distance metrics and UMAP, chemistry (SMILES parsing, fingerprints, similarity, substructure), structural biology (PDB parsing, secondary structure, RMSD), phylogenetics (Newick trees, evolutionary distances, UPGMA/NJ, Robinson-Foulds), SHA-256 hashing, and zstd compression.
 
 ## Public API
 
@@ -27,6 +27,10 @@ All bindings are implemented with full `wasm-bindgen` annotations (behind the `w
 | `translate(seq) -> String` | DNA to protein (standard codon table) |
 | `validate(seq, alphabet) -> String` | Validate against "dna"/"rna"/"protein" |
 | `parse_fastq(data) -> String` | Parse FASTQ records from string |
+| `parse_paired_fastq(r1_data, r2_data, validation) -> String` | Parse paired FASTQ from two strings (`validation`: "strict"/"relaxed"/"none") |
+| `parse_interleaved_fastq(data, validation) -> String` | Parse interleaved FASTQ (alternating R1/R2) |
+| `trim_fastq(data, config_json) -> String` | Trim single-end FASTQ records |
+| `trim_paired_fastq(r1_data, r2_data, config_json, orphan_policy) -> String` | Trim paired FASTQ (`orphan_policy`: "drop_both"/"keep_first"/"keep_second") |
 | `parse_fasta_bytes(data) -> Result<FastaStats>` | Direct Rust-level FASTA parsing |
 | `gc_content(seq) -> f64` | Direct Rust-level GC content |
 
@@ -148,15 +152,15 @@ All bindings are implemented with full `wasm-bindgen` annotations (behind the `w
 
 ## Tests
 
-83 tests across 10 source files.
+111 tests across 10 source files.
 
 ## Source Files
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `lib.rs` | 126 | Module declarations, re-exports, VERSION constant |
+| `lib.rs` | 131 | Module declarations, re-exports, VERSION constant |
 | `error.rs` | 74 | JSON error wrapping |
-| `seq.rs` | 358 | FASTA/FASTQ parsing, GC content, reverse complement, transcribe, translate, validate |
+| `seq.rs` | 892 | FASTA/FASTQ parsing, paired-end FASTQ, trimming, GC content, reverse complement, transcribe, translate, validate |
 | `align.rs` | 232 | DNA/protein alignment, batch alignment |
 | `stats.rs` | 305 | Descriptive stats, correlation, hypothesis testing, p-value correction |
 | `ml.rs` | 247 | K-mer counting, distance metrics, UMAP dimensionality reduction |
