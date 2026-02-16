@@ -55,7 +55,10 @@ pub use bedpe::{bedpe_stats, parse_bedpe, BedpeRecord, BedpeStats};
 pub use gff::{gff3_stats, parse_gff3, GffStats};
 
 #[cfg(feature = "sam")]
-pub use sam::{parse_sam, sam_stats, sam_stats_from_path, SamRecord, SamStats};
+pub use sam::{
+    filter_proper_pairs, pair_sam_records, paired_sam_stats, parse_sam, sam_stats,
+    sam_stats_from_path, PairedSamStats, SamPair, SamRecord, SamStats,
+};
 
 #[cfg(feature = "sam")]
 pub use pileup::{depth_stats, pileup, pileup_region, pileup_to_mpileup, DepthStats, Pileup, PileupColumn};

@@ -48,6 +48,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub use seq::{
     parse_fasta, parse_fasta_bytes, gc_content, gc_content_json,
     reverse_complement, transcribe, translate, validate, parse_fastq,
+    parse_paired_fastq, parse_interleaved_fastq, trim_fastq, trim_paired_fastq,
 };
 
 // align

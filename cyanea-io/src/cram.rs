@@ -202,6 +202,29 @@ fn convert_record(
         }
     };
 
+    // Mate reference name (RNEXT)
+    let rnext = record
+        .mate_reference_sequence(header.reference_sequences())
+        .and_then(|r| r.ok())
+        .map(|(name, _)| {
+            let mate_name = String::from_utf8_lossy(name).to_string();
+            if mate_name == rname {
+                "=".to_string()
+            } else {
+                mate_name
+            }
+        })
+        .unwrap_or_else(|| "*".to_string());
+
+    // Mate position (1-based)
+    let pnext = record
+        .mate_alignment_start()
+        .map(|p| usize::from(p) as u64)
+        .unwrap_or(0);
+
+    // Template length
+    let tlen = record.template_length() as i64;
+
     Ok(SamRecord {
         qname,
         flag,
@@ -209,6 +232,9 @@ fn convert_record(
         pos,
         mapq,
         cigar,
+        rnext,
+        pnext,
+        tlen,
         sequence,
         quality,
     })

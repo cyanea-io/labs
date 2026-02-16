@@ -41,6 +41,43 @@ export interface FastqRecord {
   quality: string;
 }
 
+/** A paired FASTQ record (R1 + R2). */
+export interface PairedFastqRecord {
+  r1: FastqRecord;
+  r2: FastqRecord;
+}
+
+/** Mate validation mode for paired FASTQ parsing. */
+export type MateValidation = "strict" | "relaxed" | "none";
+
+/** How to handle orphan reads when one mate fails trimming. */
+export type OrphanPolicy = "drop_both" | "keep_first" | "keep_second";
+
+/** Configuration for read trimming. */
+export interface TrimConfig {
+  min_quality?: number;
+  window_size?: number;
+  min_length?: number;
+  max_length?: number;
+  adapters?: string[];
+}
+
+/** Statistics from paired-end trimming. */
+export interface PairedTrimStats {
+  total_input: number;
+  both_passed: number;
+  r1_only_passed: number;
+  r2_only_passed: number;
+  both_failed: number;
+  survival_rate: number;
+}
+
+/** Result of paired-end trimming. */
+export interface PairedTrimResult {
+  pairs: PairedFastqRecord[];
+  stats: PairedTrimStats;
+}
+
 // ── Align Module ───────────────────────────────────────────────────────────
 
 /**

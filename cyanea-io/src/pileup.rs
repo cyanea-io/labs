@@ -568,6 +568,9 @@ mod tests {
             pos,
             mapq,
             cigar: cigar.to_string(),
+            rnext: "*".to_string(),
+            pnext: 0,
+            tlen: 0,
             sequence: seq.to_string(),
             quality: qual.to_string(),
         }

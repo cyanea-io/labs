@@ -54,6 +54,9 @@ pub struct PySamRecord {
     pub pos: u64,
     pub mapq: u8,
     pub cigar: String,
+    pub rnext: String,
+    pub pnext: u64,
+    pub tlen: i64,
     pub sequence: String,
     pub quality: String,
 }
@@ -67,6 +70,9 @@ impl From<cyanea_io::SamRecord> for PySamRecord {
             pos: r.pos,
             mapq: r.mapq,
             cigar: r.cigar,
+            rnext: r.rnext,
+            pnext: r.pnext,
+            tlen: r.tlen,
             sequence: r.sequence,
             quality: r.quality,
         }
@@ -176,6 +182,38 @@ fn parse_bam(path: &str) -> PyResult<Vec<PySamRecord>> {
 fn bam_stats(path: &str) -> PyResult<PySamStats> {
     let stats = cyanea_io::bam_stats(path).into_pyresult()?;
     Ok(PySamStats::from(stats))
+}
+
+/// Summary statistics for paired-end SAM/BAM data.
+#[pyclass(frozen, get_all)]
+pub struct PyPairedSamStats {
+    pub total_reads: usize,
+    pub mapped: usize,
+    pub unmapped: usize,
+    pub avg_mapq: f64,
+    pub avg_length: f64,
+    pub paired_count: usize,
+    pub proper_pair_count: usize,
+    pub singletons: usize,
+    pub avg_insert_size: f64,
+}
+
+/// Compute paired-end statistics for a SAM file.
+#[pyfunction]
+fn paired_sam_stats_fn(path: &str) -> PyResult<PyPairedSamStats> {
+    let records = cyanea_io::parse_sam(path).into_pyresult()?;
+    let stats = cyanea_io::paired_sam_stats(&records);
+    Ok(PyPairedSamStats {
+        total_reads: stats.base.total_reads,
+        mapped: stats.base.mapped,
+        unmapped: stats.base.unmapped,
+        avg_mapq: stats.base.avg_mapq,
+        avg_length: stats.base.avg_length,
+        paired_count: stats.paired_count,
+        proper_pair_count: stats.proper_pair_count,
+        singletons: stats.singletons,
+        avg_insert_size: stats.avg_insert_size,
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -289,6 +327,7 @@ pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Gff3Stats>()?;
     m.add_class::<PySamRecord>()?;
     m.add_class::<PySamStats>()?;
+    m.add_class::<PyPairedSamStats>()?;
     m.add_class::<PyVcfRecord>()?;
     m.add_class::<PyBedRecord>()?;
     m.add_class::<PyGff3Gene>()?;
@@ -300,6 +339,7 @@ pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sam_stats, &m)?)?;
     m.add_function(wrap_pyfunction!(parse_bam, &m)?)?;
     m.add_function(wrap_pyfunction!(bam_stats, &m)?)?;
+    m.add_function(wrap_pyfunction!(paired_sam_stats_fn, &m)?)?;
     m.add_function(wrap_pyfunction!(parse_vcf, &m)?)?;
     m.add_function(wrap_pyfunction!(parse_bed, &m)?)?;
     m.add_function(wrap_pyfunction!(parse_gff3, &m)?)?;

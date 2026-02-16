@@ -255,6 +255,46 @@ pub struct FastqRecord {
     pub quality: Vec<u8>,
 }
 
+/// A paired-end FASTQ record (R1 + R2 mate pair).
+#[pyclass(frozen, get_all)]
+pub struct PairedFastqRecord {
+    pub r1_name: String,
+    pub r1_description: String,
+    pub r1_sequence: Vec<u8>,
+    pub r1_quality: Vec<u8>,
+    pub r2_name: String,
+    pub r2_description: String,
+    pub r2_sequence: Vec<u8>,
+    pub r2_quality: Vec<u8>,
+}
+
+/// Statistics from paired FASTQ files.
+#[pyclass(frozen, get_all)]
+pub struct PairedFastqStats {
+    pub pair_count: u64,
+    pub r1_total_bases: u64,
+    pub r1_gc_content: f64,
+    pub r1_avg_length: f64,
+    pub r1_mean_quality: f64,
+    pub r2_total_bases: u64,
+    pub r2_gc_content: f64,
+    pub r2_avg_length: f64,
+    pub r2_mean_quality: f64,
+}
+
+/// Report from trimming paired FASTQ files.
+#[pyclass(frozen, get_all)]
+pub struct PairedTrimReport {
+    pub total_input: usize,
+    pub both_passed: usize,
+    pub r1_only_passed: usize,
+    pub r2_only_passed: usize,
+    pub both_failed: usize,
+    pub total_bases_input: u64,
+    pub total_bases_output: u64,
+    pub survival_rate: f64,
+}
+
 // ---------------------------------------------------------------------------
 // Module functions
 // ---------------------------------------------------------------------------
@@ -304,6 +344,130 @@ fn fastq_stats(path: &str) -> PyResult<FastqStats> {
         mean_quality: stats.mean_quality,
         q20_fraction: stats.q20_fraction,
         q30_fraction: stats.q30_fraction,
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Paired-end FASTQ
+// ---------------------------------------------------------------------------
+
+/// Parse paired FASTQ files into a list of paired records.
+#[pyfunction]
+#[pyo3(signature = (r1_path, r2_path, validation="relaxed"))]
+fn parse_paired_fastq(r1_path: &str, r2_path: &str, validation: &str) -> PyResult<Vec<PairedFastqRecord>> {
+    let v = match validation {
+        "strict" => cyanea_seq::MateValidation::Strict,
+        "relaxed" => cyanea_seq::MateValidation::Relaxed,
+        "none" => cyanea_seq::MateValidation::None,
+        _ => return Err(pyo3::exceptions::PyValueError::new_err(
+            format!("invalid validation mode: '{}' (expected 'strict', 'relaxed', or 'none')", validation)
+        )),
+    };
+    let pairs = cyanea_seq::parse_paired_fastq_files(r1_path, r2_path, v).into_pyresult()?;
+    Ok(pairs.into_iter().map(|p| {
+        let (r1, r2) = p.into_reads();
+        PairedFastqRecord {
+            r1_name: r1.name().to_string(),
+            r1_description: r1.description().unwrap_or("").to_string(),
+            r1_sequence: r1.sequence().as_bytes().to_vec(),
+            r1_quality: r1.quality().as_slice().to_vec(),
+            r2_name: r2.name().to_string(),
+            r2_description: r2.description().unwrap_or("").to_string(),
+            r2_sequence: r2.sequence().as_bytes().to_vec(),
+            r2_quality: r2.quality().as_slice().to_vec(),
+        }
+    }).collect())
+}
+
+/// Parse an interleaved FASTQ file into paired records.
+#[pyfunction]
+#[pyo3(signature = (path, validation="relaxed"))]
+fn parse_interleaved_fastq(path: &str, validation: &str) -> PyResult<Vec<PairedFastqRecord>> {
+    let v = match validation {
+        "strict" => cyanea_seq::MateValidation::Strict,
+        "relaxed" => cyanea_seq::MateValidation::Relaxed,
+        "none" => cyanea_seq::MateValidation::None,
+        _ => return Err(pyo3::exceptions::PyValueError::new_err(
+            format!("invalid validation mode: '{}' (expected 'strict', 'relaxed', or 'none')", validation)
+        )),
+    };
+    let pairs = cyanea_seq::parse_interleaved_fastq(path, v).into_pyresult()?;
+    Ok(pairs.into_iter().map(|p| {
+        let (r1, r2) = p.into_reads();
+        PairedFastqRecord {
+            r1_name: r1.name().to_string(),
+            r1_description: r1.description().unwrap_or("").to_string(),
+            r1_sequence: r1.sequence().as_bytes().to_vec(),
+            r1_quality: r1.quality().as_slice().to_vec(),
+            r2_name: r2.name().to_string(),
+            r2_description: r2.description().unwrap_or("").to_string(),
+            r2_sequence: r2.sequence().as_bytes().to_vec(),
+            r2_quality: r2.quality().as_slice().to_vec(),
+        }
+    }).collect())
+}
+
+/// Compute statistics for paired FASTQ files.
+#[pyfunction]
+fn paired_fastq_stats(r1_path: &str, r2_path: &str) -> PyResult<PairedFastqStats> {
+    let stats = cyanea_seq::parse_paired_fastq_stats(r1_path, r2_path).into_pyresult()?;
+    Ok(PairedFastqStats {
+        pair_count: stats.pair_count,
+        r1_total_bases: stats.r1_stats.total_bases,
+        r1_gc_content: stats.r1_stats.gc_content,
+        r1_avg_length: stats.r1_stats.avg_length,
+        r1_mean_quality: stats.r1_stats.mean_quality,
+        r2_total_bases: stats.r2_stats.total_bases,
+        r2_gc_content: stats.r2_stats.gc_content,
+        r2_avg_length: stats.r2_stats.avg_length,
+        r2_mean_quality: stats.r2_stats.mean_quality,
+    })
+}
+
+/// Trim paired FASTQ files and return a report.
+#[pyfunction]
+#[pyo3(signature = (r1_path, r2_path, min_quality=20.0, window_size=4, min_length=50, max_length=None, adapters=None, orphan_policy="drop_both"))]
+fn trim_paired_fastq(
+    r1_path: &str,
+    r2_path: &str,
+    min_quality: f64,
+    window_size: usize,
+    min_length: usize,
+    max_length: Option<usize>,
+    adapters: Option<Vec<String>>,
+    orphan_policy: &str,
+) -> PyResult<PairedTrimReport> {
+    let _ = orphan_policy; // reserved for future use
+
+    // Build pipeline
+    let mut pipeline = cyanea_seq::trim::TrimPipeline::new()
+        .sliding_window(window_size, min_quality)
+        .min_length(min_length);
+    if let Some(max) = max_length {
+        pipeline = pipeline.max_length(max);
+    }
+    if let Some(adapter_list) = adapters {
+        for a in &adapter_list {
+            pipeline = pipeline.adapter(a.as_bytes());
+        }
+    }
+
+    // Parse pairs
+    let pairs = cyanea_seq::parse_paired_fastq_files(r1_path, r2_path, cyanea_seq::MateValidation::None)
+        .into_pyresult()?;
+
+    // Process
+    let report = pipeline.process_paired_batch_with_stats(&pairs);
+
+    Ok(PairedTrimReport {
+        total_input: report.total_input,
+        both_passed: report.both_passed,
+        r1_only_passed: report.r1_only_passed,
+        r2_only_passed: report.r2_only_passed,
+        both_failed: report.both_failed,
+        total_bases_input: report.total_bases_input,
+        total_bases_output: report.total_bases_output,
+        survival_rate: report.survival_rate(),
     })
 }
 
@@ -505,12 +669,19 @@ pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<FastaStats>()?;
     m.add_class::<FastqStats>()?;
     m.add_class::<FastqRecord>()?;
+    m.add_class::<PairedFastqRecord>()?;
+    m.add_class::<PairedFastqStats>()?;
+    m.add_class::<PairedTrimReport>()?;
     m.add_class::<OrfResult>()?;
     m.add_class::<FmIndex>()?;
     m.add_class::<MinHashSketch>()?;
     m.add_function(wrap_pyfunction!(fasta_stats, &m)?)?;
     m.add_function(wrap_pyfunction!(parse_fastq, &m)?)?;
     m.add_function(wrap_pyfunction!(fastq_stats, &m)?)?;
+    m.add_function(wrap_pyfunction!(parse_paired_fastq, &m)?)?;
+    m.add_function(wrap_pyfunction!(parse_interleaved_fastq, &m)?)?;
+    m.add_function(wrap_pyfunction!(paired_fastq_stats, &m)?)?;
+    m.add_function(wrap_pyfunction!(trim_paired_fastq, &m)?)?;
     m.add_function(wrap_pyfunction!(horspool, &m)?)?;
     m.add_function(wrap_pyfunction!(kmp, &m)?)?;
     m.add_function(wrap_pyfunction!(shift_and, &m)?)?;

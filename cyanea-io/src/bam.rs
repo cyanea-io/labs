@@ -250,9 +250,9 @@ fn parse_bam_record(
     let n_cigar_op = (flag_nc & 0xFFFF) as usize;
 
     let seq_len = read_u32_le(data, pos)? as usize;
-    let _next_ref_id = read_i32_le(data, pos)?;
-    let _next_pos = read_i32_le(data, pos)?;
-    let _tlen = read_i32_le(data, pos)?;
+    let next_ref_id = read_i32_le(data, pos)?;
+    let next_pos = read_i32_le(data, pos)?;
+    let tlen = read_i32_le(data, pos)?;
 
     // Read name (NUL-terminated)
     if *pos + name_len > data.len() {
@@ -300,12 +300,27 @@ fn parse_bam_record(
             .unwrap_or_else(|| "*".to_string())
     };
 
+    // Convert mate reference ID to RNEXT
+    let rnext = if next_ref_id < 0 {
+        "*".to_string()
+    } else if next_ref_id == ref_id {
+        "=".to_string()
+    } else {
+        references
+            .get(next_ref_id as usize)
+            .map(|r| r.name.clone())
+            .unwrap_or_else(|| "*".to_string())
+    };
+
     // BAM position is 0-based; SAM position is 1-based
     let sam_pos = if position < 0 {
         0u64
     } else {
         (position + 1) as u64
     };
+
+    // Mate position: 0-based to 1-based, 0 if unavailable (-1 in BAM)
+    let pnext = if next_pos < 0 { 0u64 } else { (next_pos + 1) as u64 };
 
     Ok(SamRecord {
         qname,
@@ -314,6 +329,9 @@ fn parse_bam_record(
         pos: sam_pos,
         mapq,
         cigar,
+        rnext,
+        pnext,
+        tlen: tlen as i64,
         sequence,
         quality,
     })
@@ -542,6 +560,9 @@ mod test_helpers {
         pub cigar: Vec<(u32, u8)>, // (length, op_code)
         pub seq: &'static [u8],
         pub qual: &'static [u8], // raw Phred values (not +33)
+        pub next_ref_id: i32,
+        pub next_pos: i32, // 0-based
+        pub tlen: i32,
     }
 
     fn encode_bam_record(rec: &BamTestRecord) -> Vec<u8> {
@@ -566,9 +587,9 @@ mod test_helpers {
         data.extend_from_slice(&(rec.seq.len() as u32).to_le_bytes());
 
         // next_refID, next_pos, tlen
-        data.extend_from_slice(&(-1i32).to_le_bytes());
-        data.extend_from_slice(&(-1i32).to_le_bytes());
-        data.extend_from_slice(&0i32.to_le_bytes());
+        data.extend_from_slice(&rec.next_ref_id.to_le_bytes());
+        data.extend_from_slice(&rec.next_pos.to_le_bytes());
+        data.extend_from_slice(&rec.tlen.to_le_bytes());
 
         // read name (NUL-terminated)
         data.extend_from_slice(rec.qname.as_bytes());
@@ -670,6 +691,9 @@ mod tests {
             cigar: vec![(10, 0)], // 10M
             seq: b"ACGTACGTAC",
             qual: &[],
+            next_ref_id: -1,
+            next_pos: -1,
+            tlen: 0,
         }];
         let file = write_test_bam(&records);
         let result = parse_bam(file.path()).unwrap();
@@ -682,6 +706,9 @@ mod tests {
         assert_eq!(result[0].cigar, "10M");
         assert_eq!(result[0].sequence, "ACGTACGTAC");
         assert!(result[0].is_mapped());
+        assert_eq!(result[0].rnext, "*");
+        assert_eq!(result[0].pnext, 0);
+        assert_eq!(result[0].tlen, 0);
     }
 
     #[test]
@@ -696,6 +723,9 @@ mod tests {
                 cigar: vec![(4, 0)], // 4M
                 seq: b"ACGT",
                 qual: &[30, 30, 30, 30],
+                next_ref_id: -1,
+                next_pos: -1,
+                tlen: 0,
             },
             BamTestRecord {
                 qname: "read2",
@@ -706,6 +736,9 @@ mod tests {
                 cigar: vec![(4, 0)],
                 seq: b"TGCA",
                 qual: &[],
+                next_ref_id: -1,
+                next_pos: -1,
+                tlen: 0,
             },
         ];
         let file = write_test_bam(&records);
@@ -734,6 +767,9 @@ mod tests {
             cigar: vec![],
             seq: b"AAAA",
             qual: &[],
+            next_ref_id: -1,
+            next_pos: -1,
+            tlen: 0,
         }];
         let file = write_test_bam(&records);
         let result = parse_bam(file.path()).unwrap();
@@ -756,6 +792,9 @@ mod tests {
                 cigar: vec![(4, 0)],
                 seq: b"ACGT",
                 qual: &[],
+                next_ref_id: -1,
+                next_pos: -1,
+                tlen: 0,
             },
             BamTestRecord {
                 qname: "read2",
@@ -766,6 +805,9 @@ mod tests {
                 cigar: vec![(4, 0)],
                 seq: b"TGCA",
                 qual: &[],
+                next_ref_id: -1,
+                next_pos: -1,
+                tlen: 0,
             },
             BamTestRecord {
                 qname: "read3",
@@ -776,6 +818,9 @@ mod tests {
                 cigar: vec![],
                 seq: b"NNNN",
                 qual: &[],
+                next_ref_id: -1,
+                next_pos: -1,
+                tlen: 0,
             },
         ];
         let file = write_test_bam(&records);
@@ -798,6 +843,9 @@ mod tests {
             cigar: vec![(3, 0), (1, 1), (2, 0), (1, 2), (1, 0)], // 3M1I2M1D1M
             seq: b"ACGTTGA",                                       // 3+1+2+1 = 7 bases
             qual: &[],
+            next_ref_id: -1,
+            next_pos: -1,
+            tlen: 0,
         }];
         let file = write_test_bam(&records);
         let result = parse_bam(file.path()).unwrap();
@@ -824,10 +872,79 @@ mod tests {
             cigar: vec![(5, 0)],
             seq: b"ACGTN",
             qual: &[],
+            next_ref_id: -1,
+            next_pos: -1,
+            tlen: 0,
         }];
         let file = write_test_bam(&records);
         let result = parse_bam(file.path()).unwrap();
         assert_eq!(result[0].sequence, "ACGTN");
+    }
+
+    #[test]
+    fn bam_mate_fields_same_ref() {
+        // Paired reads on same reference: next_ref_id == ref_id → rnext = "="
+        let records = vec![
+            BamTestRecord {
+                qname: "read1",
+                flag: 99, // paired, proper, mate_reverse, first_in_pair
+                ref_id: 0,
+                pos: 99,
+                mapq: 60,
+                cigar: vec![(10, 0)],
+                seq: b"ACGTACGTAC",
+                qual: &[],
+                next_ref_id: 0, // same as ref_id
+                next_pos: 199,  // 0-based
+                tlen: 150,
+            },
+            BamTestRecord {
+                qname: "read1",
+                flag: 147, // paired, proper, reverse, second_in_pair
+                ref_id: 0,
+                pos: 199,
+                mapq: 60,
+                cigar: vec![(10, 0)],
+                seq: b"ACGTACGTAC",
+                qual: &[],
+                next_ref_id: 0,
+                next_pos: 99,
+                tlen: -150,
+            },
+        ];
+        let file = write_test_bam(&records);
+        let result = parse_bam(file.path()).unwrap();
+        assert_eq!(result.len(), 2);
+
+        assert_eq!(result[0].rnext, "=");
+        assert_eq!(result[0].pnext, 200); // 0-based 199 → 1-based 200
+        assert_eq!(result[0].tlen, 150);
+
+        assert_eq!(result[1].rnext, "=");
+        assert_eq!(result[1].pnext, 100);
+        assert_eq!(result[1].tlen, -150);
+    }
+
+    #[test]
+    fn bam_mate_fields_unmapped_mate() {
+        let records = vec![BamTestRecord {
+            qname: "read1",
+            flag: 73, // paired + mate_unmapped + first_in_pair
+            ref_id: 0,
+            pos: 99,
+            mapq: 60,
+            cigar: vec![(4, 0)],
+            seq: b"ACGT",
+            qual: &[],
+            next_ref_id: -1,
+            next_pos: -1,
+            tlen: 0,
+        }];
+        let file = write_test_bam(&records);
+        let result = parse_bam(file.path()).unwrap();
+        assert_eq!(result[0].rnext, "*");
+        assert_eq!(result[0].pnext, 0);
+        assert_eq!(result[0].tlen, 0);
     }
 
     #[test]
