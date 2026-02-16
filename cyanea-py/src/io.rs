@@ -316,6 +316,118 @@ fn parse_gff3(path: &str) -> PyResult<Vec<PyGff3Gene>> {
 }
 
 // ---------------------------------------------------------------------------
+// Pileup
+// ---------------------------------------------------------------------------
+
+/// A single pileup column.
+#[pyclass(frozen, get_all)]
+pub struct PyPileupColumn {
+    pub rname: String,
+    pub pos: u64,
+    pub ref_base: String,
+    pub depth: u32,
+    pub base_counts: std::collections::HashMap<String, u32>,
+    pub quality_sums: std::collections::HashMap<String, u64>,
+}
+
+/// Depth statistics for a reference sequence.
+#[pyclass(frozen, get_all)]
+pub struct PyDepthStats {
+    pub rname: String,
+    pub length: u64,
+    pub covered: u64,
+    pub breadth: f64,
+    pub min_depth: u32,
+    pub max_depth: u32,
+    pub mean_depth: f64,
+    pub median_depth: f64,
+}
+
+fn base_counts_map(counts: &[u32; 6]) -> std::collections::HashMap<String, u32> {
+    let mut map = std::collections::HashMap::new();
+    let labels = ["A", "C", "G", "T", "N", "del"];
+    for (i, &count) in counts.iter().enumerate() {
+        if count > 0 {
+            map.insert(labels[i].to_string(), count);
+        }
+    }
+    map
+}
+
+fn quality_sums_map(sums: &[u64; 6]) -> std::collections::HashMap<String, u64> {
+    let mut map = std::collections::HashMap::new();
+    let labels = ["A", "C", "G", "T", "N", "del"];
+    for (i, &sum) in sums.iter().enumerate() {
+        if sum > 0 {
+            map.insert(labels[i].to_string(), sum);
+        }
+    }
+    map
+}
+
+/// Generate pileup from a SAM file.
+#[pyfunction]
+fn pileup_from_sam(path: &str) -> PyResult<Vec<Vec<PyPileupColumn>>> {
+    let records = cyanea_io::parse_sam(path).into_pyresult()?;
+    let pileups = cyanea_io::pileup(&records, None).into_pyresult()?;
+    Ok(pileups
+        .iter()
+        .map(|p| {
+            p.columns
+                .iter()
+                .map(|c| PyPileupColumn {
+                    rname: p.rname.clone(),
+                    pos: c.pos,
+                    ref_base: String::from(c.ref_base as char),
+                    depth: c.depth,
+                    base_counts: base_counts_map(&c.base_counts),
+                    quality_sums: quality_sums_map(&c.quality_sums),
+                })
+                .collect()
+        })
+        .collect())
+}
+
+/// Compute depth statistics from a SAM file.
+#[pyfunction]
+fn depth_stats_from_sam(path: &str) -> PyResult<Vec<PyDepthStats>> {
+    let records = cyanea_io::parse_sam(path).into_pyresult()?;
+    let pileups = cyanea_io::pileup(&records, None).into_pyresult()?;
+    Ok(pileups
+        .iter()
+        .map(|p| {
+            let ds = cyanea_io::depth_stats(p);
+            PyDepthStats {
+                rname: ds.rname,
+                length: ds.length,
+                covered: ds.covered,
+                breadth: ds.breadth,
+                min_depth: ds.min_depth,
+                max_depth: ds.max_depth,
+                mean_depth: ds.mean_depth,
+                median_depth: ds.median_depth,
+            }
+        })
+        .collect())
+}
+
+/// Convert a SAM file to mpileup text format.
+#[pyfunction]
+fn pileup_to_mpileup_str(path: &str) -> PyResult<String> {
+    let records = cyanea_io::parse_sam(path).into_pyresult()?;
+    let pileups = cyanea_io::pileup(&records, None).into_pyresult()?;
+    let mut result = String::new();
+    for p in &pileups {
+        let mpileup = cyanea_io::pileup_to_mpileup(p);
+        if !result.is_empty() {
+            result.push('\n');
+        }
+        result.push_str(&mpileup);
+    }
+    Ok(result)
+}
+
+// ---------------------------------------------------------------------------
 // Submodule registration
 // ---------------------------------------------------------------------------
 
@@ -343,6 +455,12 @@ pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(parse_vcf, &m)?)?;
     m.add_function(wrap_pyfunction!(parse_bed, &m)?)?;
     m.add_function(wrap_pyfunction!(parse_gff3, &m)?)?;
+    // Pileup
+    m.add_class::<PyPileupColumn>()?;
+    m.add_class::<PyDepthStats>()?;
+    m.add_function(wrap_pyfunction!(pileup_from_sam, &m)?)?;
+    m.add_function(wrap_pyfunction!(depth_stats_from_sam, &m)?)?;
+    m.add_function(wrap_pyfunction!(pileup_to_mpileup_str, &m)?)?;
     parent.add_submodule(&m)?;
     Ok(())
 }

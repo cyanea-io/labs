@@ -1,6 +1,6 @@
 # Cyanea Labs
 
-Rust bioinformatics ecosystem — 13 crates, 1530+ tests, targeting native, WASM, Python, and Elixir NIFs.
+Rust bioinformatics ecosystem — 13 crates, 1560+ tests, targeting native, WASM, Python, and Elixir NIFs.
 
 ## Workspace
 
@@ -21,7 +21,7 @@ All crates are complete. Each has `docs/STATUS.md` with full API docs.
 |-------|---------|------:|----------|
 | **cyanea-core** | Traits, errors, SHA-256, zstd, mmap, log-space probability types, rank/select bitvectors, wavelet matrix, Fenwick tree | 58 | thiserror, sha2, zstd, flate2, memmap2 |
 | **cyanea-seq** | DNA/RNA/protein, FASTA/FASTQ, k-mers, 2-bit encoding, suffix array, FM-index, BWT, MinHash, pattern matching, PSSM/motif scanning, ORF finder, FASTA indexed reader (.fai), FMD-Index, quality trimming/filtering, codon tables (7 NCBI), codon usage/CAI, DUST/SEG/tandem repeat masking, paired-end FASTQ | 353 | cyanea-core, needletail |
-| **cyanea-io** | CSV, VCF, BED, BEDPE, GFF3, SAM, BAM, CRAM, Parquet (feature-gated) | 157 | cyanea-core, cyanea-omics, csv, flate2, noodles, arrow/parquet |
+| **cyanea-io** | CSV, VCF, BED, BEDPE, GFF3, SAM, BAM, CRAM, Parquet (feature-gated) | 158 | cyanea-core, cyanea-omics, csv, flate2, noodles, arrow/parquet |
 | **cyanea-align** | NW, SW, semi-global, MSA, banded, seed-and-extend, minimizers, WFA, GPU dispatch, POA, LCSk++ sparse alignment, pair HMM, PAM40/120/200, BLOSUM30, CIGAR utilities, X-drop/Z-drop extension, spliced alignment | 290 | cyanea-core |
 | **cyanea-omics** | Genomic coords, intervals, matrices, variants, AnnData, h5ad, zarr | 99 | cyanea-core, zarrs |
 | **cyanea-stats** | Descriptive, correlation, hypothesis tests, distributions, PCA, effect sizes, Bayesian conjugate priors, combinatorics | 167 | cyanea-core |
@@ -30,8 +30,8 @@ All crates are complete. Each has `docs/STATUS.md` with full API docs.
 | **cyanea-struct** | PDB, mmCIF, geometry, DSSP, Kabsch, contact maps, Ramachandran | 76 | cyanea-core, sha2 |
 | **cyanea-phylo** | Newick/NEXUS, distances, UPGMA/NJ, Fitch/Sankoff, ML likelihood, bootstrap | 110 | cyanea-core, cyanea-ml (optional) |
 | **cyanea-gpu** | Backend trait, CPU/CUDA/Metal backends, buffers, ops, benchmarks | 61 | cyanea-core, metal-rs, cudarc, criterion (bench) |
-| **cyanea-wasm** | JSON-based WASM bindings (seq, io, align, stats, ml, chem, struct, phylo) | 111 | serde_json, wasm-bindgen |
-| **cyanea-py** | Python bindings via PyO3 (seq, align, stats, ml, chem, struct, phylo, io) | — | pyo3 |
+| **cyanea-wasm** | JSON-based WASM bindings (seq, io, align, stats, ml, chem, struct, phylo) | 125 | serde_json, wasm-bindgen |
+| **cyanea-py** | Python bindings via PyO3 (seq, align, stats, ml, chem, struct, phylo, io, omics) | — | pyo3 |
 
 ## Conventions
 
@@ -94,7 +94,7 @@ cyanea-core (foundation — no internal deps)
 ├── cyanea-gpu
 ├── cyanea-io (+ cyanea-omics, csv, optional noodles)
 ├── cyanea-wasm (+ cyanea-seq/io/align/stats/ml/chem/struct/phylo, serde_json, wasm-bindgen)
-└── cyanea-py (+ cyanea-seq/io/align/stats/ml/chem/struct/phylo, pyo3)
+└── cyanea-py (+ cyanea-seq/io/align/stats/ml/chem/struct/phylo/omics, pyo3)
 ```
 
 ## Building Bindings
@@ -115,7 +115,7 @@ PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo check -p cyanea-py
 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo check -p cyanea-py --features numpy
 # Full build: cd cyanea-py && PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin develop --release
 ```
-Python bindings include: seq, align, stats, ml (pca/tsne/umap/kmeans/pairwise_distances + NumPy variants), chem, struct_bio, phylo, io (csv/vcf/bed/gff/sam/bam).
+Python bindings include: seq, align, stats, ml (pca/tsne/umap/kmeans/pairwise_distances + NumPy variants), chem, struct_bio, phylo, io (csv/vcf/bed/gff/sam/bam/pileup), omics (genome arithmetic, liftover).
 
 ### NIF (Elixir)
 The NIF crate lives in `../cyanea/native/cyanea_native/` and depends on labs crates via path.

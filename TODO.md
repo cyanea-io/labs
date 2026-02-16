@@ -6,15 +6,15 @@ Last updated: 2026-02-13
 
 ---
 
-## Status: All 13 crates complete (1440+ tests)
+## Status: All 13 crates complete (1560+ tests)
 
 Every crate has a `docs/STATUS.md` with full API documentation.
 
 | Crate | Status | Tests |
 |-------|--------|------:|
 | cyanea-core | Complete (traits, errors, hashing, compression, mmap, probability types, bitvectors, Fenwick tree) | 58 |
-| cyanea-seq | Complete (FASTA, FASTQ, k-mers, 2-bit encoding, suffix arrays, FM-index, FMD-Index, BWT, MinHash, pattern matching, PSSM, ORF finder, FASTA indexed reader, codon tables, masking) | 300 |
-| cyanea-io | Complete (CSV, VCF, BED, BEDPE, GFF3, SAM, BAM, CRAM, Parquet) | 81 |
+| cyanea-seq | Complete (FASTA, FASTQ, k-mers, 2-bit encoding, suffix arrays, FM-index, FMD-Index, BWT, MinHash, pattern matching, PSSM, ORF finder, FASTA indexed reader, codon tables, masking) | 353 |
+| cyanea-io | Complete (CSV, VCF, BED, BEDPE, GFF3, SAM, BAM, CRAM, Parquet) | 158 |
 | cyanea-align | Complete (NW, SW, semi-global, banded, MSA, SIMD SW, seed-and-extend, minimizers, WFA, GPU dispatch, POA, LCSk++, pair HMM, PAM40/120/200, BLOSUM30, CIGAR utilities, X-drop/Z-drop, spliced alignment) | 290 |
 | cyanea-omics | Complete (genomic coords, intervals, matrices, variants, AnnData, h5ad, zarr) | 99 |
 | cyanea-stats | Complete (descriptive, correlation, hypothesis tests, distributions, PCA, effect sizes, chi-squared, Fisher's exact, Bayesian conjugate priors, combinatorics) | 167 |
@@ -23,8 +23,8 @@ Every crate has a `docs/STATUS.md` with full API documentation.
 | cyanea-struct | Complete (PDB, mmCIF, geometry, DSSP, Kabsch, contact maps, Ramachandran) | 76 |
 | cyanea-phylo | Complete (Newick, NEXUS, distances, UPGMA/NJ, Fitch/Sankoff, ML likelihood, bootstrap) | 110 |
 | cyanea-gpu | Complete (CPU + CUDA + Metal backends, buffers, ops) | 61 |
-| cyanea-wasm | Complete (JSON API for seq, io, align, stats, ml, chem, struct, phylo) | 96 |
-| cyanea-py | Complete (seq, align, stats, ml, chem, struct, phylo, io submodules) | — |
+| cyanea-wasm | Complete (JSON API for seq, io, align, stats, ml, chem, struct, phylo) | 125 |
+| cyanea-py | Complete (seq, align, stats, ml, chem, struct, phylo, io, omics submodules) | — |
 
 ---
 

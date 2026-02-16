@@ -207,8 +207,82 @@ export interface UmapResult {
   n_epochs: number;
 }
 
-/** Distance metric accepted by UMAP. */
+/** PCA dimensionality reduction result. */
+export interface PcaResult {
+  components: number[];
+  explained_variance: number[];
+  explained_variance_ratio: number[];
+  transformed: number[];
+  mean: number[];
+  n_features: number;
+  n_components: number;
+}
+
+/** t-SNE dimensionality reduction result. */
+export interface TsneResult {
+  embedding: number[];
+  n_samples: number;
+  n_components: number;
+  kl_divergence: number;
+}
+
+/** K-means clustering result. */
+export interface KmeansResult {
+  centroids: number[];
+  labels: number[];
+  inertia: number;
+  n_iter: number;
+  n_features: number;
+}
+
+/** Distance metric accepted by UMAP/PCA/t-SNE/K-means. */
 export type DistanceMetric = "euclidean" | "manhattan" | "cosine";
+
+// ── Seq Module (MinHash) ──────────────────────────────────────────────────
+
+/** MinHash sketch result. */
+export interface MinHashSketch {
+  k: number;
+  sketch_size: number;
+  num_hashes: number;
+  hashes: number[];
+}
+
+/** MinHash comparison result. */
+export interface MinHashComparison {
+  jaccard: number;
+  containment_a_in_b: number;
+  containment_b_in_a: number;
+  ani: number;
+}
+
+// ── IO Module ─────────────────────────────────────────────────────────────
+
+/** A single pileup column. */
+export interface PileupColumn {
+  pos: number;
+  ref_base: string;
+  depth: number;
+  base_counts: Record<string, number>;
+}
+
+/** Pileup for a single reference sequence. */
+export interface Pileup {
+  rname: string;
+  columns: PileupColumn[];
+}
+
+/** Depth statistics for a reference sequence. */
+export interface DepthStats {
+  rname: string;
+  length: number;
+  covered: number;
+  breadth: number;
+  min_depth: number;
+  max_depth: number;
+  mean_depth: number;
+  median_depth: number;
+}
 
 // ── Chem Module ────────────────────────────────────────────────────────────
 

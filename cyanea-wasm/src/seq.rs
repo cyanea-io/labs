@@ -581,6 +581,87 @@ fn trim_paired_fastq_impl(
     })
 }
 
+// ── MinHash ─────────────────────────────────────────────────────────────
+
+/// Serializable MinHash sketch result.
+#[derive(Debug, serde::Serialize)]
+pub struct JsMinHashSketch {
+    pub k: usize,
+    pub sketch_size: usize,
+    pub num_hashes: usize,
+    pub hashes: Vec<u64>,
+}
+
+/// Serializable MinHash comparison result.
+#[derive(Debug, serde::Serialize)]
+pub struct JsMinHashComparison {
+    pub jaccard: f64,
+    pub containment_a_in_b: f64,
+    pub containment_b_in_a: f64,
+    pub ani: f64,
+}
+
+/// Create a MinHash sketch of a nucleotide sequence.
+///
+/// Returns a JSON object with k, sketch_size, num_hashes, and the hash values.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn minhash_sketch(seq: &str, k: usize, sketch_size: usize) -> String {
+    match cyanea_seq::minhash::MinHash::from_sequence(seq.as_bytes(), k, sketch_size) {
+        Ok(sketch) => {
+            let js = JsMinHashSketch {
+                k: sketch.k(),
+                sketch_size: sketch.sketch_size(),
+                num_hashes: sketch.len(),
+                hashes: sketch.hashes().to_vec(),
+            };
+            wasm_ok(&js)
+        }
+        Err(e) => wasm_err(e),
+    }
+}
+
+/// Compare two sequences using MinHash and return similarity metrics.
+///
+/// Returns Jaccard similarity, containment (both directions), and ANI estimate.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn minhash_compare(seq_a: &str, seq_b: &str, k: usize, sketch_size: usize) -> String {
+    let sketch_a = match cyanea_seq::minhash::MinHash::from_sequence(
+        seq_a.as_bytes(), k, sketch_size,
+    ) {
+        Ok(s) => s,
+        Err(e) => return wasm_err(e),
+    };
+    let sketch_b = match cyanea_seq::minhash::MinHash::from_sequence(
+        seq_b.as_bytes(), k, sketch_size,
+    ) {
+        Ok(s) => s,
+        Err(e) => return wasm_err(e),
+    };
+    let jaccard = match sketch_a.jaccard(&sketch_b) {
+        Ok(j) => j,
+        Err(e) => return wasm_err(e),
+    };
+    let containment_a_in_b = match sketch_a.containment(&sketch_b) {
+        Ok(c) => c,
+        Err(e) => return wasm_err(e),
+    };
+    let containment_b_in_a = match sketch_b.containment(&sketch_a) {
+        Ok(c) => c,
+        Err(e) => return wasm_err(e),
+    };
+    let ani = match sketch_a.ani(&sketch_b) {
+        Ok(a) => a,
+        Err(_) => 0.0, // ANI undefined when Jaccard is zero
+    };
+    let js = JsMinHashComparison {
+        jaccard,
+        containment_a_in_b,
+        containment_b_in_a,
+        ani,
+    };
+    wasm_ok(&js)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -888,5 +969,45 @@ mod tests {
         let v: serde_json::Value = serde_json::from_str(&json).unwrap();
         let rate = v["ok"]["stats"]["survival_rate"].as_f64().unwrap();
         assert!((rate - 0.5).abs() < 1e-10);
+    }
+
+    // --- MinHash ---
+
+    #[test]
+    fn minhash_sketch_basic() {
+        let seq = "ACGTACGTACGTACGTACGTACGTACGTACGT";
+        let json = minhash_sketch(seq, 4, 10);
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let obj = &v["ok"];
+        assert_eq!(obj["k"], 4);
+        assert_eq!(obj["sketch_size"], 10);
+        assert!(obj["num_hashes"].as_u64().unwrap() > 0);
+        assert!(obj["hashes"].as_array().unwrap().len() > 0);
+    }
+
+    #[test]
+    fn minhash_sketch_invalid_k() {
+        let json = minhash_sketch("ACGT", 0, 10);
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert!(v["error"].is_string());
+    }
+
+    #[test]
+    fn minhash_compare_identical() {
+        let seq = "ACGTACGTACGTACGTACGTACGTACGTACGT";
+        let json = minhash_compare(seq, seq, 4, 10);
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let obj = &v["ok"];
+        assert!((obj["jaccard"].as_f64().unwrap() - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn minhash_compare_different() {
+        let seq_a = "ACGTACGTACGTACGTACGTACGTACGTACGT";
+        let seq_b = "TGCATGCATGCATGCATGCATGCATGCATGCA";
+        let json = minhash_compare(seq_a, seq_b, 4, 10);
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let obj = &v["ok"];
+        assert!(obj["jaccard"].as_f64().unwrap() < 1.0);
     }
 }

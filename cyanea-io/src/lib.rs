@@ -59,7 +59,7 @@ pub use gff::{gff3_stats, parse_gff3, GffStats};
 
 #[cfg(feature = "sam")]
 pub use sam::{
-    filter_proper_pairs, pair_sam_records, paired_sam_stats, parse_sam, sam_stats,
+    filter_proper_pairs, pair_sam_records, paired_sam_stats, parse_sam, parse_sam_str, sam_stats,
     sam_stats_from_path, PairedSamStats, SamPair, SamRecord, SamStats,
 };
 

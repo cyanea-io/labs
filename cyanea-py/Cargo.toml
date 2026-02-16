@@ -13,6 +13,11 @@ categories = ["api-bindings", "science"]
 name = "cyanea"
 crate-type = ["cdylib"]
 
+[features]
+default = []
+numpy = ["dep:numpy"]
+h5ad = ["cyanea-omics/h5ad"]
+
 [dependencies]
 pyo3 = { version = "0.23", features = ["extension-module"] }
 numpy = { version = "0.23", optional = true }
@@ -25,3 +30,4 @@ cyanea-ml     = { path = "../cyanea-ml",     features = ["std"] }
 cyanea-chem   = { path = "../cyanea-chem",   features = ["std"] }
 cyanea-struct = { path = "../cyanea-struct", features = ["std"] }
 cyanea-phylo  = { path = "../cyanea-phylo", features = ["std", "ml"] }
+cyanea-omics  = { path = "../cyanea-omics", features = ["std"] }

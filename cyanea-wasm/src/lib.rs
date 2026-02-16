@@ -38,6 +38,7 @@ pub mod core_utils;
 pub mod chem;
 pub mod struct_bio;
 pub mod phylo;
+pub mod io;
 
 /// Crate version (set from Cargo.toml at compile time).
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -49,6 +50,7 @@ pub use seq::{
     parse_fasta, parse_fasta_bytes, gc_content, gc_content_json,
     reverse_complement, transcribe, translate, validate, parse_fastq,
     parse_paired_fastq, parse_interleaved_fastq, trim_fastq, trim_paired_fastq,
+    minhash_sketch, minhash_compare, JsMinHashSketch, JsMinHashComparison,
 };
 
 // align
@@ -68,7 +70,8 @@ pub use stats::{
 // ml
 pub use ml::{
     kmer_count, euclidean_distance, manhattan_distance, hamming_distance, cosine_similarity,
-    umap, JsKmerCounts, JsUmapResult,
+    umap, pca, tsne, kmeans,
+    JsKmerCounts, JsUmapResult, JsPcaResult, JsTsneResult, JsKmeansResult,
 };
 
 // core
@@ -90,6 +93,12 @@ pub use struct_bio::{
 pub use phylo::{
     newick_info, evolutionary_distance, build_upgma, build_nj, rf_distance,
     JsTreeInfo, JsRFDistance,
+};
+
+// io
+pub use io::{
+    pileup_from_sam, depth_stats_from_sam, pileup_to_mpileup_text,
+    JsPileupColumn, JsPileup, JsDepthStats,
 };
 
 #[cfg(test)]

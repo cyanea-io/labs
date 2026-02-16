@@ -26,7 +26,14 @@ import type {
   TestResult,
   KmerCounts,
   UmapResult,
+  PcaResult,
+  TsneResult,
+  KmeansResult,
   DistanceMetric,
+  MinHashSketch,
+  MinHashComparison,
+  Pileup,
+  DepthStats,
   MolecularProperties,
   Fingerprint,
   SubstructureResult,
@@ -52,7 +59,14 @@ export type {
   TestResult,
   KmerCounts,
   UmapResult,
+  PcaResult,
+  TsneResult,
+  KmeansResult,
   DistanceMetric,
+  MinHashSketch,
+  MinHashComparison,
+  Pileup,
+  DepthStats,
   MolecularProperties,
   Fingerprint,
   SubstructureResult,
@@ -126,6 +140,14 @@ import {
   sha256 as _raw_sha256,
   zstd_compress as _raw_zstd_compress,
   zstd_decompress as _raw_zstd_decompress,
+  pca as _raw_pca,
+  tsne as _raw_tsne,
+  kmeans as _raw_kmeans,
+  minhash_sketch as _raw_minhash_sketch,
+  minhash_compare as _raw_minhash_compare,
+  pileup_from_sam as _raw_pileup_from_sam,
+  depth_stats_from_sam as _raw_depth_stats_from_sam,
+  pileup_to_mpileup_text as _raw_pileup_to_mpileup_text,
 } from "../pkg/cyanea_wasm.js";
 
 // ── Error type ─────────────────────────────────────────────────────────────
@@ -223,6 +245,34 @@ export namespace Seq {
    */
   export function validate(seq: string, alphabet: Alphabet): boolean {
     return unwrap<boolean>(_raw_validate(seq, alphabet));
+  }
+
+  /**
+   * Create a MinHash sketch of a nucleotide sequence.
+   *
+   * @param seq - Nucleotide sequence string
+   * @param k - K-mer size
+   * @param sketchSize - Number of hashes to keep in the sketch
+   */
+  export function minhashSketch(seq: string, k: number, sketchSize: number): MinHashSketch {
+    return unwrap<MinHashSketch>(_raw_minhash_sketch(seq, k, sketchSize));
+  }
+
+  /**
+   * Compare two sequences using MinHash and return similarity metrics.
+   *
+   * @param seqA - First nucleotide sequence
+   * @param seqB - Second nucleotide sequence
+   * @param k - K-mer size
+   * @param sketchSize - Number of hashes to keep in the sketch
+   */
+  export function minhashCompare(
+    seqA: string,
+    seqB: string,
+    k: number,
+    sketchSize: number,
+  ): MinHashComparison {
+    return unwrap<MinHashComparison>(_raw_minhash_compare(seqA, seqB, k, sketchSize));
   }
 }
 
@@ -618,6 +668,67 @@ export namespace ML {
       _raw_umap(JSON.stringify(data), nFeatures, nComponents, nNeighbors, minDist, nEpochs, metric),
     );
   }
+
+  /**
+   * PCA dimensionality reduction.
+   *
+   * @param data - Flat row-major matrix of input data
+   * @param nFeatures - Number of features (columns) per sample
+   * @param nComponents - Output dimensionality
+   */
+  export function pca(
+    data: number[],
+    nFeatures: number,
+    nComponents: number,
+  ): PcaResult {
+    return unwrap<PcaResult>(_raw_pca(JSON.stringify(data), nFeatures, nComponents));
+  }
+
+  /**
+   * t-SNE dimensionality reduction.
+   *
+   * @param data - Flat row-major matrix of input data
+   * @param nFeatures - Number of features (columns) per sample
+   * @param nComponents - Output dimensionality (typically 2 or 3)
+   * @param perplexity - Perplexity parameter (5-50 typical)
+   * @param learningRate - Learning rate
+   * @param nIter - Number of iterations
+   * @param seed - Random seed
+   */
+  export function tsne(
+    data: number[],
+    nFeatures: number,
+    nComponents: number,
+    perplexity: number,
+    learningRate: number,
+    nIter: number,
+    seed: number,
+  ): TsneResult {
+    return unwrap<TsneResult>(
+      _raw_tsne(JSON.stringify(data), nFeatures, nComponents, perplexity, learningRate, nIter, seed),
+    );
+  }
+
+  /**
+   * K-means clustering.
+   *
+   * @param data - Flat row-major matrix of input data
+   * @param nFeatures - Number of features (columns) per sample
+   * @param nClusters - Number of clusters
+   * @param maxIter - Maximum iterations
+   * @param seed - Random seed
+   */
+  export function kmeans(
+    data: number[],
+    nFeatures: number,
+    nClusters: number,
+    maxIter: number,
+    seed: number,
+  ): KmeansResult {
+    return unwrap<KmeansResult>(
+      _raw_kmeans(JSON.stringify(data), nFeatures, nClusters, maxIter, seed),
+    );
+  }
 }
 
 // ── Chem ───────────────────────────────────────────────────────────────────
@@ -786,6 +897,40 @@ export namespace Phylo {
     newick2: string,
   ): RFDistance {
     return unwrap<RFDistance>(_raw_rf_distance(newick1, newick2));
+  }
+}
+
+// ── IO ─────────────────────────────────────────────────────────────────
+
+export namespace IO {
+  /**
+   * Generate pileup from SAM-formatted text.
+   *
+   * @param samText - SAM-formatted string (including header lines)
+   * @returns Array of pileups, one per reference sequence
+   */
+  export function pileup(samText: string): Pileup[] {
+    return unwrap<Pileup[]>(_raw_pileup_from_sam(samText));
+  }
+
+  /**
+   * Compute depth statistics from SAM-formatted text.
+   *
+   * @param samText - SAM-formatted string
+   * @returns Array of depth statistics, one per reference sequence
+   */
+  export function depthStats(samText: string): DepthStats[] {
+    return unwrap<DepthStats[]>(_raw_depth_stats_from_sam(samText));
+  }
+
+  /**
+   * Convert SAM text to mpileup format.
+   *
+   * @param samText - SAM-formatted string
+   * @returns mpileup-formatted text
+   */
+  export function mpileup(samText: string): string {
+    return unwrap<string>(_raw_pileup_to_mpileup_text(samText));
   }
 }
 

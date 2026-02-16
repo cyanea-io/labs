@@ -153,6 +153,16 @@ pub struct SamStats {
     pub mapq_distribution: Vec<(u8, usize)>,
 }
 
+/// Parse SAM data from a string and return all alignment records.
+///
+/// Header lines (starting with `@`) and empty lines are skipped.
+/// Each data line is parsed into a [`SamRecord`].
+pub fn parse_sam_str(text: &str) -> Result<Vec<SamRecord>> {
+    let cursor = std::io::Cursor::new(text.as_bytes());
+    let reader = BufReader::new(cursor);
+    parse_sam_reader(reader, Path::new("<string>"))
+}
+
 /// Parse a SAM file from a file path and return all alignment records.
 ///
 /// Header lines (starting with `@`) and empty lines are skipped.
