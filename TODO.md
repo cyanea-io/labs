@@ -154,14 +154,19 @@ Every crate has a `docs/STATUS.md` with full API documentation.
 - [x] JSON API with wasm-bindgen annotations for 8 modules
 - [x] TypeScript type definitions (`ts/types.ts`, `ts/index.ts`)
 - [x] npm package config (`@cyanea/bio` in `package.json`)
+- [x] PCA, t-SNE, K-means ML bindings
+- [x] MinHash sketch/compare bindings
+- [x] SAM pileup/depth stats IO bindings
 - [ ] npm package publishing (@cyanea/bio)
 - [ ] Web Worker-friendly API
 
 ### Python (`cyanea-py`)
-- [x] PyO3 bindings for 8 modules
+- [x] PyO3 bindings for 9 modules (seq, align, stats, ml, chem, struct, phylo, io, omics)
 - [x] NumPy interop for matrices and distance results (optional `numpy` feature)
 - [x] SAM/BAM bindings (`parse_sam`, `sam_stats`, `parse_bam`, `bam_stats`)
 - [x] PCA, t-SNE, k-means, pairwise_distances bindings
+- [x] Genome arithmetic and liftover bindings (omics submodule)
+- [x] Pileup/depth stats bindings
 - [ ] Publish to PyPI
 
 ### Elixir NIFs (`cyanea/native/cyanea_native`)
