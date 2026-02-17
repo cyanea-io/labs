@@ -97,13 +97,13 @@ Last updated: 2026-02-17
 
 ## T3 — High-Impact RNA & Structure
 
-### RNA Secondary Structure (`cyanea-struct` or new `cyanea-rna`)
-- [ ] Nussinov algorithm (maximum base pairs)
-- [ ] Zuker minimum free energy (nearest-neighbor thermodynamics)
-- [ ] Dot-bracket notation I/O
-- [ ] Base pair probability matrix
-- [ ] Partition function (McCaskill's algorithm)
-- [ ] Structure comparison (base pair distance, mountain distance)
+### RNA Secondary Structure (`cyanea-seq`) — Done
+- [x] Nussinov algorithm (maximum base pairs)
+- [x] Zuker minimum free energy (nearest-neighbor thermodynamics)
+- [x] Dot-bracket notation I/O
+- [x] Base pair probability matrix
+- [x] Partition function (McCaskill's algorithm)
+- [x] Structure comparison (base pair distance, mountain distance)
 
 ### Protein Sequence Properties (`cyanea-chem` or `cyanea-struct`)
 - [ ] Hydrophobicity profiles (Kyte-Doolittle, Hopp-Woods)

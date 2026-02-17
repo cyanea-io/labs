@@ -451,6 +451,52 @@ Bottom-k MinHash and scaled FracMinHash sketching for rapid genome comparison. E
 | `scale(&self) -> u64` | The scale factor |
 | `hashes(&self) -> &[u64]` | Reference to the sorted hash values |
 
+### RNA secondary structure prediction (`rna_structure.rs`)
+
+RNA secondary structure prediction using dynamic programming. Operates on RNA/DNA sequences (T→U normalized). Implements three classical algorithms plus structure comparison.
+
+**Types:**
+
+| Type | Description |
+|------|-------------|
+| `RnaSecondaryStructure` | Pair table representation: `pairs[i] = Some(j)` if paired, `None` if unpaired |
+| `NussinovResult` | Nussinov prediction: `structure` + `max_pairs` |
+| `MfeResult` | Zuker MFE prediction: `structure` + `energy` (kcal/mol) |
+| `PartitionResult` | McCaskill partition function: `pair_probabilities` (n×n) + `ensemble_energy` |
+
+**RnaSecondaryStructure methods:**
+
+| Method | Description |
+|--------|-------------|
+| `from_dot_bracket(s: &str) -> Result<Self>` | Parse dot-bracket notation (`(`, `)`, `.`) |
+| `to_dot_bracket(&self) -> String` | Convert to dot-bracket string |
+| `base_pairs(&self) -> Vec<(usize, usize)>` | Sorted list of pairs (i < j) |
+| `is_paired(&self, i: usize) -> bool` | Whether position i is paired |
+| `partner(&self, i: usize) -> Option<usize>` | Pairing partner of position i |
+| `num_pairs(&self) -> usize` | Number of base pairs |
+
+**PartitionResult methods:**
+
+| Method | Description |
+|--------|-------------|
+| `pair_probability(&self, i: usize, j: usize) -> f64` | Probability that i and j are paired |
+| `unpaired_probability(&self, i: usize) -> f64` | Probability that i is unpaired |
+
+**Prediction functions:**
+
+| Function | Description |
+|----------|-------------|
+| `nussinov(seq: &[u8], min_loop_size: usize) -> Result<NussinovResult>` | Maximize base pair count (O(n³) DP) |
+| `zuker_mfe(seq: &[u8]) -> Result<MfeResult>` | Minimum free energy with Turner nearest-neighbor parameters |
+| `mccaskill(seq: &[u8], temperature: f64) -> Result<PartitionResult>` | Base pair probabilities via inside-outside algorithm |
+
+**Comparison functions:**
+
+| Function | Description |
+|----------|-------------|
+| `base_pair_distance(a, b: &RnaSecondaryStructure) -> Result<usize>` | Symmetric difference of base pair sets |
+| `mountain_distance(a, b: &RnaSecondaryStructure) -> Result<f64>` | L1 distance of mountain representations |
+
 ## Feature Flags
 
 | Flag | Default | Description |
@@ -467,13 +513,13 @@ Bottom-k MinHash and scaled FracMinHash sketching for rapid genome comparison. E
 
 ## Tests
 
-353 tests across 21 source files.
+398 tests across 22 source files.
 
 ## Source Files
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `lib.rs` | 131 | Module declarations, re-exports |
+| `lib.rs` | 140 | Module declarations, re-exports |
 | `alphabet.rs` | 94 | Alphabet trait and implementations |
 | `types.rs` | 283 | ValidatedSeq generic type |
 | `seq.rs` | 197 | Sequence-specific methods |
@@ -494,3 +540,4 @@ Bottom-k MinHash and scaled FracMinHash sketching for rapid genome comparison. E
 | `paired.rs` | 1084 | Paired-end FASTQ: types, parsing, writing, interleave/deinterleave |
 | `trim.rs` | 1535 | Quality trimming, adapter removal, filtering, TrimPipeline, paired trimming |
 | `bwt.rs` | 225 | Standalone BWT construction and inversion |
+| `rna_structure.rs` | 1110 | RNA secondary structure: Nussinov, Zuker MFE, McCaskill, dot-bracket, comparison |

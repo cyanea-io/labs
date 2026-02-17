@@ -51,6 +51,7 @@ pub mod minhash;
 pub mod orf;
 pub mod pattern;
 pub mod pssm;
+pub mod rna_structure;
 pub mod quality;
 pub mod seq;
 pub mod suffix;
@@ -122,6 +123,12 @@ pub use paired::{
     parse_paired_fastq_files, parse_paired_fastq_stats, strip_read_suffix, validate_mate_pair,
     validate_mate_pair_strict, write_interleaved_fastq, write_paired_fastq, MateValidation,
     PairedFastqRecord, PairedFastqStats,
+};
+
+// Re-export RNA secondary structure prediction
+pub use rna_structure::{
+    base_pair_distance, mccaskill, mountain_distance, nussinov, zuker_mfe, MfeResult,
+    NussinovResult, PartitionResult, RnaSecondaryStructure,
 };
 
 // Re-export masking types
