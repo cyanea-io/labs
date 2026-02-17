@@ -497,6 +497,34 @@ RNA secondary structure prediction using dynamic programming. Operates on RNA/DN
 | `base_pair_distance(a, b: &RnaSecondaryStructure) -> Result<usize>` | Symmetric difference of base pair sets |
 | `mountain_distance(a, b: &RnaSecondaryStructure) -> Result<f64>` | L1 distance of mountain representations |
 
+### Protein sequence properties (`protein_properties.rs`)
+
+Physicochemical and structural property analysis for protein sequences. All functions accept `&[u8]` with automatic case normalization and validation against the 20 standard amino acids.
+
+**Types:**
+
+| Type | Description |
+|------|-------------|
+| `HydrophobicityScale` | Choice of scale: `KyteDoolittle` or `HoppWoods` |
+| `AminoAcidComposition` | Residue counts, fractions, and length |
+| `ExtinctionCoefficient` | Molar absorptivity at 280 nm (reduced/cystine) + A280 at 1 mg/mL |
+| `SecondaryStructure` | Predicted state: `Helix`, `Strand`, or `Coil` |
+| `SecondaryStructurePrediction` | Per-residue states, scores, and fraction summaries |
+| `DisorderPrediction` | Per-residue disorder scores, calls, and disorder fraction |
+
+**Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `amino_acid_composition(seq) -> Result<AminoAcidComposition>` | Count and fraction of each standard amino acid |
+| `hydrophobicity_profile(seq, window, scale) -> Result<Vec<f64>>` | Sliding window hydrophobicity (Kyte-Doolittle or Hopp-Woods) |
+| `gravy(seq) -> Result<f64>` | Grand average of hydropathicity (mean KD over sequence) |
+| `isoelectric_point(seq) -> Result<f64>` | pI via Henderson-Hasselbalch bisection (EMBOSS pKa values) |
+| `extinction_coefficient(seq) -> Result<ExtinctionCoefficient>` | Molar extinction at 280 nm from Trp/Tyr/Cys content |
+| `chou_fasman(seq) -> Result<SecondaryStructurePrediction>` | Chou-Fasman (1978) nucleation/extension prediction |
+| `gor(seq) -> Result<SecondaryStructurePrediction>` | GOR information-theoretic window prediction |
+| `predict_disorder(seq, window) -> Result<DisorderPrediction>` | Windowed disorder propensity with logistic smoothing |
+
 ## Feature Flags
 
 | Flag | Default | Description |
@@ -513,7 +541,7 @@ RNA secondary structure prediction using dynamic programming. Operates on RNA/DN
 
 ## Tests
 
-398 tests across 22 source files.
+433 tests across 23 source files.
 
 ## Source Files
 
@@ -540,4 +568,5 @@ RNA secondary structure prediction using dynamic programming. Operates on RNA/DN
 | `paired.rs` | 1084 | Paired-end FASTQ: types, parsing, writing, interleave/deinterleave |
 | `trim.rs` | 1535 | Quality trimming, adapter removal, filtering, TrimPipeline, paired trimming |
 | `bwt.rs` | 225 | Standalone BWT construction and inversion |
+| `protein_properties.rs` | 1223 | Protein properties: composition, hydrophobicity, pI, extinction, Chou-Fasman, GOR, disorder |
 | `rna_structure.rs` | 1110 | RNA secondary structure: Nussinov, Zuker MFE, McCaskill, dot-bracket, comparison |

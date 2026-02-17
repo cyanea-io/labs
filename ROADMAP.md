@@ -105,14 +105,14 @@ Last updated: 2026-02-17
 - [x] Partition function (McCaskill's algorithm)
 - [x] Structure comparison (base pair distance, mountain distance)
 
-### Protein Sequence Properties (`cyanea-chem` or `cyanea-struct`)
-- [ ] Hydrophobicity profiles (Kyte-Doolittle, Hopp-Woods)
-- [ ] Isoelectric point (pI) calculation
-- [ ] Amino acid composition statistics
-- [ ] Gravy (grand average of hydropathicity)
-- [ ] Extinction coefficient estimation
-- [ ] Intrinsic disorder prediction (IUPred-style simple predictor)
-- [ ] Secondary structure prediction (GOR, Chou-Fasman)
+### Protein Sequence Properties (`cyanea-seq`)
+- [x] Hydrophobicity profiles (Kyte-Doolittle, Hopp-Woods)
+- [x] Isoelectric point (pI) calculation
+- [x] Amino acid composition statistics
+- [x] Gravy (grand average of hydropathicity)
+- [x] Extinction coefficient estimation
+- [x] Intrinsic disorder prediction (IUPred-style simple predictor)
+- [x] Secondary structure prediction (GOR, Chou-Fasman)
 
 ---
 
