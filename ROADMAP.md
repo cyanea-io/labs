@@ -3,7 +3,7 @@
 > Capabilities to add across the labs ecosystem. Organized by impact and implementation complexity.
 > Items here are *new features* — see `TODO.md` for existing infrastructure work (publishing, CI, docs).
 
-Last updated: 2026-02-16
+Last updated: 2026-02-17
 
 ---
 
@@ -79,11 +79,11 @@ Last updated: 2026-02-16
 - [x] Linkage disequilibrium (r², D') with EM haplotype estimation
 - [x] Principal components on genotype matrices (eigenanalysis)
 
-### Differential Expression (`cyanea-stats`)
-- [ ] TPM / FPKM / CPM normalization
-- [ ] DESeq2-style size factor estimation
-- [ ] Negative binomial GLM for differential expression
-- [ ] Volcano plot data generation (log2FC, p-value, adjusted p-value)
+### Differential Expression (`cyanea-stats`) — Partial
+- [x] TPM / FPKM / CPM normalization
+- [x] DESeq2-style size factor estimation
+- [x] Negative binomial Wald test for differential expression
+- [x] Volcano plot data generation (log2FC, p-value, adjusted p-value)
 - [ ] Gene set enrichment analysis (GSEA) — preranked, simple Fisher's exact
 - [ ] Over-representation analysis (hypergeometric test)
 
