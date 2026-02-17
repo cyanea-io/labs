@@ -32,8 +32,10 @@ pub mod combinatorics;
 pub mod correction;
 pub mod correlation;
 pub mod descriptive;
+pub mod diffexpr;
 pub mod distribution;
 pub mod effect_size;
+pub mod normalization;
 pub mod popgen;
 pub mod rank;
 pub mod reduction;
@@ -47,7 +49,10 @@ pub use combinatorics::{
 pub use correction::CorrectionMethod;
 pub use correlation::CorrelationMatrix;
 pub use descriptive::DescriptiveStats;
-pub use distribution::{Binomial, ChiSquared, Distribution, FDistribution, Normal, Poisson};
+pub use diffexpr::{DeGeneResult, DeMethod, DeResults, VolcanoPoint};
+pub use distribution::{
+    Binomial, ChiSquared, Distribution, FDistribution, NegativeBinomial, Normal, Poisson,
+};
 pub use popgen::{
     AlleleFrequencies, DiversityStats, FstMethod, FstResult, HweResult, LdResult, TajimaD,
 };

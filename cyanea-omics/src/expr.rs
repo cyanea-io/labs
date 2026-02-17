@@ -225,6 +225,21 @@ impl ExpressionMatrix {
         })
     }
 
+    /// The underlying flat data as a slice (row-major, n_features × n_samples).
+    pub fn as_slice(&self) -> &[f64] {
+        &self.data
+    }
+
+    /// Feature (gene/protein) names.
+    pub fn feature_names(&self) -> &[String] {
+        &self.feature_names
+    }
+
+    /// Sample names.
+    pub fn sample_names(&self) -> &[String] {
+        &self.sample_names
+    }
+
     /// Log2-transform all values: `log2(x + pseudocount)`.
     ///
     /// Commonly used to normalize RNA-seq count data.
@@ -407,5 +422,23 @@ mod tests {
         )
         .unwrap();
         assert_eq!(m.shape(), (0, 1));
+    }
+
+    #[test]
+    fn test_as_slice() {
+        let m = sample_matrix();
+        assert_eq!(m.as_slice(), &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]);
+    }
+
+    #[test]
+    fn test_feature_names() {
+        let m = sample_matrix();
+        assert_eq!(m.feature_names(), &["gene1", "gene2"]);
+    }
+
+    #[test]
+    fn test_sample_names() {
+        let m = sample_matrix();
+        assert_eq!(m.sample_names(), &["s1", "s2", "s3"]);
     }
 }

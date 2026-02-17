@@ -519,6 +519,118 @@ impl Distribution for Binomial {
     }
 }
 
+// ── Negative binomial distribution ────────────────────────────────────────
+
+/// Negative binomial distribution with parameters `r` (number of successes)
+/// and `p` (success probability).
+///
+/// The PMF gives the probability of observing `k` failures before `r`
+/// successes, where each trial succeeds with probability `p`.
+///
+/// For RNA-seq count modelling, use [`NegativeBinomial::from_mean_dispersion`]
+/// which parameterizes via mean `μ` and dispersion `α` (as in DESeq2):
+/// `r = 1/α`, `p = r/(r + μ)`.
+#[derive(Debug, Clone, Copy)]
+pub struct NegativeBinomial {
+    r: f64,
+    p: f64,
+}
+
+impl NegativeBinomial {
+    /// Create from traditional parameters: `r` successes, success probability `p`.
+    ///
+    /// `r` must be positive and `p` must be in (0, 1].
+    pub fn new(r: f64, p: f64) -> Result<Self> {
+        if r <= 0.0 {
+            return Err(CyaneaError::InvalidInput(
+                "NegativeBinomial: r must be positive".into(),
+            ));
+        }
+        if p <= 0.0 || p > 1.0 {
+            return Err(CyaneaError::InvalidInput(
+                "NegativeBinomial: p must be in (0, 1]".into(),
+            ));
+        }
+        Ok(Self { r, p })
+    }
+
+    /// Create from mean–dispersion parameterization (DESeq2 convention).
+    ///
+    /// - `mu`: mean expression (must be positive)
+    /// - `alpha`: dispersion parameter (must be positive)
+    ///
+    /// Internally: `r = 1/alpha`, `p = r / (r + mu)`.
+    pub fn from_mean_dispersion(mu: f64, alpha: f64) -> Result<Self> {
+        if mu <= 0.0 {
+            return Err(CyaneaError::InvalidInput(
+                "NegativeBinomial: mu must be positive".into(),
+            ));
+        }
+        if alpha <= 0.0 {
+            return Err(CyaneaError::InvalidInput(
+                "NegativeBinomial: alpha must be positive".into(),
+            ));
+        }
+        let r = 1.0 / alpha;
+        let p = r / (r + mu);
+        Ok(Self { r, p })
+    }
+
+    /// Number of successes parameter.
+    pub fn r(&self) -> f64 {
+        self.r
+    }
+
+    /// Success probability parameter.
+    pub fn p(&self) -> f64 {
+        self.p
+    }
+
+    /// Natural log of the probability mass function at `k`.
+    ///
+    /// `ln P(X = k) = ln Γ(k + r) - ln Γ(k + 1) - ln Γ(r) + r ln(p) + k ln(1 - p)`
+    pub fn ln_pmf(&self, k: usize) -> f64 {
+        let k_f = k as f64;
+        ln_gamma(k_f + self.r)
+            - ln_gamma(k_f + 1.0)
+            - ln_gamma(self.r)
+            + self.r * self.p.ln()
+            + k_f * (1.0 - self.p).ln()
+    }
+
+    /// Probability mass function at `k`.
+    pub fn pmf(&self, k: usize) -> f64 {
+        self.ln_pmf(k).exp()
+    }
+}
+
+impl Distribution for NegativeBinomial {
+    fn pdf(&self, x: f64) -> f64 {
+        let k = x.round() as i64;
+        if k < 0 || (x - k as f64).abs() > 1e-9 {
+            return 0.0;
+        }
+        self.pmf(k as usize)
+    }
+
+    fn cdf(&self, x: f64) -> f64 {
+        let k_max = x.floor() as i64;
+        if k_max < 0 {
+            return 0.0;
+        }
+        // CDF(k) = I_p(r, floor(k) + 1) via regularized incomplete beta
+        betai(self.r, (k_max + 1) as f64, self.p).unwrap_or(1.0)
+    }
+
+    fn mean(&self) -> f64 {
+        self.r * (1.0 - self.p) / self.p
+    }
+
+    fn variance(&self) -> f64 {
+        self.r * (1.0 - self.p) / (self.p * self.p)
+    }
+}
+
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -776,5 +888,87 @@ mod tests {
     fn binomial_invalid() {
         assert!(Binomial::new(10, -0.1).is_err());
         assert!(Binomial::new(10, 1.1).is_err());
+    }
+
+    // ── Negative binomial tests ───────────────────────────────────────
+
+    #[test]
+    fn nb_pmf_known_values() {
+        // NB(r=3, p=0.5): P(X=0) = p^r = 0.125
+        let nb = NegativeBinomial::new(3.0, 0.5).unwrap();
+        assert!((nb.pmf(0) - 0.125).abs() < TOL);
+        // P(X=1) = C(3,1) * 0.5^3 * 0.5^1 = 3 * 0.0625 = 0.1875
+        assert!((nb.pmf(1) - 0.1875).abs() < TOL);
+    }
+
+    #[test]
+    fn nb_pmf_sums_near_one() {
+        let nb = NegativeBinomial::new(5.0, 0.4).unwrap();
+        let sum: f64 = (0..200).map(|k| nb.pmf(k)).sum();
+        assert!((sum - 1.0).abs() < 1e-4, "sum={sum}");
+    }
+
+    #[test]
+    fn nb_cdf_consistency() {
+        // CDF at k should equal sum of PMFs 0..=k
+        let nb = NegativeBinomial::new(3.0, 0.6).unwrap();
+        for k in [0, 1, 5, 10] {
+            let cdf_val = nb.cdf(k as f64);
+            let pmf_sum: f64 = (0..=k).map(|j| nb.pmf(j)).sum();
+            assert!(
+                (cdf_val - pmf_sum).abs() < 1e-5,
+                "k={k}: cdf={cdf_val}, pmf_sum={pmf_sum}"
+            );
+        }
+    }
+
+    #[test]
+    fn nb_mean_variance() {
+        let nb = NegativeBinomial::new(4.0, 0.5).unwrap();
+        // mean = r(1-p)/p = 4*0.5/0.5 = 4
+        assert!((nb.mean() - 4.0).abs() < TOL);
+        // variance = r(1-p)/p^2 = 4*0.5/0.25 = 8
+        assert!((nb.variance() - 8.0).abs() < TOL);
+    }
+
+    #[test]
+    fn nb_from_mean_dispersion_roundtrip() {
+        let mu = 10.0;
+        let alpha = 0.5;
+        let nb = NegativeBinomial::from_mean_dispersion(mu, alpha).unwrap();
+        assert!((nb.mean() - mu).abs() < 1e-10);
+        // variance = mu + alpha * mu^2 = 10 + 0.5*100 = 60
+        assert!((nb.variance() - 60.0).abs() < 1e-8);
+    }
+
+    #[test]
+    fn nb_deseq2_parameterization() {
+        // With alpha → 0, NB → Poisson: variance → mean
+        let nb = NegativeBinomial::from_mean_dispersion(5.0, 1e-6).unwrap();
+        let ratio = nb.variance() / nb.mean();
+        assert!((ratio - 1.0).abs() < 1e-3, "ratio={ratio}");
+    }
+
+    #[test]
+    fn nb_invalid_params() {
+        assert!(NegativeBinomial::new(0.0, 0.5).is_err());
+        assert!(NegativeBinomial::new(-1.0, 0.5).is_err());
+        assert!(NegativeBinomial::new(3.0, 0.0).is_err());
+        assert!(NegativeBinomial::new(3.0, 1.1).is_err());
+        assert!(NegativeBinomial::from_mean_dispersion(0.0, 0.5).is_err());
+        assert!(NegativeBinomial::from_mean_dispersion(5.0, 0.0).is_err());
+    }
+
+    #[test]
+    fn nb_pdf_non_integer_is_zero() {
+        let nb = NegativeBinomial::new(3.0, 0.5).unwrap();
+        assert_eq!(nb.pdf(1.5), 0.0);
+        assert_eq!(nb.pdf(-1.0), 0.0);
+    }
+
+    #[test]
+    fn nb_cdf_negative_is_zero() {
+        let nb = NegativeBinomial::new(3.0, 0.5).unwrap();
+        assert_eq!(nb.cdf(-1.0), 0.0);
     }
 }
