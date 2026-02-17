@@ -87,11 +87,11 @@ Last updated: 2026-02-17
 - [ ] Gene set enrichment analysis (GSEA) — preranked, simple Fisher's exact
 - [ ] Over-representation analysis (hypergeometric test)
 
-### Survival Analysis (`cyanea-stats`)
-- [ ] Kaplan-Meier estimator
-- [ ] Log-rank test
-- [ ] Cox proportional hazards model (basic)
-- [ ] Median survival, confidence intervals
+### Survival Analysis (`cyanea-stats::survival`) — Done
+- [x] Kaplan-Meier estimator
+- [x] Log-rank test
+- [x] Cox proportional hazards model (basic)
+- [x] Median survival, confidence intervals
 
 ---
 

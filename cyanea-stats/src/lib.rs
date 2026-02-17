@@ -39,6 +39,7 @@ pub mod normalization;
 pub mod popgen;
 pub mod rank;
 pub mod reduction;
+pub mod survival;
 pub mod testing;
 
 pub use bayesian::{Beta, Dirichlet, Gamma, NormalConjugate};
@@ -57,4 +58,5 @@ pub use popgen::{
     AlleleFrequencies, DiversityStats, FstMethod, FstResult, HweResult, LdResult, TajimaD,
 };
 pub use rank::RankMethod;
+pub use survival::{CoxPhResult, KmResult, KmStep, LogRankResult};
 pub use testing::TestResult;

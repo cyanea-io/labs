@@ -174,23 +174,78 @@ Exact and log-space combinatorial functions with overflow protection.
 - `ndarray` (optional, `blas` feature) -- matrix operations for BLAS-accelerated PCA
 - `rayon` (optional, `parallel` feature) -- data parallelism
 
+### Population genetics (`popgen.rs`)
+
+| Type/Function | Description |
+|---------------|-------------|
+| `AlleleFrequencies` | Per-locus allele frequency summary (major/minor allele, MAF, observed/expected heterozygosity) |
+| `allele_frequencies(genotypes, n_samples) -> Result<Vec<AlleleFrequencies>>` | Compute allele frequencies from 0/1/2 genotype matrix |
+| `HweResult` | Hardy-Weinberg equilibrium test result (chi-squared statistic, p-value) |
+| `hwe_test(genotypes, n_samples) -> Result<Vec<HweResult>>` | Per-locus HWE exact test |
+| `FstMethod` | Enum: `WeirCockerham`, `Hudson` |
+| `FstResult` | Fst estimate with per-locus values |
+| `fst(genotypes, n_samples, populations, method) -> Result<FstResult>` | Fixation index between populations |
+| `DiversityStats` | Nucleotide diversity: pi, theta (Watterson), S (segregating sites) |
+| `nucleotide_diversity(genotypes, n_samples, seq_length) -> Result<DiversityStats>` | Pi, theta, S |
+| `TajimaD` | Tajima's D statistic with variance components |
+| `tajimas_d(genotypes, n_samples, seq_length) -> Result<TajimaD>` | Tajima's D neutrality test |
+| `LdResult` | Linkage disequilibrium: r², D, D' |
+| `ld(genotypes, n_samples, locus_a, locus_b) -> Result<LdResult>` | Pairwise LD via EM haplotype estimation |
+| `genotype_pca(genotypes, n_samples, n_components) -> Result<PcaResult>` | PCA on centered genotype matrix |
+
+### Normalization (`normalization.rs`)
+
+| Function | Description |
+|----------|-------------|
+| `tpm(counts, lengths) -> Result<Vec<f64>>` | Transcripts Per Million |
+| `fpkm(counts, lengths, total_reads) -> Result<Vec<f64>>` | Fragments Per Kilobase per Million |
+| `cpm(counts) -> Result<Vec<f64>>` | Counts Per Million |
+| `deseq2_size_factors(matrix, n_genes, n_samples) -> Result<Vec<f64>>` | DESeq2-style median-of-ratios normalization |
+
+### Differential expression (`diffexpr.rs`)
+
+| Type/Function | Description |
+|---------------|-------------|
+| `DeMethod` | Enum: `NegBinomialWald`, `Wilcoxon` |
+| `DeGeneResult` | Per-gene result: log2FC, p-value, adjusted p-value, base mean, test statistic |
+| `DeResults` | Collection of `DeGeneResult` with metadata |
+| `VolcanoPoint` | Data point for volcano plots (log2FC, −log10 p-value, significance flag) |
+| `de_test(matrix, n_genes, n_samples, group, method) -> Result<DeResults>` | Run differential expression analysis |
+| `volcano_data(results, fc_threshold, p_threshold) -> Vec<VolcanoPoint>` | Generate volcano plot data |
+
+### Survival analysis (`survival.rs`)
+
+| Type/Function | Description |
+|---------------|-------------|
+| `KmStep` | Single step: `time`, `n_risk`, `n_events`, `n_censored`, `survival`, `std_err`, `ci_lower`, `ci_upper` |
+| `KmResult` | Full result: `steps`, `median_survival`, `n_total`, `n_events` |
+| `kaplan_meier(times, status) -> Result<KmResult>` | Kaplan-Meier survival curve with Greenwood SE and log-transform 95% CI |
+| `LogRankResult` | Chi-squared statistic, df, p-value, observed/expected per group |
+| `log_rank_test(times, status, groups) -> Result<LogRankResult>` | Log-rank test comparing survival between groups |
+| `CoxPhResult` | Coefficients, SE, z-values, p-values, hazard ratios with 95% CI, convergence info |
+| `cox_ph(times, status, covariates, n_covariates) -> Result<CoxPhResult>` | Cox proportional hazards via Breslow partial likelihood (Newton-Raphson) |
+
 ## Tests
 
-167 tests across 12 source files.
+274 unit tests + 6 doc tests across 16 source files.
 
 ## Source Files
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `lib.rs` | 45 | Module declarations, re-exports |
-| `descriptive.rs` | 354 | Descriptive statistics |
-| `correlation.rs` | 244 | Pearson/Spearman correlation |
-| `testing.rs` | 605 | t-tests, Mann-Whitney U, Fisher's exact, chi-squared, ANOVA |
-| `distribution.rs` | 781 | Normal, Poisson, Binomial, ChiSquared, F, erf, gamma, beta |
+| `lib.rs` | 62 | Module declarations, re-exports |
+| `descriptive.rs` | 412 | Descriptive statistics |
+| `correlation.rs` | 272 | Pearson/Spearman correlation |
+| `testing.rs` | 604 | t-tests, Mann-Whitney U, Fisher's exact, chi-squared, ANOVA |
+| `distribution.rs` | 974 | Normal, Poisson, Binomial, ChiSquared, F, NegativeBinomial, erf, gamma, beta |
 | `correction.rs` | 161 | Bonferroni, Benjamini-Hochberg |
 | `rank.rs` | 141 | Rank computation with tie-breaking |
-| `effect_size.rs` | 253 | Cohen's d, eta-squared, odds ratio, relative risk |
-| `reduction.rs` | 284 | PCA dimensionality reduction |
+| `effect_size.rs` | 252 | Cohen's d, eta-squared, odds ratio, relative risk |
+| `reduction.rs` | 283 | PCA dimensionality reduction |
 | `blas_pca.rs` | 117 | BLAS-accelerated PCA via ndarray (feature-gated, internal to reduction) |
 | `bayesian.rs` | 568 | Bayesian conjugate priors (Beta, Gamma, NormalConjugate, Dirichlet) |
 | `combinatorics.rs` | 311 | Combinatorial functions (factorial, binomial, permutations, multinomial, combinations) |
+| `popgen.rs` | 1445 | Population genetics (allele freq, HWE, Fst, diversity, Tajima's D, LD, PCA) |
+| `normalization.rs` | 357 | Expression normalization (TPM, FPKM, CPM, DESeq2 size factors) |
+| `diffexpr.rs` | 546 | Differential expression (NB Wald test, Wilcoxon, volcano plot) |
+| `survival.rs` | 1164 | Survival analysis (Kaplan-Meier, log-rank test, Cox PH) |
