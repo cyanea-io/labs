@@ -213,6 +213,16 @@ Exact and log-space combinatorial functions with overflow protection.
 | `de_test(matrix, n_genes, n_samples, group, method) -> Result<DeResults>` | Run differential expression analysis |
 | `volcano_data(results, fc_threshold, p_threshold) -> Vec<VolcanoPoint>` | Generate volcano plot data |
 
+### Enrichment analysis (`enrichment.rs`)
+
+| Type/Function | Description |
+|---------------|-------------|
+| `GeneSet` | Named gene set: `name` (String) + `genes` (Vec<usize>, 0-based indices) |
+| `OraResult` | Per-set ORA result: `gene_set`, `overlap`, `expected`, `gene_set_size`, `p_value`, `p_adjusted` |
+| `ora(significant, gene_sets, n_total) -> Result<Vec<OraResult>>` | Over-representation analysis via hypergeometric upper-tail test with BH correction |
+| `GseaResult` | Per-set GSEA result: `gene_set`, `enrichment_score`, `normalized_es`, `p_value`, `p_adjusted`, `leading_edge_size`, `gene_set_size` |
+| `gsea_preranked(genes, scores, gene_sets, weight, n_permutations) -> Result<Vec<GseaResult>>` | Preranked GSEA (Subramanian et al. 2005) with score weighting, permutation p-values, NES, and BH correction |
+
 ### Survival analysis (`survival.rs`)
 
 | Type/Function | Description |
@@ -227,7 +237,7 @@ Exact and log-space combinatorial functions with overflow protection.
 
 ## Tests
 
-274 unit tests + 6 doc tests across 16 source files.
+304 unit tests + 8 doc tests across 17 source files.
 
 ## Source Files
 
@@ -248,4 +258,5 @@ Exact and log-space combinatorial functions with overflow protection.
 | `popgen.rs` | 1445 | Population genetics (allele freq, HWE, Fst, diversity, Tajima's D, LD, PCA) |
 | `normalization.rs` | 357 | Expression normalization (TPM, FPKM, CPM, DESeq2 size factors) |
 | `diffexpr.rs` | 546 | Differential expression (NB Wald test, Wilcoxon, volcano plot) |
+| `enrichment.rs` | ~530 | Gene set enrichment (ORA, GSEA preranked) |
 | `survival.rs` | 1164 | Survival analysis (Kaplan-Meier, log-rank test, Cox PH) |

@@ -239,7 +239,7 @@ pub fn fisher_exact(table: &[[usize; 2]; 2]) -> Result<TestResult> {
 ///
 /// Probability of drawing exactly `k` successes from a population of `total`
 /// containing `success_pop` successes, in a sample of size `sample_size`.
-fn hypergeometric_pmf(k: usize, sample_size: usize, success_pop: usize, total: usize) -> f64 {
+pub(crate) fn hypergeometric_pmf(k: usize, sample_size: usize, success_pop: usize, total: usize) -> f64 {
     // P = C(K,k) * C(N-K, n-k) / C(N, n)
     // Compute in log-space to avoid overflow.
     let log_p = ln_choose(success_pop, k)
@@ -249,7 +249,7 @@ fn hypergeometric_pmf(k: usize, sample_size: usize, success_pop: usize, total: u
 }
 
 /// Log of binomial coefficient C(n, k) = ln(n!) - ln(k!) - ln((n-k)!).
-fn ln_choose(n: usize, k: usize) -> f64 {
+pub(crate) fn ln_choose(n: usize, k: usize) -> f64 {
     if k > n {
         return f64::NEG_INFINITY;
     }

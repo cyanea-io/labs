@@ -79,13 +79,13 @@ Last updated: 2026-02-17
 - [x] Linkage disequilibrium (r², D') with EM haplotype estimation
 - [x] Principal components on genotype matrices (eigenanalysis)
 
-### Differential Expression (`cyanea-stats`) — Partial
+### Differential Expression (`cyanea-stats`) — Done
 - [x] TPM / FPKM / CPM normalization
 - [x] DESeq2-style size factor estimation
 - [x] Negative binomial Wald test for differential expression
 - [x] Volcano plot data generation (log2FC, p-value, adjusted p-value)
-- [ ] Gene set enrichment analysis (GSEA) — preranked, simple Fisher's exact
-- [ ] Over-representation analysis (hypergeometric test)
+- [x] Gene set enrichment analysis (GSEA) — preranked, score-weighted, permutation-based
+- [x] Over-representation analysis (hypergeometric test)
 
 ### Survival Analysis (`cyanea-stats::survival`) — Done
 - [x] Kaplan-Meier estimator
@@ -158,10 +158,11 @@ Last updated: 2026-02-17
 - [ ] Recursive feature elimination (with any classifier)
 - [ ] L1-regularized feature selection (Lasso)
 
-### Enrichment Analysis (`cyanea-stats`)
-- [ ] Fisher's exact test on gene sets
-- [ ] Hypergeometric test for overlap significance
-- [ ] Benjamini-Hochberg on enrichment p-values
+### Enrichment Analysis (`cyanea-stats`) — Done
+- [x] Fisher's exact test on gene sets
+- [x] Hypergeometric test for overlap significance (ORA)
+- [x] Benjamini-Hochberg on enrichment p-values
+- [x] GSEA preranked (Subramanian et al. 2005, permutation-based)
 - [ ] Gene Ontology term association (if given annotation map)
 
 ---
