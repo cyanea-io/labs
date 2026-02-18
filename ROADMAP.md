@@ -146,11 +146,11 @@ Last updated: 2026-02-17
 - [x] Confusion matrix computation
 - [x] Cross-validation (k-fold, stratified k-fold, leave-one-out)
 
-### Gradient Boosting (`cyanea-ml`)
-- [ ] Gradient-boosted decision trees (basic GBDT)
-- [ ] Feature importance (Gini, permutation)
-- [ ] Regression and classification modes
-- [ ] Early stopping
+### Gradient Boosting (`cyanea-ml`) — Done
+- [x] Gradient-boosted decision trees (basic GBDT)
+- [x] Feature importance (Gini, permutation)
+- [x] Regression and classification modes
+- [x] Early stopping
 
 ### Feature Selection (`cyanea-ml`)
 - [ ] Variance threshold filtering

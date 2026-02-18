@@ -1,10 +1,10 @@
 # cyanea-ml
 
-Machine learning primitives for bioinformatics: clustering, distance metrics, sequence encoding, normalization, evaluation, classification metrics, cross-validation, decision trees, random forests, and hidden Markov models.
+Machine learning primitives for bioinformatics: clustering, distance metrics, sequence encoding, normalization, evaluation, classification metrics, cross-validation, decision trees, random forests, gradient boosted decision trees, and hidden Markov models.
 
 ## Status: Complete
 
-All ML primitives are implemented including clustering, distance metrics, sequence encoding, evaluation, normalization, k-mer counting, sequence embeddings, KNN/linear regression, dimensionality reduction (PCA, t-SNE, UMAP), decision tree and random forest classifiers, hidden Markov models (forward, backward, Viterbi, Baum-Welch), classification metrics (confusion matrix, ROC/PR curves, F1, MCC), and cross-validation (k-fold, stratified k-fold, leave-one-out).
+All ML primitives are implemented including clustering, distance metrics, sequence encoding, evaluation, normalization, k-mer counting, sequence embeddings, KNN/linear regression, dimensionality reduction (PCA, t-SNE, UMAP), decision tree and random forest classifiers, gradient boosted decision trees (regression, binary/multiclass classification, early stopping, feature importance), hidden Markov models (forward, backward, Viterbi, Baum-Welch), classification metrics (confusion matrix, ROC/PR curves, F1, MCC), and cross-validation (k-fold, stratified k-fold, leave-one-out).
 
 ## Public API
 
@@ -195,6 +195,28 @@ All ML primitives are implemented including clustering, distance metrics, sequen
 | `RandomForest::n_trees() -> usize` | Number of trees in the forest |
 | `RandomForest::n_classes() -> usize` | Number of classes discovered during fitting |
 
+### Gradient Boosted Decision Trees (`gbdt.rs`)
+
+| Type/Function | Description |
+|---------------|-------------|
+| `GbdtConfig` | `n_estimators`, `learning_rate`, `max_depth`, `min_samples_leaf`, `subsample`, `max_features`, `seed`, `early_stopping_rounds`, `validation_fraction` |
+| `GradientBoostedTrees` | Gradient boosted ensemble of internal regression trees |
+| `GradientBoostedTrees::fit_regression(data, n_features, targets, config) -> Result<Self>` | Fit regression model (MSE loss) |
+| `GradientBoostedTrees::fit_classification(data, n_features, labels, config) -> Result<Self>` | Fit classification model (binary log-loss or multiclass cross-entropy) |
+| `GradientBoostedTrees::predict(sample) -> f64` | Raw prediction for a single sample |
+| `GradientBoostedTrees::predict_batch(data, n_features) -> Vec<f64>` | Raw predictions for multiple samples |
+| `GradientBoostedTrees::predict_class(sample) -> usize` | Predicted class label (classification only) |
+| `GradientBoostedTrees::predict_class_batch(data, n_features) -> Vec<usize>` | Predicted class labels for multiple samples |
+| `GradientBoostedTrees::predict_proba(sample) -> Vec<f64>` | Class probabilities for a single sample |
+| `GradientBoostedTrees::predict_proba_batch(data, n_features) -> Vec<f64>` | Class probabilities for multiple samples (flat) |
+| `GradientBoostedTrees::feature_importance() -> Vec<f64>` | Impurity-based feature importance (normalized, sums to 1.0) |
+| `GradientBoostedTrees::permutation_importance_regression(data, n_features, targets, n_repeats, seed) -> Vec<f64>` | Permutation importance (MSE increase) |
+| `GradientBoostedTrees::permutation_importance_classification(data, n_features, labels, n_repeats, seed) -> Vec<f64>` | Permutation importance (accuracy decrease) |
+| `GradientBoostedTrees::n_estimators() -> usize` | Actual boosting rounds used |
+| `GradientBoostedTrees::n_features() -> usize` | Number of features |
+| `GradientBoostedTrees::is_regression() -> bool` | Whether model is regression |
+| `GradientBoostedTrees::n_classes() -> usize` | Number of classes (0 for regression) |
+
 ### Hidden Markov Model (`hmm.rs`)
 
 | Type/Function | Description |
@@ -257,13 +279,13 @@ When the `blas` feature is enabled, PCA automatically dispatches to an ndarray-b
 
 ## Tests
 
-199 tests across 17 source files.
+227 tests across 18 source files.
 
 ## Source Files
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `lib.rs` | 63 | Module declarations, re-exports |
+| `lib.rs` | 65 | Module declarations, re-exports |
 | `cluster.rs` | 812 | K-means, DBSCAN, hierarchical clustering |
 | `metrics.rs` | 798 | Confusion matrix, classification metrics, ROC/PR curves |
 | `cross_validation.rs` | 472 | K-fold, stratified k-fold, leave-one-out CV |
@@ -276,6 +298,7 @@ When the `blas` feature is enabled, PCA automatically dispatches to an ndarray-b
 | `inference.rs` | 546 | KNN and linear regression |
 | `tree.rs` | 510 | Decision tree classifier (Gini impurity) |
 | `forest.rs` | 447 | Random forest classifier (bagged ensemble) |
+| `gbdt.rs` | 2165 | Gradient boosted decision trees (regression, classification, early stopping) |
 | `hmm.rs` | 770 | Hidden Markov Model (forward, backward, Viterbi, Baum-Welch) |
 | `reduction.rs` | 773 | PCA and t-SNE dimensionality reduction |
 | `blas_pca.rs` | 123 | BLAS-accelerated PCA via ndarray (feature `blas`) |
