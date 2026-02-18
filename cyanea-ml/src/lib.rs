@@ -19,6 +19,7 @@
 //! ```
 
 pub mod cluster;
+pub mod cross_validation;
 pub mod distance;
 pub mod embedding;
 pub mod encoding;
@@ -27,6 +28,7 @@ pub mod forest;
 pub mod hmm;
 pub mod inference;
 pub mod kmer;
+pub mod metrics;
 pub mod normalize;
 pub mod reduction;
 pub mod tree;
@@ -42,6 +44,13 @@ pub use distance::{
 };
 pub use encoding::{label_encode, one_hot_encode, Alphabet};
 pub use evaluate::{silhouette_samples, silhouette_score};
+pub use metrics::{
+    accuracy, f1_macro, f1_score, f1_weighted, matthews_corrcoef, pr_auc, pr_curve, roc_auc,
+    roc_curve, ConfusionMatrix, PrCurve, PrPoint, RocCurve, RocPoint,
+};
+pub use cross_validation::{
+    cross_validate_kfold, cross_validate_loo, cross_validate_stratified, CvResult, FoldResult,
+};
 pub use kmer::{KmerCounter, KmerCounts};
 pub use normalize::{
     l2_normalize, l2_normalize_columns, min_max, min_max_columns, z_score, z_score_columns,

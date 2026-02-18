@@ -138,13 +138,13 @@ Last updated: 2026-02-17
 
 ## T5 — Medium-Impact ML & Statistics
 
-### Model Evaluation (`cyanea-ml` or `cyanea-stats`)
-- [ ] ROC curve computation (TPR/FPR at thresholds)
-- [ ] AUC (area under ROC curve) — trapezoidal
-- [ ] Precision-recall curve
-- [ ] F1 score, Matthews correlation coefficient
-- [ ] Confusion matrix computation
-- [ ] Cross-validation (k-fold, stratified k-fold, leave-one-out)
+### Model Evaluation (`cyanea-ml`) — Done
+- [x] ROC curve computation (TPR/FPR at thresholds)
+- [x] AUC (area under ROC curve) — trapezoidal
+- [x] Precision-recall curve
+- [x] F1 score, Matthews correlation coefficient
+- [x] Confusion matrix computation
+- [x] Cross-validation (k-fold, stratified k-fold, leave-one-out)
 
 ### Gradient Boosting (`cyanea-ml`)
 - [ ] Gradient-boosted decision trees (basic GBDT)

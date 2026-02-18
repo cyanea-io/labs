@@ -1,10 +1,10 @@
 # cyanea-ml
 
-Machine learning primitives for bioinformatics: clustering, distance metrics, sequence encoding, normalization, evaluation, decision trees, random forests, and hidden Markov models.
+Machine learning primitives for bioinformatics: clustering, distance metrics, sequence encoding, normalization, evaluation, classification metrics, cross-validation, decision trees, random forests, and hidden Markov models.
 
 ## Status: Complete
 
-All ML primitives are implemented including clustering, distance metrics, sequence encoding, evaluation, normalization, k-mer counting, sequence embeddings, KNN/linear regression, dimensionality reduction (PCA, t-SNE, UMAP), decision tree and random forest classifiers, and hidden Markov models (forward, backward, Viterbi, Baum-Welch).
+All ML primitives are implemented including clustering, distance metrics, sequence encoding, evaluation, normalization, k-mer counting, sequence embeddings, KNN/linear regression, dimensionality reduction (PCA, t-SNE, UMAP), decision tree and random forest classifiers, hidden Markov models (forward, backward, Viterbi, Baum-Welch), classification metrics (confusion matrix, ROC/PR curves, F1, MCC), and cross-validation (k-fold, stratified k-fold, leave-one-out).
 
 ## Public API
 
@@ -64,6 +64,64 @@ All ML primitives are implemented including clustering, distance metrics, sequen
 |----------|-------------|
 | `silhouette_samples(data, labels) -> Result<Vec<f64>>` | Per-sample silhouette coefficients |
 | `silhouette_score(data, labels) -> Result<f64>` | Mean silhouette score |
+
+### Classification metrics (`metrics.rs`)
+
+**Confusion Matrix:**
+
+| Type/Function | Description |
+|---------------|-------------|
+| `ConfusionMatrix` | Row-major confusion matrix for multi-class classification |
+| `ConfusionMatrix::from_labels(actual, predicted, n_classes) -> Result<Self>` | Build from actual/predicted label vectors |
+| `ConfusionMatrix::get(actual, predicted) -> usize` | Get count for (actual, predicted) pair |
+| `ConfusionMatrix::total() -> usize` | Total number of samples |
+| `ConfusionMatrix::true_positives(class) -> usize` | TP for a class |
+| `ConfusionMatrix::false_positives(class) -> usize` | FP for a class |
+| `ConfusionMatrix::true_negatives(class) -> usize` | TN for a class |
+| `ConfusionMatrix::false_negatives(class) -> usize` | FN for a class |
+| `ConfusionMatrix::accuracy() -> f64` | Overall accuracy |
+| `ConfusionMatrix::precision(class) -> f64` | TP / (TP + FP) |
+| `ConfusionMatrix::recall(class) -> f64` | TP / (TP + FN) |
+| `ConfusionMatrix::f1(class) -> f64` | Harmonic mean of precision and recall |
+| `ConfusionMatrix::specificity(class) -> f64` | TN / (TN + FP) |
+
+**Standalone Scalar Metrics:**
+
+| Function | Description |
+|----------|-------------|
+| `accuracy(actual, predicted) -> Result<f64>` | Overall accuracy |
+| `f1_score(actual, predicted, class) -> Result<f64>` | F1 for a specific class |
+| `f1_macro(actual, predicted) -> Result<f64>` | Macro-averaged F1 |
+| `f1_weighted(actual, predicted) -> Result<f64>` | Weighted-averaged F1 |
+| `matthews_corrcoef(actual, predicted) -> Result<f64>` | Matthews correlation coefficient |
+
+**ROC Curve:**
+
+| Type/Function | Description |
+|---------------|-------------|
+| `RocPoint` | `threshold`, `fpr`, `tpr` |
+| `RocCurve` | `points: Vec<RocPoint>`, `auc: f64` |
+| `roc_curve(scores, labels) -> Result<RocCurve>` | Compute ROC curve from scores and binary labels |
+| `roc_auc(scores, labels) -> Result<f64>` | AUC shorthand |
+
+**Precision-Recall Curve:**
+
+| Type/Function | Description |
+|---------------|-------------|
+| `PrPoint` | `threshold`, `precision`, `recall` |
+| `PrCurve` | `points: Vec<PrPoint>`, `auc: f64` |
+| `pr_curve(scores, labels) -> Result<PrCurve>` | Compute PR curve from scores and binary labels |
+| `pr_auc(scores, labels) -> Result<f64>` | AUC shorthand |
+
+### Cross-validation (`cross_validation.rs`)
+
+| Type/Function | Description |
+|---------------|-------------|
+| `FoldResult` | `fold`, `n_train`, `n_test`, `score` |
+| `CvResult` | `folds: Vec<FoldResult>`, `mean_score`, `std_score` |
+| `cross_validate_kfold(n_samples, k, seed, eval_fn) -> Result<CvResult>` | K-fold CV with shuffled splits |
+| `cross_validate_stratified(labels, k, seed, eval_fn) -> Result<CvResult>` | Stratified k-fold preserving class proportions |
+| `cross_validate_loo(n_samples, eval_fn) -> Result<CvResult>` | Leave-one-out CV |
 
 ### K-mer counting (`kmer.rs`)
 
@@ -199,14 +257,16 @@ When the `blas` feature is enabled, PCA automatically dispatches to an ndarray-b
 
 ## Tests
 
-161 tests across 15 source files.
+199 tests across 17 source files.
 
 ## Source Files
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `lib.rs` | 55 | Module declarations, re-exports |
+| `lib.rs` | 63 | Module declarations, re-exports |
 | `cluster.rs` | 812 | K-means, DBSCAN, hierarchical clustering |
+| `metrics.rs` | 798 | Confusion matrix, classification metrics, ROC/PR curves |
+| `cross_validation.rs` | 472 | K-fold, stratified k-fold, leave-one-out CV |
 | `distance.rs` | 309 | Distance metrics and pairwise matrices |
 | `encoding.rs` | 141 | One-hot and label encoding |
 | `evaluate.rs` | 186 | Silhouette score evaluation |
