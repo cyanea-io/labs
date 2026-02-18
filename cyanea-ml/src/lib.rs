@@ -24,6 +24,7 @@ pub mod distance;
 pub mod embedding;
 pub mod encoding;
 pub mod evaluate;
+pub mod feature_selection;
 pub mod forest;
 pub mod gbdt;
 pub mod hmm;
@@ -63,3 +64,7 @@ pub use inference::{KnnConfig, KnnModel, LinearRegression};
 pub use tree::DecisionTree;
 pub use forest::{RandomForest, RandomForestConfig};
 pub use gbdt::{GbdtConfig, GradientBoostedTrees};
+pub use feature_selection::{
+    variance_threshold, mutual_information, mutual_information_top_k,
+    recursive_feature_elimination, lasso_selection, FeatureSelection, LassoResult,
+};

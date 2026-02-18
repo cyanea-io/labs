@@ -152,11 +152,11 @@ Last updated: 2026-02-17
 - [x] Regression and classification modes
 - [x] Early stopping
 
-### Feature Selection (`cyanea-ml`)
-- [ ] Variance threshold filtering
-- [ ] Mutual information (discrete)
-- [ ] Recursive feature elimination (with any classifier)
-- [ ] L1-regularized feature selection (Lasso)
+### Feature Selection (`cyanea-ml`) — Done
+- [x] Variance threshold filtering
+- [x] Mutual information (discrete)
+- [x] Recursive feature elimination (with any classifier)
+- [x] L1-regularized feature selection (Lasso)
 
 ### Enrichment Analysis (`cyanea-stats`) — Done
 - [x] Fisher's exact test on gene sets

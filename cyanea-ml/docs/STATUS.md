@@ -1,10 +1,10 @@
 # cyanea-ml
 
-Machine learning primitives for bioinformatics: clustering, distance metrics, sequence encoding, normalization, evaluation, classification metrics, cross-validation, decision trees, random forests, gradient boosted decision trees, and hidden Markov models.
+Machine learning primitives for bioinformatics: clustering, distance metrics, sequence encoding, normalization, evaluation, classification metrics, cross-validation, decision trees, random forests, gradient boosted decision trees, feature selection, and hidden Markov models.
 
 ## Status: Complete
 
-All ML primitives are implemented including clustering, distance metrics, sequence encoding, evaluation, normalization, k-mer counting, sequence embeddings, KNN/linear regression, dimensionality reduction (PCA, t-SNE, UMAP), decision tree and random forest classifiers, gradient boosted decision trees (regression, binary/multiclass classification, early stopping, feature importance), hidden Markov models (forward, backward, Viterbi, Baum-Welch), classification metrics (confusion matrix, ROC/PR curves, F1, MCC), and cross-validation (k-fold, stratified k-fold, leave-one-out).
+All ML primitives are implemented including clustering, distance metrics, sequence encoding, evaluation, normalization, k-mer counting, sequence embeddings, KNN/linear regression, dimensionality reduction (PCA, t-SNE, UMAP), decision tree and random forest classifiers, gradient boosted decision trees (regression, binary/multiclass classification, early stopping, feature importance), feature selection (variance threshold, mutual information, recursive feature elimination, Lasso L1), hidden Markov models (forward, backward, Viterbi, Baum-Welch), classification metrics (confusion matrix, ROC/PR curves, F1, MCC), and cross-validation (k-fold, stratified k-fold, leave-one-out).
 
 ## Public API
 
@@ -217,6 +217,40 @@ All ML primitives are implemented including clustering, distance metrics, sequen
 | `GradientBoostedTrees::is_regression() -> bool` | Whether model is regression |
 | `GradientBoostedTrees::n_classes() -> usize` | Number of classes (0 for regression) |
 
+### Feature Selection (`feature_selection.rs`)
+
+**Variance Threshold:**
+
+| Type/Function | Description |
+|---------------|-------------|
+| `FeatureSelection` | Result struct: `selected` (indices), `scores` (per-feature), `n_features` |
+| `FeatureSelection::transform(data) -> Vec<f64>` | Filter data to keep only selected features |
+| `FeatureSelection::n_selected() -> usize` | Number of selected features |
+| `variance_threshold(data, n_features, threshold) -> Result<FeatureSelection>` | Select features with variance > threshold |
+
+**Mutual Information:**
+
+| Type/Function | Description |
+|---------------|-------------|
+| `mutual_information(data, n_features, labels, n_bins) -> Result<FeatureSelection>` | Select features with MI > 0 (discretized into equal-width bins) |
+| `mutual_information_top_k(data, n_features, labels, n_bins, k) -> Result<FeatureSelection>` | Select top-k features by MI |
+
+**Recursive Feature Elimination:**
+
+| Type/Function | Description |
+|---------------|-------------|
+| `recursive_feature_elimination(data, n_features, n_select, importance_fn) -> Result<FeatureSelection>` | Iteratively remove least important features via user-supplied importance closure |
+
+**Lasso (L1-Regularized) Selection:**
+
+| Type/Function | Description |
+|---------------|-------------|
+| `LassoResult` | Result struct: `weights`, `bias`, `selected`, `n_iterations`, `n_features` |
+| `LassoResult::transform(data) -> Vec<f64>` | Filter data to keep only non-zero-weight features |
+| `LassoResult::predict(data) -> Vec<f64>` | Predict target values using fitted Lasso model |
+| `LassoResult::n_selected() -> usize` | Number of non-zero-weight features |
+| `lasso_selection(data, n_features, targets, alpha, max_iter, tol) -> Result<LassoResult>` | Coordinate descent Lasso for sparse feature selection |
+
 ### Hidden Markov Model (`hmm.rs`)
 
 | Type/Function | Description |
@@ -279,13 +313,13 @@ When the `blas` feature is enabled, PCA automatically dispatches to an ndarray-b
 
 ## Tests
 
-227 tests across 18 source files.
+269 tests across 19 source files.
 
 ## Source Files
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `lib.rs` | 65 | Module declarations, re-exports |
+| `lib.rs` | 70 | Module declarations, re-exports |
 | `cluster.rs` | 812 | K-means, DBSCAN, hierarchical clustering |
 | `metrics.rs` | 798 | Confusion matrix, classification metrics, ROC/PR curves |
 | `cross_validation.rs` | 472 | K-fold, stratified k-fold, leave-one-out CV |
@@ -299,6 +333,7 @@ When the `blas` feature is enabled, PCA automatically dispatches to an ndarray-b
 | `tree.rs` | 510 | Decision tree classifier (Gini impurity) |
 | `forest.rs` | 447 | Random forest classifier (bagged ensemble) |
 | `gbdt.rs` | 2165 | Gradient boosted decision trees (regression, classification, early stopping) |
+| `feature_selection.rs` | 1226 | Feature selection (variance threshold, MI, RFE, Lasso) |
 | `hmm.rs` | 770 | Hidden Markov Model (forward, backward, Viterbi, Baum-Welch) |
 | `reduction.rs` | 773 | PCA and t-SNE dimensionality reduction |
 | `blas_pca.rs` | 123 | BLAS-accelerated PCA via ndarray (feature `blas`) |

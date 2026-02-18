@@ -18,7 +18,7 @@ Every crate has a `docs/STATUS.md` with full API documentation.
 | cyanea-align | Complete (NW, SW, semi-global, banded, MSA, SIMD SW, seed-and-extend, minimizers, WFA, GPU dispatch, POA, LCSk++, pair HMM, PAM40/120/200, BLOSUM30, CIGAR utilities, X-drop/Z-drop, spliced alignment) | 290 |
 | cyanea-omics | Complete (genomic coords, intervals, matrices, variants, AnnData, h5ad, zarr) | 161 |
 | cyanea-stats | Complete (descriptive, correlation, hypothesis tests, distributions, PCA, effect sizes, chi-squared, Fisher's exact, Bayesian conjugate priors, combinatorics, population genetics, normalization, differential expression, enrichment analysis, survival analysis) | 304 |
-| cyanea-ml | Complete (clustering, distances, embeddings, KNN, PCA, t-SNE, UMAP, random forest, GBDT, regression, HMM, classification metrics, cross-validation) | 227 |
+| cyanea-ml | Complete (clustering, distances, embeddings, KNN, PCA, t-SNE, UMAP, random forest, GBDT, feature selection, regression, HMM, classification metrics, cross-validation) | 269 |
 | cyanea-chem | Complete (SMILES, SDF V2000/V3000, fingerprints, MACCS keys, properties, substructure, stereochemistry, canonical SMILES) | 79 |
 | cyanea-struct | Complete (PDB, mmCIF, geometry, DSSP, Kabsch, contact maps, Ramachandran) | 76 |
 | cyanea-phylo | Complete (Newick, NEXUS, distances, UPGMA/NJ, Fitch/Sankoff, ML likelihood, bootstrap) | 110 |

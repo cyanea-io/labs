@@ -25,7 +25,7 @@ All crates are complete. Each has `docs/STATUS.md` with full API docs.
 | **cyanea-align** | NW, SW, semi-global, MSA, banded, seed-and-extend, minimizers, WFA, GPU dispatch, POA, LCSk++ sparse alignment, pair HMM, PAM40/120/200, BLOSUM30, CIGAR utilities, X-drop/Z-drop extension, spliced alignment | 290 | cyanea-core |
 | **cyanea-omics** | Genomic coords, intervals, matrices, variants, AnnData, h5ad, zarr | 99 | cyanea-core, zarrs |
 | **cyanea-stats** | Descriptive, correlation, hypothesis tests, distributions, PCA, effect sizes, Bayesian conjugate priors, combinatorics, population genetics, enrichment analysis, survival analysis | 304 | cyanea-core |
-| **cyanea-ml** | Clustering, distances, embeddings, KNN, PCA, t-SNE, UMAP, random forest, GBDT, HMM, classification metrics, cross-validation | 227 | cyanea-core |
+| **cyanea-ml** | Clustering, distances, embeddings, KNN, PCA, t-SNE, UMAP, random forest, GBDT, feature selection, HMM, classification metrics, cross-validation | 269 | cyanea-core |
 | **cyanea-chem** | SMILES/SDF V2000/V3000, fingerprints, MACCS keys, properties, substructure, stereochemistry, canonical SMILES | 79 | cyanea-core, sha2 |
 | **cyanea-struct** | PDB, mmCIF, geometry, DSSP, Kabsch, contact maps, Ramachandran | 76 | cyanea-core, sha2 |
 | **cyanea-phylo** | Newick/NEXUS, distances, UPGMA/NJ, Fitch/Sankoff, ML likelihood, bootstrap | 110 | cyanea-core, cyanea-ml (optional) |
