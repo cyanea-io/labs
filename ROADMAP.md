@@ -226,14 +226,14 @@ Last updated: 2026-02-17
 
 ---
 
-## T8 — GPU Acceleration Extensions
+## T8 — GPU Acceleration Extensions ✅
 
-### GPU Kernels (`cyanea-gpu`)
-- [ ] GPU-accelerated k-mer counting
-- [ ] GPU pairwise distance matrices (larger-than-memory tiling)
-- [ ] GPU Smith-Waterman for protein (BLOSUM on device)
-- [ ] GPU MinHash sketch computation
-- [ ] WebGPU backend (wgpu) for browser GPU compute
+### GPU Kernels (`cyanea-gpu`) — Done
+- [x] GPU-accelerated k-mer counting
+- [x] GPU pairwise distance matrices (larger-than-memory tiling)
+- [x] GPU Smith-Waterman for protein (BLOSUM on device)
+- [x] GPU MinHash sketch computation
+- [x] WebGPU backend (wgpu) for browser GPU compute
 
 ---
 

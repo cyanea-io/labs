@@ -84,6 +84,90 @@ pub fn batch_pairwise(
     backend.batch_pairwise(items, n, item_len, f)
 }
 
+/// Computes an n×n pairwise distance matrix using tiled evaluation.
+///
+/// Splits the n rows into tiles of at most `tile_size` rows, computes
+/// inter-tile and intra-tile distance sub-matrices using the backend's
+/// `pairwise_distance_matrix`, and assembles the full n×n result. This
+/// enables larger-than-GPU-memory distance computations by processing
+/// tiles sequentially.
+///
+/// `data` is a flat row-major matrix of shape `(n, dim)`.
+pub fn tiled_pairwise_distance(
+    backend: &dyn Backend,
+    data: &[f64],
+    n: usize,
+    dim: usize,
+    metric: DistanceMetricGpu,
+    tile_size: usize,
+) -> Result<Vec<f64>> {
+    if n == 0 {
+        return Ok(vec![]);
+    }
+    if data.len() != n * dim {
+        return Err(CyaneaError::InvalidInput(format!(
+            "tiled_pairwise_distance: expected {} elements ({}×{}), got {}",
+            n * dim,
+            n,
+            dim,
+            data.len()
+        )));
+    }
+    if tile_size == 0 {
+        return Err(CyaneaError::InvalidInput(
+            "tiled_pairwise_distance: tile_size must be > 0".to_string(),
+        ));
+    }
+
+    let mut result = vec![0.0_f64; n * n];
+    let num_tiles = (n + tile_size - 1) / tile_size;
+
+    for ti in 0..num_tiles {
+        let i_start = ti * tile_size;
+        let i_end = (i_start + tile_size).min(n);
+        let ni = i_end - i_start;
+
+        for tj in ti..num_tiles {
+            let j_start = tj * tile_size;
+            let j_end = (j_start + tile_size).min(n);
+            let nj = j_end - j_start;
+
+            if ti == tj {
+                // Intra-tile: compute ni×ni distance matrix directly
+                let tile_data: Vec<f64> = data[i_start * dim..i_end * dim].to_vec();
+                let buf = backend.buffer_from_slice(&tile_data)?;
+                let dist_buf = backend.pairwise_distance_matrix(&buf, ni, dim, metric)?;
+                let dist = backend.read_buffer(&dist_buf)?;
+                for li in 0..ni {
+                    for lj in 0..ni {
+                        result[(i_start + li) * n + (i_start + lj)] = dist[li * ni + lj];
+                    }
+                }
+            } else {
+                // Inter-tile: combine tile_I ++ tile_J, compute (ni+nj)×(ni+nj),
+                // extract cross-tile sub-matrix
+                let mut combined = Vec::with_capacity((ni + nj) * dim);
+                combined.extend_from_slice(&data[i_start * dim..i_end * dim]);
+                combined.extend_from_slice(&data[j_start * dim..j_end * dim]);
+                let total = ni + nj;
+                let buf = backend.buffer_from_slice(&combined)?;
+                let dist_buf = backend.pairwise_distance_matrix(&buf, total, dim, metric)?;
+                let dist = backend.read_buffer(&dist_buf)?;
+                // Extract cross-tile distances (rows 0..ni, cols ni..total)
+                for li in 0..ni {
+                    for lj in 0..nj {
+                        let d = dist[li * total + (ni + lj)];
+                        result[(i_start + li) * n + (j_start + lj)] = d;
+                        result[(j_start + lj) * n + (i_start + li)] = d;
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(result)
+}
+
 /// Column-wise z-score normalization.
 ///
 /// `data` is a flat row-major matrix of shape `(n_rows, n_cols)`.
@@ -277,5 +361,72 @@ mod tests {
         let b = backend();
         let data = b.buffer_from_slice(&[1.0, 2.0, 3.0]).unwrap();
         assert!(batch_z_score(&b, &data, 2, 2).is_err());
+    }
+
+    // ── Tiled pairwise distance tests ──────────────────────────────
+
+    #[test]
+    fn tiled_matches_full() {
+        let b = backend();
+        // 4 points in 2D
+        let data = vec![0.0, 0.0, 3.0, 0.0, 0.0, 4.0, 1.0, 1.0];
+        let buf = b.buffer_from_slice(&data).unwrap();
+        let full_buf = b
+            .pairwise_distance_matrix(&buf, 4, 2, DistanceMetricGpu::Euclidean)
+            .unwrap();
+        let full = b.read_buffer(&full_buf).unwrap();
+        let tiled =
+            tiled_pairwise_distance(&b, &data, 4, 2, DistanceMetricGpu::Euclidean, 2).unwrap();
+        assert_eq!(full.len(), tiled.len());
+        for (i, (f, t)) in full.iter().zip(&tiled).enumerate() {
+            assert!(
+                (f - t).abs() < 1e-10,
+                "mismatch at index {i}: full={f}, tiled={t}"
+            );
+        }
+    }
+
+    #[test]
+    fn tiled_single_tile() {
+        let b = backend();
+        let data = vec![0.0, 0.0, 1.0, 1.0];
+        let tiled =
+            tiled_pairwise_distance(&b, &data, 2, 2, DistanceMetricGpu::Euclidean, 100).unwrap();
+        let expected = (2.0_f64).sqrt();
+        assert!((tiled[0 * 2 + 1] - expected).abs() < 1e-10);
+        assert!((tiled[1 * 2 + 0] - expected).abs() < 1e-10);
+        assert!(tiled[0].abs() < 1e-10);
+    }
+
+    #[test]
+    fn tiled_exact_division() {
+        let b = backend();
+        // 6 points in 1D, tile_size=3 → exactly 2 tiles
+        let data = vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0];
+        let tiled =
+            tiled_pairwise_distance(&b, &data, 6, 1, DistanceMetricGpu::Manhattan, 3).unwrap();
+        // d(0,5) = 5.0
+        assert!((tiled[0 * 6 + 5] - 5.0).abs() < 1e-10);
+        // d(2,3) = 1.0
+        assert!((tiled[2 * 6 + 3] - 1.0).abs() < 1e-10);
+        // symmetric
+        assert!((tiled[5 * 6 + 0] - 5.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn tiled_remainder() {
+        let b = backend();
+        // 5 points in 1D, tile_size=2 → 3 tiles (2,2,1)
+        let data = vec![0.0, 10.0, 20.0, 30.0, 40.0];
+        let tiled =
+            tiled_pairwise_distance(&b, &data, 5, 1, DistanceMetricGpu::Manhattan, 2).unwrap();
+        // d(0,4) = 40.0
+        assert!((tiled[0 * 5 + 4] - 40.0).abs() < 1e-10);
+        // d(1,3) = 20.0
+        assert!((tiled[1 * 5 + 3] - 20.0).abs() < 1e-10);
+        // diagonal = 0
+        for i in 0..5 {
+            assert!(tiled[i * 5 + i].abs() < 1e-10);
+        }
     }
 }

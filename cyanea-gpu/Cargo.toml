@@ -13,6 +13,7 @@ categories = ["science"]
 default = []
 cuda = ["dep:cudarc"]
 metal = ["dep:metal-rs"]
+wgpu = ["dep:wgpu", "dep:bytemuck", "dep:pollster"]
 serde = ["dep:serde", "cyanea-core/serde"]
 parallel = ["dep:rayon"]
 
@@ -22,6 +23,9 @@ serde = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
 metal-rs = { workspace = true, optional = true }
 cudarc = { workspace = true, optional = true }
+wgpu = { version = "24", optional = true }
+bytemuck = { version = "1", features = ["derive"], optional = true }
+pollster = { version = "0.4", optional = true }
 
 [dev-dependencies]
 criterion = { workspace = true }

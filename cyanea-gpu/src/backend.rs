@@ -16,6 +16,8 @@ pub enum BackendKind {
     Cuda,
     /// Apple Metal backend.
     Metal,
+    /// WebGPU backend (via wgpu).
+    Wgpu,
 }
 
 impl fmt::Display for BackendKind {
@@ -24,6 +26,7 @@ impl fmt::Display for BackendKind {
             Self::Cpu => write!(f, "CPU"),
             Self::Cuda => write!(f, "CUDA"),
             Self::Metal => write!(f, "Metal"),
+            Self::Wgpu => write!(f, "WebGPU"),
         }
     }
 }
@@ -175,6 +178,7 @@ mod tests {
         assert_eq!(BackendKind::Cpu.to_string(), "CPU");
         assert_eq!(BackendKind::Cuda.to_string(), "CUDA");
         assert_eq!(BackendKind::Metal.to_string(), "Metal");
+        assert_eq!(BackendKind::Wgpu.to_string(), "WebGPU");
     }
 
     #[test]

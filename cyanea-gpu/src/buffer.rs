@@ -23,6 +23,9 @@ pub struct Buffer {
     /// CUDA device allocation (f64 on GPU).
     #[cfg(feature = "cuda")]
     pub(crate) cuda_slice: Option<cudarc::driver::CudaSlice<f64>>,
+    /// WebGPU device buffer (f32 on GPU).
+    #[cfg(feature = "wgpu")]
+    pub(crate) wgpu_buffer: Option<wgpu::Buffer>,
 }
 
 impl fmt::Debug for Buffer {
@@ -35,6 +38,8 @@ impl fmt::Debug for Buffer {
         dbg.field("has_metal_buffer", &self.metal_buffer.is_some());
         #[cfg(feature = "cuda")]
         dbg.field("has_cuda_slice", &self.cuda_slice.is_some());
+        #[cfg(feature = "wgpu")]
+        dbg.field("has_wgpu_buffer", &self.wgpu_buffer.is_some());
         dbg.finish()
     }
 }
@@ -50,6 +55,9 @@ impl Clone for Buffer {
             // CudaSlice owns GPU memory — clone host data only, drop device reference.
             #[cfg(feature = "cuda")]
             cuda_slice: None,
+            // wgpu::Buffer is not cloneable — clone host data only.
+            #[cfg(feature = "wgpu")]
+            wgpu_buffer: None,
         }
     }
 }
@@ -66,6 +74,8 @@ impl Buffer {
             metal_buffer: None,
             #[cfg(feature = "cuda")]
             cuda_slice: None,
+            #[cfg(feature = "wgpu")]
+            wgpu_buffer: None,
         }
     }
 
@@ -80,6 +90,8 @@ impl Buffer {
             metal_buffer: None,
             #[cfg(feature = "cuda")]
             cuda_slice: None,
+            #[cfg(feature = "wgpu")]
+            wgpu_buffer: None,
         }
     }
 
@@ -97,6 +109,8 @@ impl Buffer {
             metal_buffer: Some(metal_buffer),
             #[cfg(feature = "cuda")]
             cuda_slice: None,
+            #[cfg(feature = "wgpu")]
+            wgpu_buffer: None,
         }
     }
 
@@ -114,6 +128,27 @@ impl Buffer {
             #[cfg(feature = "metal")]
             metal_buffer: None,
             cuda_slice: Some(cuda_slice),
+            #[cfg(feature = "wgpu")]
+            wgpu_buffer: None,
+        }
+    }
+
+    /// Creates a buffer backed by a wgpu device buffer.
+    #[cfg(feature = "wgpu")]
+    pub(crate) fn from_wgpu(
+        host_data: Option<Vec<f64>>,
+        wgpu_buffer: wgpu::Buffer,
+        len: usize,
+    ) -> Self {
+        Self {
+            host_data,
+            len,
+            origin: BackendKind::Wgpu,
+            #[cfg(feature = "metal")]
+            metal_buffer: None,
+            #[cfg(feature = "cuda")]
+            cuda_slice: None,
+            wgpu_buffer: Some(wgpu_buffer),
         }
     }
 
@@ -165,7 +200,13 @@ impl Summarizable for Buffer {
         } else {
             ""
         };
-        #[cfg(not(any(feature = "metal", feature = "cuda")))]
+        #[cfg(feature = "wgpu")]
+        let device_status = if self.wgpu_buffer.is_some() {
+            ", wgpu-backed"
+        } else {
+            ""
+        };
+        #[cfg(not(any(feature = "metal", feature = "cuda", feature = "wgpu")))]
         let device_status = "";
         format!(
             "Buffer({} f64s, {}, {}{})",
