@@ -161,6 +161,38 @@ All three alignment modes (global, local, semi-global) are fully implemented wit
 - `log_sum_exp` helper avoids underflow in the forward algorithm
 - Viterbi traceback produces the most probable state path through M/X/Y states
 
+### Profile HMM (`profile_hmm.rs`)
+
+| Type | Description |
+|------|-------------|
+| `Alphabet` | Enum: `Dna`, `Rna`, `Protein` — encoding and background frequencies |
+| `ProfileHmmConfig` | Construction parameters: alphabet, pseudocount, gap threshold, local/global mode |
+| `ProfileHmmState` | Enum: `Match(usize)`, `Insert(usize)`, `Delete(usize)` |
+| `ProfileHmmResult` | Result: `score`, `states: Vec<ProfileHmmState>` |
+| `GumbelParams` | Gumbel distribution parameters for E-value estimation |
+| `ProfileHmm` | Plan 7 Profile HMM with match/insert/delete states |
+
+| Method | Description |
+|--------|-------------|
+| `ProfileHmm::new(len, alphabet, match_emit, insert_emit, transitions, entry, exit)` | Construct from raw parameters |
+| `ProfileHmm::from_msa(msa, config) -> Result<Self>` | Construct from MSA with column classification and pseudocounts |
+| `ProfileHmm::viterbi(seq) -> Result<ProfileHmmResult>` | Viterbi decoding (optimal state path + log-probability) |
+| `ProfileHmm::forward(seq) -> Result<f64>` | Forward algorithm (total log-likelihood) |
+| `ProfileHmm::backward(seq) -> Result<f64>` | Backward algorithm (total log-likelihood, matches forward) |
+| `ProfileHmm::calibrate(n_samples, seq_length, seed) -> Result<()>` | Fit Gumbel distribution from random sequence scores |
+| `ProfileHmm::evalue(score, db_size) -> Result<f64>` | Compute E-value from calibrated Gumbel parameters |
+| `ProfileHmmConfig::dna()` | DNA-specific default config |
+| `ProfileHmmConfig::protein()` | Protein-specific default config |
+
+**Implementation details:**
+
+- Plan 7 architecture: 7 transitions per position (M→M, M→I, M→D, I→M, I→I, D→M, D→D)
+- Local alignment via uniform Begin→Mk and Mk→End entry/exit probabilities
+- Column classification: MSA columns with gap fraction > threshold become insert states
+- All computation in log-space with `log_sum_exp` for numerical stability
+- Gumbel E-value calibration via method of moments on random sequence Viterbi scores
+- Flat array storage with contiguous transition blocks per position
+
 ## Feature Flags
 
 | Flag | Default | Description |
@@ -203,3 +235,4 @@ All three alignment modes (global, local, semi-global) are fully implemented wit
 | `lcsk.rs` | 598 | LCSk++ sparse alignment with Fenwick tree |
 | `poa.rs` | 766 | Partial Order Alignment (Lee 2002 DAG alignment) |
 | `pair_hmm.rs` | 697 | Pair HMM forward algorithm and Viterbi decoding |
+| `profile_hmm.rs` | ~900 | Profile HMM: Plan 7 architecture, Viterbi/Forward/Backward, E-value |

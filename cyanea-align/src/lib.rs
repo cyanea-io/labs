@@ -30,6 +30,7 @@ pub mod seed_extend;
 pub mod wfa;
 pub mod lcsk;
 pub mod pair_hmm;
+pub mod profile_hmm;
 pub mod spliced;
 pub mod xdrop;
 
@@ -49,6 +50,9 @@ pub use lcsk::{sparse_align, find_kmer_matches, lcsk_plusplus, SparseAlignResult
 pub use poa::{PoaGraph, PoaScoring};
 pub use pair_hmm::{
     pair_hmm_forward, pair_hmm_viterbi, PairHmmAlignment, PairHmmParams, PairHmmState,
+};
+pub use profile_hmm::{
+    Alphabet, GumbelParams, ProfileHmm, ProfileHmmConfig, ProfileHmmResult, ProfileHmmState,
 };
 pub use spliced::{
     chain_exons, detect_splice_site, spliced_align, ExonAlignment, SpliceSiteType,

@@ -169,12 +169,12 @@ Last updated: 2026-02-17
 
 ## T6 — Medium-Impact Alignment & Phylo
 
-### Profile HMMs (`cyanea-align`)
-- [ ] Profile HMM construction from MSA
-- [ ] Viterbi search against profile HMM
-- [ ] Forward/backward on profiles
-- [ ] E-value estimation (basic)
-- [ ] HMMER3-style scoring (optional)
+### Profile HMMs (`cyanea-align`) — Done
+- [x] Profile HMM construction from MSA
+- [x] Viterbi search against profile HMM
+- [x] Forward/backward on profiles
+- [x] E-value estimation (basic)
+- [x] HMMER3-style scoring (optional)
 
 ### Phylogenetic Improvements (`cyanea-phylo`)
 - [ ] GTR + Gamma model (generalized time-reversible)
