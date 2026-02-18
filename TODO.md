@@ -89,6 +89,7 @@ Every crate has a `docs/STATUS.md` with full API documentation.
 - [x] UMAP dimensionality reduction
 - [x] Random forests
 - [x] Hidden Markov Models (forward, Viterbi, Baum-Welch)
+- [x] Model evaluation (confusion matrix, ROC/PR curves, F1, MCC, cross-validation)
 
 ### Phylogenetics (`cyanea-phylo`)
 - [x] Maximum likelihood tree inference (JC69 + Felsenstein pruning)
