@@ -27,8 +27,11 @@
 //! ```
 
 pub mod genomic;
+pub mod haplotype;
 pub mod interval;
 pub mod expr;
+pub mod network;
+pub mod otu;
 pub mod sparse;
 pub mod variant;
 pub mod annotation;
@@ -54,6 +57,11 @@ pub use genome_arithmetic::{
     merge, subtract, union, windows_around,
 };
 pub use liftover::{ChainFile, LiftoverResult, liftover, liftover_batch, parse_chain};
+pub use otu::OtuTable;
+pub use network::{CentralityScores, Community, Graph};
+pub use haplotype::{
+    haplotype_blocks, haplotype_diversity, phase_em, Haplotype, HaplotypeBlock, PhasedGenotypes,
+};
 #[cfg(feature = "h5ad")]
 pub use h5ad::{read_h5ad, write_h5ad};
 #[cfg(feature = "zarr")]

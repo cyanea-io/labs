@@ -229,6 +229,21 @@ Exact and log-space combinatorial functions with overflow protection.
 | `GoEnrichmentResult` | Per-term result: `term_id`, `term_name`, `namespace`, `overlap`, `expected`, `gene_set_size`, `p_value`, `p_adjusted` |
 | `go_enrichment(significant, annotation, n_total, config) -> Result<Vec<GoEnrichmentResult>>` | GO enrichment via ORA — filters by namespace/size, delegates to `ora()`, returns BH-corrected results |
 
+### Ecological diversity (`diversity.rs`)
+
+Alpha and beta diversity metrics for microbial ecology.
+
+| Type/Function | Description |
+|---------------|-------------|
+| `AlphaDiversity` | Shannon, Simpson, inverse Simpson, Chao1, observed species |
+| `alpha_diversity(counts) -> Result<AlphaDiversity>` | Compute all alpha diversity metrics |
+| `shannon_index(counts) -> Result<f64>` | Shannon entropy H = -Σ p_i ln(p_i) |
+| `simpson_index(counts) -> Result<f64>` | Simpson's index D = Σ n_i(n_i-1) / N(N-1) |
+| `chao1(counts) -> Result<f64>` | Chao1 richness estimator |
+| `bray_curtis(a, b) -> Result<f64>` | Bray-Curtis dissimilarity between two samples |
+| `bray_curtis_matrix(samples) -> Result<Vec<Vec<f64>>>` | Pairwise Bray-Curtis distance matrix |
+| `rarefaction_curve(counts, steps) -> Result<Vec<(usize, f64)>>` | Expected species richness at subsampled depths |
+
 ### Survival analysis (`survival.rs`)
 
 | Type/Function | Description |
@@ -243,7 +258,7 @@ Exact and log-space combinatorial functions with overflow protection.
 
 ## Tests
 
-319 unit tests + 9 doc tests across 17 source files.
+325 unit tests + 9 doc tests across 18 source files.
 
 ## Source Files
 

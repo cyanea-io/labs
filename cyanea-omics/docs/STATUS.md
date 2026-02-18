@@ -129,6 +129,70 @@ All omics data structures are implemented including genomic coordinates, interva
 | `subset_obs(indices) -> Result<AnnData>` | Subset by observation indices |
 | `qc_metrics() -> QcMetrics` | Compute QC metrics (total counts, features per obs) |
 
+### OTU/ASV tables (`otu.rs`)
+
+OTU/ASV abundance table operations for metagenomics.
+
+| Type | Description |
+|------|-------------|
+| `OtuTable` | Samples × OTUs abundance table |
+
+**OtuTable methods:**
+
+| Method | Description |
+|--------|-------------|
+| `new(counts, sample_names, otu_names) -> Result<Self>` | Create with dimension validation |
+| `n_samples() / n_otus()` | Dimension accessors |
+| `total_counts() -> Vec<usize>` | Per-sample totals |
+| `relative_abundance() -> Vec<Vec<f64>>` | Normalized per sample |
+| `filter_min_count(min_count) -> Self` | Keep OTUs with total ≥ threshold |
+| `filter_min_prevalence(min_fraction) -> Self` | Keep OTUs present in ≥ fraction of samples |
+| `rarefy(depth) -> Result<Self>` | Subsample to fixed depth |
+| `collapse_taxonomy(level, taxonomy) -> Result<Self>` | Collapse by taxonomy prefix |
+| `merge(other) -> Result<Self>` | Merge two tables with same OTUs |
+
+### Network biology (`network.rs`)
+
+Weighted graphs, centrality metrics, and community detection.
+
+| Type | Description |
+|------|-------------|
+| `Graph` | Weighted directed or undirected graph |
+| `CentralityScores` | Degree, betweenness, closeness centrality for all nodes |
+| `Community` | Community assignments with modularity score |
+
+**Graph methods:**
+
+| Method | Description |
+|--------|-------------|
+| `new(n_nodes, directed) -> Self` | Create empty graph |
+| `add_edge(from, to, weight) -> Result<()>` | Add a weighted edge |
+| `from_correlation_matrix(matrix, threshold) -> Self` | Build from correlation matrix |
+| `n_nodes() / n_edges()` | Graph size |
+| `neighbors(node) -> &[(usize, f64)]` | Neighbor list with weights |
+| `degree_centrality() -> Vec<f64>` | Degree centrality |
+| `betweenness_centrality() -> Vec<f64>` | Brandes' algorithm |
+| `closeness_centrality() -> Vec<f64>` | BFS-based closeness |
+| `centrality() -> CentralityScores` | All three centrality metrics |
+| `louvain() -> Community` | Louvain community detection |
+| `modularity(assignments) -> f64` | Compute modularity Q |
+
+### Haplotype analysis (`haplotype.rs`)
+
+EM phasing, haplotype block detection, and diversity statistics.
+
+| Type | Description |
+|------|-------------|
+| `Haplotype` | Sequence of biallelic alleles (0/1) |
+| `PhasedGenotypes` | EM phasing result with haplotype pairs and frequencies |
+| `HaplotypeBlock` | Contiguous SNP block in high LD |
+
+| Function | Description |
+|----------|-------------|
+| `phase_em(genotypes, max_iter) -> Result<PhasedGenotypes>` | EM-based haplotype phasing |
+| `haplotype_blocks(genotypes, threshold) -> Result<Vec<HaplotypeBlock>>` | Detect blocks from LD structure |
+| `haplotype_diversity(haplotypes) -> f64` | Haplotype diversity (expected heterozygosity analog) |
+
 ### HDF5 reader/writer (`h5ad.rs`, feature: `h5ad`)
 
 | Function | Description |
@@ -183,7 +247,7 @@ Pure Rust implementation using zarrs 0.18 (Zarr v3) — no system library requir
 
 ## Tests
 
-99 unit tests + 2 doc tests across 10 source files (with `zarr` feature; 90 + 2 without `zarr` or `h5ad`).
+117 unit tests + 2 doc tests across 13 source files (with `zarr` feature; 108 + 2 without `zarr` or `h5ad`).
 
 ## Source Files
 

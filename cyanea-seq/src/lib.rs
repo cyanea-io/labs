@@ -35,8 +35,10 @@
 //! ```
 
 pub mod alphabet;
+pub mod assembly;
 pub mod bwt;
 pub mod codon;
+pub mod debruijn;
 pub mod fasta;
 #[cfg(feature = "std")]
 pub mod fasta_index;
@@ -48,14 +50,17 @@ pub mod fmd_index;
 pub mod kmer;
 pub mod masking;
 pub mod minhash;
+pub mod motif;
 pub mod orf;
 pub mod pattern;
 pub mod protein_properties;
 pub mod pssm;
+pub mod restriction;
 pub mod rna_structure;
 pub mod quality;
 pub mod seq;
 pub mod suffix;
+pub mod taxonomy;
 pub mod trim;
 pub mod twobit;
 pub mod types;
@@ -145,3 +150,21 @@ pub use masking::{
     apply_mask, dust, find_tandem_repeats, mask_dust, mask_seg, seg, DustParams, MaskMode,
     MaskResult, MaskSource, MaskedRegion, SegParams, TandemRepeatParams,
 };
+
+// Re-export de Bruijn graph types
+pub use debruijn::{DeBruijnGraph, Unitig};
+
+// Re-export assembly QC
+pub use assembly::{assembly_stats, nx_values, AssemblyStats};
+
+// Re-export taxonomy types
+pub use taxonomy::{KmerClassifier, TaxonRank, TaxonomyNode, TaxonomyTree};
+
+// Re-export restriction enzyme types
+pub use restriction::{
+    common_enzymes, digest, find_cut_sites, fragment_sizes, CutSite, Fragment, Overhang,
+    RestrictionEnzyme,
+};
+
+// Re-export motif discovery types
+pub use motif::{discover_motifs, DiscoveredMotif, Pwm};

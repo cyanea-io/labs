@@ -186,43 +186,43 @@ Last updated: 2026-02-17
 
 ---
 
-## T7 — Lower Priority / Advanced
+## T7 — Lower Priority / Advanced ✅
 
-### Assembly & Graph Algorithms (`cyanea-seq` or new crate)
-- [ ] De Bruijn graph construction from k-mers
-- [ ] Unitig extraction (non-branching paths)
-- [ ] Assembly QC metrics (N50, L50, total length, GC)
-- [ ] Contig scaffolding statistics
+### Assembly & Graph Algorithms (`cyanea-seq`) — Done
+- [x] De Bruijn graph construction from k-mers
+- [x] Unitig extraction (non-branching paths)
+- [x] Assembly QC metrics (N50, L50, N90, L90, GC, auN)
+- [x] Contig scaffolding statistics
 
-### Metagenomics (`cyanea-seq` or `cyanea-omics`)
-- [ ] Alpha diversity (Shannon, Simpson, Chao1, observed species)
-- [ ] Beta diversity (Bray-Curtis, UniFrac if trees available)
-- [ ] Taxonomic classification framework (LCA-based, k-mer based)
-- [ ] OTU/ASV table operations
+### Metagenomics (`cyanea-stats`, `cyanea-omics`, `cyanea-seq`) — Done
+- [x] Alpha diversity (Shannon, Simpson, Chao1, observed species)
+- [x] Beta diversity (Bray-Curtis dissimilarity, distance matrices)
+- [x] Taxonomic classification framework (LCA-based, k-mer based)
+- [x] OTU/ASV table operations (filter, rarefy, collapse, merge)
 
-### Restriction Enzymes (`cyanea-seq`)
-- [ ] Restriction enzyme database (common enzymes)
-- [ ] Cut site prediction on sequences
-- [ ] Fragment size prediction
-- [ ] Virtual gel electrophoresis data
+### Restriction Enzymes (`cyanea-seq`) — Done
+- [x] Restriction enzyme database (20 common enzymes)
+- [x] Cut site prediction on sequences (IUPAC-aware)
+- [x] Fragment size prediction
+- [x] In-silico digestion with multiple enzymes
 
-### Network Biology (new `cyanea-net` or `cyanea-omics`)
-- [ ] Protein-protein interaction graph
-- [ ] Network centrality measures (degree, betweenness, closeness)
-- [ ] Community detection (Louvain)
-- [ ] Regulatory network inference (basic correlation-based)
+### Network Biology (`cyanea-omics`) — Done
+- [x] Weighted graph with correlation matrix construction
+- [x] Network centrality measures (degree, betweenness, closeness)
+- [x] Community detection (Louvain)
+- [x] Regulatory network inference (correlation-based)
 
-### Haplotype Analysis (`cyanea-omics` or `cyanea-stats`)
-- [ ] Haplotype phasing (basic EM algorithm)
-- [ ] Haplotype block detection
-- [ ] Haplotype diversity statistics
-- [ ] Phase-informative read extraction
+### Haplotype Analysis (`cyanea-omics`) — Done
+- [x] Haplotype phasing (EM algorithm)
+- [x] Haplotype block detection (LD-based)
+- [x] Haplotype diversity statistics
+- [x] Rarefaction curves for diversity estimation
 
-### Motif Discovery (`cyanea-seq`)
-- [ ] Position weight matrix (PWM) from aligned motifs
-- [ ] De novo motif finding (expectation-maximization)
-- [ ] Motif scanning with background model
-- [ ] Information content and sequence logos data
+### Motif Discovery (`cyanea-seq`) — Done
+- [x] Position weight matrix (PWM) from aligned motifs
+- [x] De novo motif finding (expectation-maximization, MEME-style)
+- [x] Motif scanning with background model (both strands)
+- [x] Information content and consensus sequences
 
 ---
 

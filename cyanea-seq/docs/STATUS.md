@@ -525,6 +525,111 @@ Physicochemical and structural property analysis for protein sequences. All func
 | `gor(seq) -> Result<SecondaryStructurePrediction>` | GOR information-theoretic window prediction |
 | `predict_disorder(seq, window) -> Result<DisorderPrediction>` | Windowed disorder propensity with logistic smoothing |
 
+### De Bruijn graph (`debruijn.rs`)
+
+De Bruijn graph construction from k-mers with unitig extraction.
+
+| Type | Description |
+|------|-------------|
+| `DeBruijnGraph` | Node-centric De Bruijn graph built from k-mers |
+| `Unitig` | A maximal non-branching path with coverage |
+
+**DeBruijnGraph methods:**
+
+| Method | Description |
+|--------|-------------|
+| `from_sequences(sequences, k) -> Result<Self>` | Build from input sequences |
+| `from_kmers(kmers) -> Result<Self>` | Build from pre-extracted k-mers |
+| `node_count() -> usize` | Number of (k-1)-mer nodes |
+| `edge_count() -> usize` | Number of k-mer edges |
+| `contains_kmer(kmer) -> bool` | Check if a k-mer exists as an edge |
+| `unitigs() -> Vec<Unitig>` | Extract all maximal non-branching paths |
+
+### Assembly QC metrics (`assembly.rs`)
+
+Standard assembly quality statistics.
+
+| Type/Function | Description |
+|---------------|-------------|
+| `AssemblyStats` | N50, L50, N90, L90, GC content, auN, contig counts |
+| `assembly_stats(contigs) -> Result<AssemblyStats>` | Compute all assembly statistics |
+| `nx_values(contigs, x) -> Result<(usize, usize)>` | Compute Nx and Lx for arbitrary x |
+
+### Taxonomy (`taxonomy.rs`)
+
+Taxonomic trees, LCA queries, and k-mer based classification.
+
+| Type | Description |
+|------|-------------|
+| `TaxonRank` | Enum: Domain, Phylum, Class, Order, Family, Genus, Species, Unranked |
+| `TaxonomyNode` | Node with id, name, rank, parent link |
+| `TaxonomyTree` | Rooted taxonomy tree with LCA queries |
+| `KmerClassifier` | Kraken-style k-mer taxonomic classifier |
+
+**TaxonomyTree methods:**
+
+| Method | Description |
+|--------|-------------|
+| `new() -> Self` | Create empty tree |
+| `add_node(name, rank, parent) -> usize` | Add a node, returns id |
+| `lca(ids) -> Result<usize>` | Lowest common ancestor of a set of taxa |
+| `lineage(id) -> Vec<usize>` | Path from node to root |
+| `depth(id) -> usize` | Depth of a node (root = 0) |
+
+**KmerClassifier methods:**
+
+| Method | Description |
+|--------|-------------|
+| `new(taxonomy, k) -> Self` | Create classifier with taxonomy and k-mer size |
+| `add_reference(sequence, taxon_id)` | Index a reference sequence |
+| `classify(sequence) -> Option<usize>` | Classify a query sequence by k-mer LCA |
+
+### Restriction enzymes (`restriction.rs`)
+
+Restriction enzyme database, cut-site finding, and in-silico digestion with IUPAC degenerate base support.
+
+| Type | Description |
+|------|-------------|
+| `RestrictionEnzyme` | Enzyme with recognition site and cut offsets |
+| `CutSite` | A located cut site with overhang type |
+| `Overhang` | Enum: `FivePrime(Vec<u8>)`, `ThreePrime(Vec<u8>)`, `Blunt` |
+| `Fragment` | A restriction fragment with start, end, length |
+
+| Function | Description |
+|----------|-------------|
+| `common_enzymes() -> Vec<RestrictionEnzyme>` | 20 common enzymes (EcoRI, BamHI, HindIII, NotI, etc.) |
+| `find_cut_sites(seq, enzyme) -> Vec<CutSite>` | Find all cut sites for an enzyme |
+| `digest(seq, enzymes) -> Vec<Fragment>` | Digest with one or more enzymes |
+| `fragment_sizes(seq, enzymes) -> Vec<usize>` | Fragment sizes from digestion |
+
+### Motif discovery (`motif.rs`)
+
+DNA motif PWMs, scanning, and EM-based de novo discovery. Complements the generic `Pssm` with DNA-specific features.
+
+| Type | Description |
+|------|-------------|
+| `Pwm` | Position Weight Matrix for DNA (A/C/G/T probabilities per position) |
+| `MotifMatch` | A motif match: position, score, strand |
+| `Strand` | Enum: `Forward`, `Reverse` |
+| `DiscoveredMotif` | Discovered motif with PWM, sites, and score |
+
+**Pwm methods:**
+
+| Method | Description |
+|--------|-------------|
+| `from_aligned(sequences) -> Result<Self>` | Build from aligned sequences |
+| `from_counts(counts) -> Self` | Build from raw base counts |
+| `score_sequence(seq, background) -> f64` | Log-odds score for a window |
+| `scan(seq, background, threshold) -> Vec<MotifMatch>` | Scan both strands |
+| `information_content() -> Vec<f64>` | Per-position IC in bits |
+| `total_information() -> f64` | Total IC across positions |
+| `consensus() -> Vec<u8>` | Consensus sequence |
+| `reverse_complement() -> Self` | Reverse complement PWM |
+
+| Function | Description |
+|----------|-------------|
+| `discover_motifs(sequences, motif_length, n_motifs, max_iter) -> Result<Vec<DiscoveredMotif>>` | MEME-style EM motif discovery |
+
 ## Feature Flags
 
 | Flag | Default | Description |
@@ -541,7 +646,7 @@ Physicochemical and structural property analysis for protein sequences. All func
 
 ## Tests
 
-433 tests across 23 source files.
+458 tests across 28 source files.
 
 ## Source Files
 

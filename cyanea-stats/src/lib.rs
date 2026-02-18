@@ -34,6 +34,7 @@ pub mod correlation;
 pub mod descriptive;
 pub mod diffexpr;
 pub mod distribution;
+pub mod diversity;
 pub mod enrichment;
 pub mod effect_size;
 pub mod normalization;
@@ -65,3 +66,7 @@ pub use popgen::{
 pub use rank::RankMethod;
 pub use survival::{CoxPhResult, KmResult, KmStep, LogRankResult};
 pub use testing::TestResult;
+pub use diversity::{
+    alpha_diversity, bray_curtis, bray_curtis_matrix, chao1, rarefaction_curve, shannon_index,
+    simpson_index, AlphaDiversity,
+};
