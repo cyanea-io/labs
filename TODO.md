@@ -2,7 +2,7 @@
 
 > Best-in-class Rust bioinformatics ecosystem targeting CPU, GPU, WASM (browser), and BEAM (Elixir NIFs).
 
-Last updated: 2026-02-17
+Last updated: 2026-02-18
 
 ---
 
@@ -206,4 +206,11 @@ Every crate has a `docs/STATUS.md` with full API documentation.
 
 ## New Features
 
-See **[ROADMAP.md](ROADMAP.md)** for the full feature/capability roadmap (T1–T8 tiers).
+See **[ROADMAP.md](ROADMAP.md)** for the full feature/capability roadmap:
+- **T1–T8**: Complete — original ecosystem build-out (1800+ tests)
+- **T9**: Indexed access (BAI/TBI/CSI), BAM sort/index/merge/markdup, VCF writing & manipulation, interval trees
+- **T10**: Single-cell pipeline — Leiden clustering, HVG selection, pseudotime, batch correction
+- **T11**: Microbiome & ecological statistics — UniFrac, PCoA, PERMANOVA/ANOSIM/Mantel, CCA/RDA
+- **T12**: Cheminformatics depth — SMARTS, 200+ descriptors, 3D conformers, reactions, drug-likeness filters
+- **T13**: Phylogenetics & alignment maturity — SPR/TBR search, model selection, protein models, Bayesian MCMC, alignment format I/O
+- **T14**: Variant annotation, database clients, CNV, methylation, spatial transcriptomics, simulation
