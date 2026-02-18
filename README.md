@@ -19,6 +19,8 @@
 </p>
 
 <p align="center">
+  <a href="ARCHITECTURE.md">Architecture</a> &bull;
+  <a href="docs/BUILDING.md">Build Guide</a> &bull;
   <a href="https://github.com/cyanea-io/labs/issues">Issues</a> &bull;
   <a href="https://github.com/cyanea-io/labs/discussions">Discussions</a>
 </p>
@@ -113,6 +115,8 @@ const desc = stats.describe([1, 2, 3, 4, 5]);
 
 ## Architecture
 
+> See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the full architecture guide with ASCII diagrams, feature flag details, data flow pipelines, and platform support matrix.
+
 ```
 cyanea-core (foundation)
 ├── cyanea-seq          Sequences, indexing, k-mers
@@ -155,6 +159,8 @@ All domain crates default to `std`. Opt into additional capabilities:
 | `numpy` | py | NumPy array interop |
 
 ## Building Bindings
+
+> See [`docs/BUILDING.md`](docs/BUILDING.md) for the complete build guide covering all targets, feature combinations, and troubleshooting.
 
 ### WebAssembly
 
