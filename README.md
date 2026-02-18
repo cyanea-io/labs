@@ -19,6 +19,7 @@
 </p>
 
 <p align="center">
+  <a href="docs/">Docs</a> &bull;
   <a href="ARCHITECTURE.md">Architecture</a> &bull;
   <a href="docs/BUILDING.md">Build Guide</a> &bull;
   <a href="https://github.com/cyanea-io/labs/issues">Issues</a> &bull;
