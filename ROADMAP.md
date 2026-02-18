@@ -167,7 +167,7 @@ Last updated: 2026-02-17
 
 ---
 
-## T6 — Medium-Impact Alignment & Phylo
+## T6 — Medium-Impact Alignment & Phylo ✅
 
 ### Profile HMMs (`cyanea-align`) — Done
 - [x] Profile HMM construction from MSA
@@ -176,7 +176,7 @@ Last updated: 2026-02-17
 - [x] E-value estimation (basic)
 - [x] HMMER3-style scoring (optional)
 
-### Phylogenetic Improvements (`cyanea-phylo`)
+### Phylogenetic Improvements (`cyanea-phylo`) — Done
 - [x] GTR + Gamma model (generalized time-reversible)
 - [x] Ancestral sequence reconstruction (marginal)
 - [x] Tree rerooting and subtree extraction
