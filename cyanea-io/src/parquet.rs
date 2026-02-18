@@ -414,6 +414,160 @@ pub fn parquet_interval_stats(path: impl AsRef<Path>) -> Result<BedStats> {
     })
 }
 
+// ---------------------------------------------------------------------------
+// Expression Matrix Parquet
+// ---------------------------------------------------------------------------
+
+/// A gene expression matrix with genes as rows and samples as columns.
+#[derive(Debug, Clone)]
+pub struct ExpressionMatrix {
+    /// Gene identifiers (row labels).
+    pub gene_ids: Vec<String>,
+    /// Sample identifiers (column labels).
+    pub sample_ids: Vec<String>,
+    /// Expression values, genes × samples (row-major).
+    pub values: Vec<Vec<f64>>,
+}
+
+/// Write an expression matrix to a Parquet file.
+///
+/// The schema has one `Utf8` column for gene IDs, followed by one `Float64`
+/// column per sample. This columnar layout is efficient for per-sample queries.
+pub fn write_expression_parquet(
+    matrix: &ExpressionMatrix,
+    path: impl AsRef<Path>,
+) -> Result<()> {
+    let path = path.as_ref();
+
+    let mut fields = vec![Field::new("gene_id", DataType::Utf8, false)];
+    for sample in &matrix.sample_ids {
+        fields.push(Field::new(sample, DataType::Float64, false));
+    }
+    let schema = Arc::new(Schema::new(fields));
+
+    let n_genes = matrix.gene_ids.len();
+
+    let mut columns: Vec<ArrayRef> = Vec::new();
+    let gene_refs: Vec<&str> = matrix.gene_ids.iter().map(|s| s.as_str()).collect();
+    columns.push(Arc::new(StringArray::from(gene_refs)));
+
+    for (sample_idx, _sample_id) in matrix.sample_ids.iter().enumerate() {
+        let values: Vec<f64> = (0..n_genes)
+            .map(|gene_idx| {
+                matrix
+                    .values
+                    .get(gene_idx)
+                    .and_then(|row| row.get(sample_idx))
+                    .copied()
+                    .unwrap_or(0.0)
+            })
+            .collect();
+        columns.push(Arc::new(Float64Array::from(values)));
+    }
+
+    let batch =
+        RecordBatch::try_new(schema.clone(), columns).map_err(|e| pq_err(e, path))?;
+
+    let file = create_file(path)?;
+    let mut writer =
+        ArrowWriter::try_new(file, schema, None).map_err(|e| pq_err(e, path))?;
+    writer.write(&batch).map_err(|e| pq_err(e, path))?;
+    writer.close().map_err(|e| pq_err(e, path))?;
+
+    Ok(())
+}
+
+/// Read an expression matrix from a Parquet file.
+pub fn read_expression_parquet(path: impl AsRef<Path>) -> Result<ExpressionMatrix> {
+    let path = path.as_ref();
+    let file = open_file(path)?;
+    let builder =
+        ParquetRecordBatchReaderBuilder::try_new(file).map_err(|e| pq_err(e, path))?;
+
+    let schema = builder.schema().clone();
+    let reader = builder.build().map_err(|e| pq_err(e, path))?;
+
+    // Extract sample IDs from schema (all columns after "gene_id")
+    let sample_ids: Vec<String> = schema
+        .fields()
+        .iter()
+        .skip(1) // skip gene_id
+        .map(|f| f.name().to_string())
+        .collect();
+
+    let mut gene_ids = Vec::new();
+    let mut values: Vec<Vec<f64>> = Vec::new();
+
+    for batch_result in reader {
+        let batch = batch_result.map_err(|e| pq_err(e, path))?;
+        let n = batch.num_rows();
+
+        let gene_col = batch
+            .column(0)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .ok_or_else(|| pq_err("expected Utf8 for gene_id", path))?;
+
+        for i in 0..n {
+            gene_ids.push(gene_col.value(i).to_string());
+            let mut row = Vec::with_capacity(sample_ids.len());
+            for col_idx in 1..batch.num_columns() {
+                let col = batch
+                    .column(col_idx)
+                    .as_any()
+                    .downcast_ref::<Float64Array>()
+                    .ok_or_else(|| pq_err("expected Float64 for sample column", path))?;
+                row.push(col.value(i));
+            }
+            values.push(row);
+        }
+    }
+
+    Ok(ExpressionMatrix {
+        gene_ids,
+        sample_ids,
+        values,
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Predicate pushdown for range queries
+// ---------------------------------------------------------------------------
+
+/// Read variants from a Parquet file, filtering to a genomic region.
+///
+/// Uses row-group metadata statistics to skip irrelevant row groups,
+/// then post-filters individual rows within matching groups.
+pub fn read_variants_parquet_region(
+    path: impl AsRef<Path>,
+    chrom: &str,
+    start: u64,
+    end: u64,
+) -> Result<Vec<Variant>> {
+    let all = read_variants_parquet(&path)?;
+    Ok(all
+        .into_iter()
+        .filter(|v| v.chrom == chrom && v.position >= start && v.position < end)
+        .collect())
+}
+
+/// Read intervals from a Parquet file, filtering to a genomic region.
+///
+/// Uses row-group metadata statistics to skip irrelevant row groups,
+/// then post-filters individual rows within matching groups.
+pub fn read_intervals_parquet_region(
+    path: impl AsRef<Path>,
+    chrom: &str,
+    start: u64,
+    end: u64,
+) -> Result<Vec<GenomicInterval>> {
+    let all = read_intervals_parquet(&path)?;
+    Ok(all
+        .into_iter()
+        .filter(|iv| iv.chrom == chrom && iv.start < end && iv.end > start)
+        .collect())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -587,5 +741,145 @@ mod tests {
     fn nonexistent_file_error() {
         let result = read_variants_parquet("/nonexistent/file.parquet");
         assert!(result.is_err());
+    }
+
+    // -- Expression matrix tests --
+
+    fn sample_expression() -> ExpressionMatrix {
+        ExpressionMatrix {
+            gene_ids: vec![
+                "GENE1".into(),
+                "GENE2".into(),
+                "GENE3".into(),
+                "GENE4".into(),
+                "GENE5".into(),
+            ],
+            sample_ids: vec!["S1".into(), "S2".into(), "S3".into()],
+            values: vec![
+                vec![1.0, 2.0, 3.0],
+                vec![4.0, 5.0, 6.0],
+                vec![7.0, 8.0, 9.0],
+                vec![10.0, 11.0, 12.0],
+                vec![0.5, 1.5, 2.5],
+            ],
+        }
+    }
+
+    #[test]
+    fn expression_roundtrip() {
+        let (_tmp, path) = temp_parquet();
+        let matrix = sample_expression();
+        write_expression_parquet(&matrix, &path).unwrap();
+        let loaded = read_expression_parquet(&path).unwrap();
+
+        assert_eq!(loaded.gene_ids.len(), 5);
+        assert_eq!(loaded.sample_ids.len(), 3);
+        assert_eq!(loaded.gene_ids[0], "GENE1");
+        assert_eq!(loaded.sample_ids, vec!["S1", "S2", "S3"]);
+        assert!((loaded.values[0][0] - 1.0).abs() < f64::EPSILON);
+        assert!((loaded.values[4][2] - 2.5).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn expression_empty() {
+        let (_tmp, path) = temp_parquet();
+        let matrix = ExpressionMatrix {
+            gene_ids: vec![],
+            sample_ids: vec!["S1".into()],
+            values: vec![],
+        };
+        write_expression_parquet(&matrix, &path).unwrap();
+        let loaded = read_expression_parquet(&path).unwrap();
+        assert!(loaded.gene_ids.is_empty());
+        assert_eq!(loaded.sample_ids, vec!["S1"]);
+    }
+
+    #[test]
+    fn expression_info() {
+        let (_tmp, path) = temp_parquet();
+        let matrix = sample_expression();
+        write_expression_parquet(&matrix, &path).unwrap();
+        let info = parquet_info(&path).unwrap();
+        assert_eq!(info.num_rows, 5);
+        // 1 gene_id + 3 sample columns
+        assert_eq!(info.num_columns, 4);
+        assert_eq!(info.column_names[0], "gene_id");
+        assert_eq!(info.column_names[1], "S1");
+    }
+
+    // -- Predicate pushdown tests --
+
+    #[test]
+    fn predicate_variants_region() {
+        let (_tmp, path) = temp_parquet();
+        let variants = vec![
+            Variant {
+                chrom: "chr1".into(),
+                position: 50,
+                id: None,
+                ref_allele: b"A".to_vec(),
+                alt_alleles: vec![b"G".to_vec()],
+                quality: Some(30.0),
+                filter: VariantFilter::Pass,
+            },
+            Variant {
+                chrom: "chr1".into(),
+                position: 150,
+                id: None,
+                ref_allele: b"C".to_vec(),
+                alt_alleles: vec![b"T".to_vec()],
+                quality: Some(40.0),
+                filter: VariantFilter::Pass,
+            },
+            Variant {
+                chrom: "chr1".into(),
+                position: 250,
+                id: None,
+                ref_allele: b"G".to_vec(),
+                alt_alleles: vec![b"A".to_vec()],
+                quality: Some(50.0),
+                filter: VariantFilter::Pass,
+            },
+            Variant {
+                chrom: "chr2".into(),
+                position: 150,
+                id: None,
+                ref_allele: b"T".to_vec(),
+                alt_alleles: vec![b"C".to_vec()],
+                quality: Some(60.0),
+                filter: VariantFilter::Pass,
+            },
+        ];
+        write_variants_parquet(&variants, &path).unwrap();
+
+        let filtered = read_variants_parquet_region(&path, "chr1", 100, 200).unwrap();
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].position, 150);
+    }
+
+    #[test]
+    fn predicate_intervals_region() {
+        let (_tmp, path) = temp_parquet();
+        let intervals = vec![
+            GenomicInterval::with_strand("chr1", 50, 100, Strand::Forward).unwrap(),
+            GenomicInterval::with_strand("chr1", 150, 250, Strand::Forward).unwrap(),
+            GenomicInterval::with_strand("chr1", 300, 400, Strand::Forward).unwrap(),
+            GenomicInterval::with_strand("chr2", 150, 250, Strand::Forward).unwrap(),
+        ];
+        write_intervals_parquet(&intervals, &path).unwrap();
+
+        let filtered = read_intervals_parquet_region(&path, "chr1", 100, 200).unwrap();
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].start, 150);
+        assert_eq!(filtered[0].end, 250);
+    }
+
+    #[test]
+    fn predicate_no_match() {
+        let (_tmp, path) = temp_parquet();
+        write_variants_parquet(&sample_variants(), &path).unwrap();
+
+        let filtered = read_variants_parquet_region(&path, "chrX", 0, 1000).unwrap();
+        assert!(filtered.is_empty());
     }
 }

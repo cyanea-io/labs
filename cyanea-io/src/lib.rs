@@ -37,6 +37,24 @@ pub mod parquet;
 #[cfg(feature = "cram")]
 pub mod cram;
 
+#[cfg(feature = "blast")]
+pub mod blast;
+
+#[cfg(feature = "maf")]
+pub mod maf;
+
+#[cfg(feature = "gtf")]
+pub mod gtf;
+
+#[cfg(feature = "genbank")]
+pub mod genbank;
+
+#[cfg(feature = "bigwig")]
+pub mod bigwig;
+
+#[cfg(feature = "bcf")]
+pub mod bcf;
+
 #[cfg(feature = "variant-calling")]
 pub mod variant_call;
 
@@ -78,12 +96,35 @@ pub use bam::{parse_bam, bam_stats, BamReference};
 
 #[cfg(feature = "parquet")]
 pub use parquet::{
-    parquet_info, parquet_interval_stats, parquet_variant_stats, read_intervals_parquet,
-    read_variants_parquet, write_intervals_parquet, write_variants_parquet, ParquetInfo,
+    parquet_info, parquet_interval_stats, parquet_variant_stats, read_expression_parquet,
+    read_intervals_parquet, read_intervals_parquet_region, read_variants_parquet,
+    read_variants_parquet_region, write_expression_parquet, write_intervals_parquet,
+    write_variants_parquet, ExpressionMatrix, ParquetInfo,
 };
 
 #[cfg(feature = "cram")]
 pub use cram::{cram_stats, cram_stats_default, parse_cram, parse_cram_default, CramConfig};
+
+#[cfg(feature = "blast")]
+pub use blast::{blast_stats, parse_blast, BlastRecord, BlastStats};
+
+#[cfg(feature = "maf")]
+pub use maf::{maf_stats, parse_maf, MafBlock, MafSequence, MafStats};
+
+#[cfg(feature = "gtf")]
+pub use gtf::{gtf_stats, parse_gtf, GtfStats};
+
+#[cfg(feature = "genbank")]
+pub use genbank::{genbank_stats, parse_genbank, GenbankFeature, GenbankRecord, GenbankStats};
+
+#[cfg(feature = "bigwig")]
+pub use bigwig::{
+    read_bigbed_header, read_bigbed_records, read_bigwig_header, read_bigwig_intervals,
+    BigBedRecord, BigWigHeader, BigWigInterval, BigWigSummary,
+};
+
+#[cfg(feature = "bcf")]
+pub use bcf::{bcf_stats, parse_bcf};
 
 #[cfg(feature = "variant-calling")]
 pub use variant_call::{

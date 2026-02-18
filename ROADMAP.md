@@ -3,7 +3,7 @@
 > Capabilities to add across the labs ecosystem. Organized by impact and implementation complexity.
 > Items here are *new features* — see `TODO.md` for existing infrastructure work (publishing, CI, docs).
 
-Last updated: 2026-02-17
+Last updated: 2026-02-18
 
 ---
 
@@ -116,23 +116,22 @@ Last updated: 2026-02-17
 
 ---
 
-## T4 — Medium-Impact File Formats
+## T4 — Medium-Impact File Formats ✅
 
-### Additional Formats (`cyanea-io`)
-- [ ] GenBank/EMBL flat file parser
-- [ ] GTF parser (Gene Transfer Format — GFF2 variant)
-- [ ] bigWig/bigBed reader (Kent binary formats)
-- [ ] BLAST tabular output parser (-outfmt 6/7)
-- [ ] MAF (Multiple Alignment Format) parser
-- [ ] Pairwise maf (LAST/minimap2 output)
-- [ ] FASTQ paired-end interleave/deinterleave
-- [ ] BCF (binary VCF) reader
+### Additional Formats (`cyanea-io`) — Done
+- [x] GenBank flat file parser
+- [x] GTF parser (Gene Transfer Format — GFF2 variant)
+- [x] bigWig/bigBed reader (Kent binary formats)
+- [x] BLAST tabular output parser (-outfmt 6/7)
+- [x] MAF (Multiple Alignment Format) parser — also handles pairwise MAF (LAST/minimap2)
+- [x] FASTQ paired-end interleave/deinterleave (in `cyanea-seq`)
+- [x] BCF (binary VCF) reader
 
-### Parquet Extensions (`cyanea-io`)
-- [ ] VCF → Parquet conversion
-- [ ] BED → Parquet conversion
-- [ ] Expression matrix → Parquet (columnar gene expression)
-- [ ] Parquet predicate pushdown for range queries
+### Parquet Extensions (`cyanea-io`) — Done
+- [x] VCF → Parquet conversion
+- [x] BED → Parquet conversion
+- [x] Expression matrix → Parquet (columnar gene expression)
+- [x] Parquet predicate pushdown for range queries
 
 ---
 
