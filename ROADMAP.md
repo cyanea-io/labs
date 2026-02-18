@@ -177,12 +177,12 @@ Last updated: 2026-02-17
 - [x] HMMER3-style scoring (optional)
 
 ### Phylogenetic Improvements (`cyanea-phylo`)
-- [ ] GTR + Gamma model (generalized time-reversible)
-- [ ] Ancestral sequence reconstruction (marginal)
-- [ ] Tree rerooting and subtree extraction
-- [ ] Phylogenetic dating (basic molecular clock)
-- [ ] Tree drawing coordinates (rectangular, radial)
-- [ ] Consensus tree from bootstrap replicates
+- [x] GTR + Gamma model (generalized time-reversible)
+- [x] Ancestral sequence reconstruction (marginal)
+- [x] Tree rerooting and subtree extraction
+- [x] Phylogenetic dating (basic molecular clock)
+- [x] Tree drawing coordinates (rectangular, radial)
+- [x] Consensus tree from bootstrap replicates
 
 ---
 

@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 
 use cyanea_core::{CyaneaError, Result};
 
-use crate::tree::{NodeId, PhyloTree};
+use crate::tree::PhyloTree;
 
 /// Compute bootstrap support values for each internal edge of the original tree.
 ///
@@ -135,7 +135,7 @@ pub fn bipartitions(tree: &PhyloTree) -> Vec<BTreeSet<String>> {
         if node.is_leaf() || node.is_root() {
             continue;
         }
-        let subtree_leaves = collect_subtree_leaves(tree, node_id);
+        let subtree_leaves = tree.subtree_leaf_names(node_id);
         // Skip trivial splits.
         if subtree_leaves.len() <= 1 || subtree_leaves.len() >= n_leaves - 1 {
             continue;
@@ -146,24 +146,6 @@ pub fn bipartitions(tree: &PhyloTree) -> Vec<BTreeSet<String>> {
     result
 }
 
-/// Collect all leaf names in the subtree rooted at `node_id`.
-fn collect_subtree_leaves(tree: &PhyloTree, node_id: NodeId) -> BTreeSet<String> {
-    let mut leaves = BTreeSet::new();
-    let mut stack = vec![node_id];
-    while let Some(id) = stack.pop() {
-        let node = tree.get_node(id).unwrap();
-        if node.is_leaf() {
-            if let Some(ref name) = node.name {
-                leaves.insert(name.clone());
-            }
-        } else {
-            for &child in &node.children {
-                stack.push(child);
-            }
-        }
-    }
-    leaves
-}
 
 #[cfg(test)]
 mod tests {

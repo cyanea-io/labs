@@ -303,6 +303,169 @@ fn nni_swap(
     PhyloTree::from_nodes(nodes, tree.root())
 }
 
+/// Compute the log-likelihood of a tree under a general substitution model
+/// with optional discrete gamma rate heterogeneity.
+///
+/// This is a generalized version of [`tree_likelihood`] that accepts any
+/// substitution model as a closure and custom root frequencies.
+///
+/// When `gamma` is provided, the site likelihood is averaged over the
+/// discrete gamma rate categories.
+pub fn tree_likelihood_gtr(
+    tree: &PhyloTree,
+    sequences: &[&[u8]],
+    model: &dyn Fn(f64) -> [[f64; 4]; 4],
+    freqs: &[f64; 4],
+    gamma: Option<&crate::models::GammaRates>,
+) -> Result<f64> {
+    let leaves = tree.leaves();
+    let n_leaves = leaves.len();
+
+    if sequences.len() != n_leaves {
+        return Err(CyaneaError::InvalidInput(format!(
+            "expected {} sequences for {} leaves, got {}",
+            n_leaves, n_leaves, sequences.len()
+        )));
+    }
+    if sequences.is_empty() {
+        return Err(CyaneaError::InvalidInput("no sequences provided".into()));
+    }
+
+    let seq_len = sequences[0].len();
+    if seq_len == 0 {
+        return Err(CyaneaError::InvalidInput("empty sequences".into()));
+    }
+    for (i, seq) in sequences.iter().enumerate() {
+        if seq.len() != seq_len {
+            return Err(CyaneaError::InvalidInput(format!(
+                "sequence {} has length {}, expected {}",
+                i, seq.len(), seq_len
+            )));
+        }
+    }
+
+    // Build leaf → sequence index mapping (sorted by leaf name).
+    let mut leaf_ids_sorted: Vec<NodeId> = leaves.clone();
+    leaf_ids_sorted.sort_by(|&a, &b| {
+        let name_a = tree
+            .get_node(a)
+            .and_then(|n| n.name.as_ref())
+            .cloned()
+            .unwrap_or_default();
+        let name_b = tree
+            .get_node(b)
+            .and_then(|n| n.name.as_ref())
+            .cloned()
+            .unwrap_or_default();
+        name_a.cmp(&name_b)
+    });
+
+    let n_nodes = tree.node_count();
+    let mut leaf_seq_index = vec![0usize; n_nodes];
+    for (seq_idx, &node_id) in leaf_ids_sorted.iter().enumerate() {
+        leaf_seq_index[node_id] = seq_idx;
+    }
+
+    // Get rate categories.
+    let rates = match gamma {
+        Some(g) => g.category_rates(),
+        None => vec![1.0],
+    };
+    let n_cats = rates.len();
+
+    // Precompute transition probability matrices for each (node, rate_category).
+    let mut trans_probs: Vec<Vec<Option<[[f64; 4]; 4]>>> = vec![vec![None; n_cats]; n_nodes];
+    for id in 0..n_nodes {
+        if let Some(node) = tree.get_node(id) {
+            if let Some(bl) = node.branch_length {
+                for (c, &rate) in rates.iter().enumerate() {
+                    trans_probs[id][c] = Some(model(bl * rate));
+                }
+            }
+        }
+    }
+
+    let mut total_log_likelihood = 0.0;
+    let mut partials = vec![[0.0f64; NUM_STATES]; n_nodes];
+    let postorder: Vec<NodeId> = tree.iter_postorder().collect();
+
+    for site in 0..seq_len {
+        let mut site_likelihood = 0.0;
+
+        for (cat, &_rate) in rates.iter().enumerate() {
+            // Initialize partials.
+            for p in partials.iter_mut() {
+                *p = [0.0; NUM_STATES];
+            }
+
+            // Set leaf partials.
+            for &leaf_id in &leaves {
+                let seq_idx = leaf_seq_index[leaf_id];
+                let base = sequences[seq_idx][site];
+                if let Some(state) = nucleotide_index(base) {
+                    partials[leaf_id][state] = 1.0;
+                } else {
+                    partials[leaf_id] = [1.0; NUM_STATES];
+                }
+            }
+
+            // Post-order traversal.
+            for &id in &postorder {
+                let node = tree.get_node(id).unwrap();
+                if node.is_leaf() {
+                    continue;
+                }
+
+                let mut node_partial = [1.0f64; NUM_STATES];
+
+                for &child_id in &node.children {
+                    let prob_matrix = match &trans_probs[child_id][cat] {
+                        Some(m) => m,
+                        None => {
+                            // No branch length: use small default.
+                            if trans_probs[child_id][cat].is_none() {
+                                trans_probs[child_id][cat] = Some(model(1e-6 * rates[cat]));
+                            }
+                            trans_probs[child_id][cat].as_ref().unwrap()
+                        }
+                    };
+                    let child_partial = &partials[child_id];
+
+                    for s in 0..NUM_STATES {
+                        let mut sum = 0.0;
+                        for t in 0..NUM_STATES {
+                            sum += prob_matrix[s][t] * child_partial[t];
+                        }
+                        node_partial[s] *= sum;
+                    }
+                }
+
+                partials[id] = node_partial;
+            }
+
+            // Root likelihood for this category.
+            let root_id = tree.root();
+            let root_partial = &partials[root_id];
+            let mut cat_likelihood = 0.0;
+            for s in 0..NUM_STATES {
+                cat_likelihood += freqs[s] * root_partial[s];
+            }
+            site_likelihood += cat_likelihood / n_cats as f64;
+        }
+
+        if site_likelihood <= 0.0 {
+            return Err(CyaneaError::InvalidInput(format!(
+                "zero or negative site likelihood at site {}",
+                site
+            )));
+        }
+
+        total_log_likelihood += site_likelihood.ln();
+    }
+
+    Ok(total_log_likelihood)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -447,6 +610,29 @@ mod tests {
             ll_before,
             ll_after
         );
+    }
+
+    #[test]
+    fn tree_likelihood_gtr_finite() {
+        let tree =
+            PhyloTree::from_newick("((A:0.1,B:0.1):0.1,(C:0.1,D:0.1):0.1);").unwrap();
+        let seqs: Vec<Vec<u8>> = vec![
+            b"ACGTACGTACGT".to_vec(),
+            b"ACGTACGTACGT".to_vec(),
+            b"TGCATGCATGCA".to_vec(),
+            b"TGCATGCATGCA".to_vec(),
+        ];
+        let refs: Vec<&[u8]> = seqs.iter().map(|s| s.as_slice()).collect();
+
+        let params =
+            crate::models::GtrParams::new([1.0, 2.0, 1.0, 1.0, 2.0, 1.0], [0.3, 0.2, 0.2, 0.3])
+                .unwrap();
+        let prob_fn = params.probability_fn();
+        let gamma = crate::models::GammaRates::new(0.5, 4).unwrap();
+
+        let ll = tree_likelihood_gtr(&tree, &refs, &prob_fn, &params.freqs, Some(&gamma)).unwrap();
+        assert!(ll.is_finite(), "log-likelihood should be finite, got {}", ll);
+        assert!(ll < 0.0, "log-likelihood should be negative, got {}", ll);
     }
 
     #[test]

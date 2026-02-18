@@ -237,6 +237,516 @@ impl PhyloTree {
         names
     }
 
+    /// Collect all leaf names in the subtree rooted at `node_id`.
+    pub fn subtree_leaf_names(&self, node_id: NodeId) -> std::collections::BTreeSet<String> {
+        let mut leaves = std::collections::BTreeSet::new();
+        let mut stack = vec![node_id];
+        while let Some(id) = stack.pop() {
+            let node = &self.nodes[id];
+            if node.is_leaf() {
+                if let Some(ref name) = node.name {
+                    leaves.insert(name.clone());
+                }
+            } else {
+                for &child in &node.children {
+                    stack.push(child);
+                }
+            }
+        }
+        leaves
+    }
+
+    /// Sum of all branch lengths in the tree.
+    pub fn total_branch_length(&self) -> f64 {
+        self.nodes
+            .iter()
+            .filter_map(|n| n.branch_length)
+            .sum()
+    }
+
+    /// Reroot the tree on the edge leading to `node_id`.
+    ///
+    /// `position` is the fraction (0.0–1.0) along the branch from `node_id`'s
+    /// parent toward `node_id` where the new root is placed. Defaults to 0.5
+    /// (midpoint of the edge).
+    pub fn reroot(&self, node_id: NodeId, position: Option<f64>) -> Result<Self> {
+        if node_id >= self.nodes.len() {
+            return Err(CyaneaError::InvalidInput("node id out of range".into()));
+        }
+        if node_id == self.root {
+            return Ok(self.clone());
+        }
+        let parent_id = self.nodes[node_id]
+            .parent
+            .ok_or_else(|| CyaneaError::InvalidInput("cannot reroot at root".into()))?;
+
+        let frac = position.unwrap_or(0.5).clamp(0.0, 1.0);
+        let edge_len = self.nodes[node_id].branch_length.unwrap_or(0.0);
+        let len_toward_node = edge_len * frac;
+        let len_toward_parent = edge_len - len_toward_node;
+
+        // Collect path from node_id's parent up to root (we will reverse edges along this path).
+        let mut path = Vec::new();
+        let mut cur = parent_id;
+        loop {
+            path.push(cur);
+            match self.nodes[cur].parent {
+                Some(p) => cur = p,
+                None => break,
+            }
+        }
+
+        // Build new tree: clone all nodes first.
+        let mut nodes: Vec<Node> = self.nodes.iter().cloned().collect();
+
+        // Create new root node.
+        let new_root_id = nodes.len();
+        nodes.push(Node {
+            id: new_root_id,
+            parent: None,
+            children: vec![node_id, parent_id],
+            branch_length: None,
+            name: None,
+        });
+
+        // node_id becomes child of new root.
+        nodes[node_id].parent = Some(new_root_id);
+        nodes[node_id].branch_length = Some(len_toward_node);
+
+        // Reverse edges along the path from parent_id to old root.
+        // parent_id becomes the other child of new root.
+        nodes[parent_id].children.retain(|&c| c != node_id);
+        nodes[parent_id].parent = Some(new_root_id);
+        // The branch from parent_id to new_root gets the remaining length.
+        let old_parent_bl = nodes[parent_id].branch_length;
+        nodes[parent_id].branch_length = Some(len_toward_parent);
+
+        // Reverse remaining edges along the path (parent_id → grandparent → ... → old root).
+        let mut prev_id = parent_id;
+        let mut prev_old_bl = old_parent_bl;
+        for &cur_id in &path[1..] {
+            // cur_id was the parent of prev_id. Now prev_id becomes parent of cur_id.
+            nodes[cur_id].children.retain(|&c| c != prev_id);
+            nodes[cur_id].parent = Some(prev_id);
+            nodes[prev_id].children.push(cur_id);
+            // Branch length: cur_id takes the old branch length that prev_id had to cur_id.
+            let old_bl = nodes[cur_id].branch_length;
+            nodes[cur_id].branch_length = prev_old_bl;
+            prev_old_bl = old_bl;
+            prev_id = cur_id;
+        }
+
+        // The old root: if it now has degree 1, collapse it.
+        let old_root = *path.last().unwrap();
+        if nodes[old_root].children.len() == 1 {
+            let only_child = nodes[old_root].children[0];
+            let grandparent = nodes[old_root].parent;
+            // Merge branch lengths.
+            let merged_bl = nodes[old_root].branch_length.unwrap_or(0.0)
+                + nodes[only_child].branch_length.unwrap_or(0.0);
+            nodes[only_child].parent = grandparent;
+            nodes[only_child].branch_length = Some(merged_bl);
+            if let Some(gp) = grandparent {
+                for c in &mut nodes[gp].children {
+                    if *c == old_root {
+                        *c = only_child;
+                    }
+                }
+            }
+            // Mark old root as removed (orphan with no children).
+            nodes[old_root].parent = None;
+            nodes[old_root].children.clear();
+        }
+
+        // Remap to remove orphan nodes and fix IDs.
+        Self::compact_nodes(nodes, new_root_id)
+    }
+
+    /// Reroot at the midpoint of the longest root-to-root path.
+    pub fn midpoint_root(&self) -> Result<Self> {
+        let leaves = self.leaves();
+        if leaves.len() < 2 {
+            return Ok(self.clone());
+        }
+
+        // Find the two most distant leaves via two-pass BFS.
+        let dists_from_first = self.distances_from(leaves[0]);
+        let farthest1 = *leaves
+            .iter()
+            .max_by(|&&a, &&b| {
+                dists_from_first[a]
+                    .partial_cmp(&dists_from_first[b])
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .unwrap();
+        let dists_from_farthest = self.distances_from(farthest1);
+        let farthest2 = *leaves
+            .iter()
+            .max_by(|&&a, &&b| {
+                dists_from_farthest[a]
+                    .partial_cmp(&dists_from_farthest[b])
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+            .unwrap();
+        let leaf_a = farthest1;
+        let leaf_b = farthest2;
+        let max_dist = dists_from_farthest[farthest2];
+
+        if max_dist == 0.0 {
+            return Ok(self.clone());
+        }
+
+        // Find the path from leaf_a to leaf_b through MRCA.
+        let lca = self.mrca(leaf_a, leaf_b)?;
+
+        // Walk from leaf_a toward LCA, accumulating distance, find where midpoint falls.
+        let half = max_dist / 2.0;
+        let target = self.find_midpoint_on_path(leaf_a, leaf_b, lca, half);
+
+        self.reroot(target.0, Some(target.1))
+    }
+
+    /// Compute distances from a source node to all other nodes.
+    fn distances_from(&self, source: NodeId) -> Vec<f64> {
+        let n = self.nodes.len();
+        let mut dist = vec![f64::MAX; n];
+        dist[source] = 0.0;
+
+        // Build adjacency: for each node, neighbors are parent + children.
+        let mut visited = vec![false; n];
+        let mut queue = std::collections::VecDeque::new();
+        queue.push_back(source);
+        visited[source] = true;
+
+        while let Some(u) = queue.pop_front() {
+            let node = &self.nodes[u];
+            // Children
+            for &c in &node.children {
+                if !visited[c] {
+                    visited[c] = true;
+                    let bl = self.nodes[c].branch_length.unwrap_or(0.0);
+                    dist[c] = dist[u] + bl;
+                    queue.push_back(c);
+                }
+            }
+            // Parent
+            if let Some(p) = node.parent {
+                if !visited[p] {
+                    visited[p] = true;
+                    let bl = node.branch_length.unwrap_or(0.0);
+                    dist[p] = dist[u] + bl;
+                    queue.push_back(p);
+                }
+            }
+        }
+        dist
+    }
+
+    /// Find the edge containing the midpoint on the path between two leaves.
+    /// Returns (node_id, fraction) for use with reroot.
+    fn find_midpoint_on_path(
+        &self,
+        leaf_a: NodeId,
+        leaf_b: NodeId,
+        lca: NodeId,
+        target_dist: f64,
+    ) -> (NodeId, f64) {
+        // Build path from leaf_a to lca.
+        let mut path_a = Vec::new();
+        let mut cur = leaf_a;
+        while cur != lca {
+            path_a.push(cur);
+            cur = self.nodes[cur].parent.unwrap();
+        }
+        path_a.push(lca);
+
+        // Build path from leaf_b to lca.
+        let mut path_b = Vec::new();
+        cur = leaf_b;
+        while cur != lca {
+            path_b.push(cur);
+            cur = self.nodes[cur].parent.unwrap();
+        }
+        // Full path: leaf_a → ... → lca → ... → leaf_b
+        let mut full_path = path_a;
+        path_b.pop(); // Remove lca (already in path_a)
+        path_b.reverse();
+        full_path.extend(path_b);
+
+        // Walk along path accumulating distance.
+        let mut acc = 0.0;
+        for i in 0..full_path.len() - 1 {
+            let node = full_path[i];
+            let next = full_path[i + 1];
+            // Determine the edge length between node and next.
+            let edge_len = if self.nodes[next].parent == Some(node) {
+                self.nodes[next].branch_length.unwrap_or(0.0)
+            } else {
+                self.nodes[node].branch_length.unwrap_or(0.0)
+            };
+            if acc + edge_len >= target_dist {
+                // Midpoint is on this edge.
+                let remainder = target_dist - acc;
+                // The edge is child→parent. We want to reroot on the child's edge.
+                if self.nodes[next].parent == Some(node) {
+                    // next is child of node, edge is next's branch
+                    let frac = remainder / edge_len.max(1e-15);
+                    return (next, frac);
+                } else {
+                    // node is child of next, edge is node's branch
+                    let frac = 1.0 - remainder / edge_len.max(1e-15);
+                    return (node, frac);
+                }
+            }
+            acc += edge_len;
+        }
+
+        // Fallback: reroot at last node.
+        (*full_path.last().unwrap(), 0.5)
+    }
+
+    /// Extract a subtree containing only the specified leaves.
+    ///
+    /// Collapses internal nodes with a single child, summing branch lengths.
+    pub fn extract_subtree(&self, leaf_names: &[&str]) -> Result<Self> {
+        let target: std::collections::BTreeSet<String> =
+            leaf_names.iter().map(|s| s.to_string()).collect();
+
+        // Verify all requested leaves exist.
+        let all_leaves = self.leaf_names();
+        for name in &target {
+            if !all_leaves.contains(name) {
+                return Err(CyaneaError::InvalidInput(format!(
+                    "leaf '{}' not found in tree",
+                    name
+                )));
+            }
+        }
+        if target.len() < 2 {
+            return Err(CyaneaError::InvalidInput(
+                "need at least 2 leaves for subtree extraction".into(),
+            ));
+        }
+
+        // Mark nodes to keep: target leaves + all their ancestors.
+        let mut keep = vec![false; self.nodes.len()];
+        for id in 0..self.nodes.len() {
+            let node = &self.nodes[id];
+            if node.is_leaf() {
+                if let Some(ref name) = node.name {
+                    if target.contains(name) {
+                        // Mark this leaf and all ancestors.
+                        let mut cur = id;
+                        loop {
+                            keep[cur] = true;
+                            match self.nodes[cur].parent {
+                                Some(p) => cur = p,
+                                None => break,
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Build new tree from kept nodes, collapsing degree-2 internals.
+        self.build_filtered_tree(&keep)
+    }
+
+    /// Extract the subtree rooted at `node_id`.
+    pub fn subtree_at(&self, node_id: NodeId) -> Result<Self> {
+        if node_id >= self.nodes.len() {
+            return Err(CyaneaError::InvalidInput("node id out of range".into()));
+        }
+
+        // DFS clone from node_id.
+        let mut new_nodes = Vec::new();
+        let mut old_to_new = std::collections::HashMap::new();
+
+        let mut stack = vec![(node_id, None::<NodeId>)];
+        while let Some((old_id, new_parent)) = stack.pop() {
+            let old_node = &self.nodes[old_id];
+            let new_id = new_nodes.len();
+            old_to_new.insert(old_id, new_id);
+
+            new_nodes.push(Node {
+                id: new_id,
+                parent: new_parent,
+                children: Vec::new(),
+                branch_length: if old_id == node_id {
+                    None
+                } else {
+                    old_node.branch_length
+                },
+                name: old_node.name.clone(),
+            });
+
+            if let Some(np) = new_parent {
+                new_nodes[np].children.push(new_id);
+            }
+
+            // Push children in reverse for consistent ordering.
+            for &child in old_node.children.iter().rev() {
+                stack.push((child, Some(new_id)));
+            }
+        }
+
+        PhyloTree::from_nodes(new_nodes, 0)
+    }
+
+    /// Build a filtered tree from nodes marked to keep.
+    fn build_filtered_tree(&self, keep: &[bool]) -> Result<Self> {
+        // First, build the filtered topology preserving only kept nodes.
+        // Then collapse degree-2 internal nodes.
+        let mut new_nodes = Vec::new();
+        let mut old_to_new = std::collections::HashMap::new();
+
+        // Process in preorder to ensure parents are created before children.
+        for old_id in self.iter_preorder() {
+            if !keep[old_id] {
+                continue;
+            }
+            let old_node = &self.nodes[old_id];
+            let new_id = new_nodes.len();
+            old_to_new.insert(old_id, new_id);
+
+            // Find the kept parent.
+            let new_parent = if old_id == self.root {
+                None
+            } else {
+                let mut cur = old_node.parent;
+                // Walk up to find the nearest kept ancestor.
+                while let Some(p) = cur {
+                    if keep[p] {
+                        break;
+                    }
+                    cur = self.nodes[p].parent;
+                }
+                cur.and_then(|p| old_to_new.get(&p).copied())
+            };
+
+            // Compute accumulated branch length to kept parent.
+            let branch_length = if old_id == self.root {
+                old_node.branch_length
+            } else {
+                let mut bl = old_node.branch_length.unwrap_or(0.0);
+                let mut cur = old_node.parent;
+                while let Some(p) = cur {
+                    if keep[p] {
+                        break;
+                    }
+                    bl += self.nodes[p].branch_length.unwrap_or(0.0);
+                    cur = self.nodes[p].parent;
+                }
+                Some(bl)
+            };
+
+            new_nodes.push(Node {
+                id: new_id,
+                parent: new_parent,
+                children: Vec::new(),
+                branch_length,
+                name: old_node.name.clone(),
+            });
+
+            if let Some(np) = new_parent {
+                new_nodes[np].children.push(new_id);
+            }
+        }
+
+        // Collapse degree-2 internal nodes (non-root with exactly 1 child).
+        loop {
+            let mut collapsed = false;
+            for i in 0..new_nodes.len() {
+                if new_nodes[i].children.len() == 1
+                    && new_nodes[i].parent.is_some()
+                    && new_nodes[i].name.is_none()
+                {
+                    let child = new_nodes[i].children[0];
+                    let parent = new_nodes[i].parent.unwrap();
+                    // Merge branch lengths.
+                    let merged = new_nodes[i].branch_length.unwrap_or(0.0)
+                        + new_nodes[child].branch_length.unwrap_or(0.0);
+                    new_nodes[child].branch_length = Some(merged);
+                    new_nodes[child].parent = Some(parent);
+                    // Replace i with child in parent's children.
+                    for c in &mut new_nodes[parent].children {
+                        if *c == i {
+                            *c = child;
+                        }
+                    }
+                    // Mark i as removed.
+                    new_nodes[i].parent = None;
+                    new_nodes[i].children.clear();
+                    collapsed = true;
+                    break;
+                }
+            }
+            if !collapsed {
+                break;
+            }
+        }
+
+        // Also collapse root if it has degree 1.
+        let mut root_id = 0;
+        while new_nodes[root_id].children.len() == 1 && new_nodes[root_id].name.is_none() {
+            let child = new_nodes[root_id].children[0];
+            new_nodes[root_id].parent = None;
+            new_nodes[root_id].children.clear();
+            new_nodes[child].parent = None;
+            root_id = child;
+        }
+
+        // Compact: remap IDs.
+        Self::compact_nodes(new_nodes, root_id)
+    }
+
+    /// Remove orphan nodes and remap IDs contiguously.
+    fn compact_nodes(nodes: Vec<Node>, root: NodeId) -> Result<Self> {
+        // Identify live nodes (reachable from root).
+        let mut live = vec![false; nodes.len()];
+        let mut stack = vec![root];
+        while let Some(id) = stack.pop() {
+            if live[id] {
+                continue;
+            }
+            live[id] = true;
+            for &c in &nodes[id].children {
+                stack.push(c);
+            }
+        }
+
+        // Build mapping from old to new IDs.
+        let mut old_to_new = vec![0usize; nodes.len()];
+        let mut new_id = 0;
+        for (old_id, &is_live) in live.iter().enumerate() {
+            if is_live {
+                old_to_new[old_id] = new_id;
+                new_id += 1;
+            }
+        }
+
+        let mut new_nodes = Vec::with_capacity(new_id);
+        for (old_id, node) in nodes.iter().enumerate() {
+            if !live[old_id] {
+                continue;
+            }
+            new_nodes.push(Node {
+                id: old_to_new[old_id],
+                parent: node.parent.map(|p| old_to_new[p]),
+                children: node.children.iter().map(|&c| old_to_new[c]).collect(),
+                branch_length: node.branch_length,
+                name: node.name.clone(),
+            });
+        }
+
+        // Fix root parent.
+        let new_root = old_to_new[root];
+        new_nodes[new_root].parent = None;
+
+        PhyloTree::from_nodes(new_nodes, new_root)
+    }
+
     /// Parse a Newick format string into a tree.
     pub fn from_newick(input: &str) -> Result<Self> {
         crate::newick::parse(input)
@@ -421,5 +931,100 @@ mod tests {
     fn summary_format() {
         let tree = sample_tree();
         assert_eq!(tree.summary(), "PhyloTree: 7 nodes (4 leaves, 3 internal)");
+    }
+
+    #[test]
+    fn subtree_leaf_names_works() {
+        let tree = sample_tree();
+        let names = tree.subtree_leaf_names(1); // AB clade
+        assert_eq!(
+            names,
+            ["A", "B"].iter().map(|s| s.to_string()).collect::<std::collections::BTreeSet<_>>()
+        );
+    }
+
+    #[test]
+    fn total_branch_length_works() {
+        let tree = sample_tree();
+        // 0.1 + 0.2 + 0.3 + 0.4 + 0.5 + 0.6 = 2.1
+        assert!((tree.total_branch_length() - 2.1).abs() < 1e-12);
+    }
+
+    #[test]
+    fn reroot_preserves_leaf_set() {
+        let tree = PhyloTree::from_newick("((A:0.1,B:0.2):0.3,(C:0.4,D:0.5):0.6);").unwrap();
+        let rerooted = tree.reroot(3, Some(0.5)).unwrap(); // Reroot at leaf A's edge
+        let mut orig = tree.leaf_names();
+        let mut reroot = rerooted.leaf_names();
+        orig.sort();
+        reroot.sort();
+        assert_eq!(orig, reroot);
+    }
+
+    #[test]
+    fn reroot_preserves_total_branch_length() {
+        let tree = PhyloTree::from_newick("((A:0.1,B:0.2):0.3,(C:0.4,D:0.5):0.6);").unwrap();
+        let orig_bl = tree.total_branch_length();
+        let rerooted = tree.reroot(3, Some(0.5)).unwrap();
+        let new_bl = rerooted.total_branch_length();
+        assert!(
+            (orig_bl - new_bl).abs() < 1e-10,
+            "branch length changed: {} -> {}",
+            orig_bl,
+            new_bl
+        );
+    }
+
+    #[test]
+    fn midpoint_root_balanced() {
+        // Balanced tree: midpoint should keep it balanced.
+        let tree =
+            PhyloTree::from_newick("((A:1.0,B:1.0):1.0,(C:1.0,D:1.0):1.0);").unwrap();
+        let rooted = tree.midpoint_root().unwrap();
+        assert_eq!(rooted.leaf_count(), 4);
+        let orig_bl = tree.total_branch_length();
+        let new_bl = rooted.total_branch_length();
+        assert!(
+            (orig_bl - new_bl).abs() < 1e-10,
+            "branch length changed: {} -> {}",
+            orig_bl,
+            new_bl
+        );
+    }
+
+    #[test]
+    fn extract_subtree_correct_leaves() {
+        let tree =
+            PhyloTree::from_newick("(((A:0.1,B:0.2):0.3,C:0.4):0.5,(D:0.6,E:0.7):0.8);")
+                .unwrap();
+        let sub = tree.extract_subtree(&["A", "B", "C"]).unwrap();
+        let mut names = sub.leaf_names();
+        names.sort();
+        assert_eq!(names, vec!["A", "B", "C"]);
+    }
+
+    #[test]
+    fn extract_subtree_preserves_topology() {
+        let tree =
+            PhyloTree::from_newick("(((A:0.1,B:0.2):0.3,C:0.4):0.5,(D:0.6,E:0.7):0.8);")
+                .unwrap();
+        let sub = tree.extract_subtree(&["D", "E"]).unwrap();
+        assert_eq!(sub.leaf_count(), 2);
+        let mut names = sub.leaf_names();
+        names.sort();
+        assert_eq!(names, vec!["D", "E"]);
+    }
+
+    #[test]
+    fn subtree_at_extracts_clade() {
+        let tree = sample_tree();
+        // Node 2 is CD clade
+        let sub = tree.subtree_at(2).unwrap();
+        assert_eq!(sub.leaf_count(), 2);
+        let mut names = sub.leaf_names();
+        names.sort();
+        assert_eq!(names, vec!["C", "D"]);
+        // Root of subtree should not have a branch length
+        assert!(sub.get_node(sub.root()).unwrap().branch_length.is_none());
     }
 }

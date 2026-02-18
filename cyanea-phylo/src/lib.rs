@@ -17,8 +17,12 @@
 
 pub mod bootstrap;
 pub mod compare;
+pub mod consensus;
+pub mod dating;
 pub mod distance;
+pub mod drawing;
 pub mod likelihood;
+pub mod marginal;
 pub mod models;
 pub mod newick;
 pub mod nexus;
@@ -30,9 +34,13 @@ pub mod construct;
 
 pub use bootstrap::{bipartitions, bootstrap_support};
 pub use compare::{branch_score_distance, robinson_foulds, robinson_foulds_normalized};
+pub use consensus::{bipartition_frequencies, consensus_tree, ConsensusType, SupportedBipartition};
+pub use dating::{root_to_tip_regression, strict_clock, Calibration, DatingResult};
 pub use distance::{jukes_cantor, kimura_2p, p_distance};
-pub use likelihood::{nni_search, tree_likelihood};
-pub use models::{jc69_probability, nucleotide_index};
+pub use drawing::{tree_layout, Edge, LayoutStyle, NodeCoord, TreeLayout};
+pub use likelihood::{nni_search, tree_likelihood, tree_likelihood_gtr};
+pub use marginal::{marginal_reconstruct, MarginalPosterior, MarginalReconstruction};
+pub use models::{gtr_probability, hky85_params, jc69_probability, nucleotide_index, GammaRates, GtrParams};
 pub use newick::{parse as parse_newick, write as write_newick};
 pub use tree::{Node, NodeId, PhyloTree};
 
