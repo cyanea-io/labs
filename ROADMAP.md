@@ -163,7 +163,7 @@ Last updated: 2026-02-17
 - [x] Hypergeometric test for overlap significance (ORA)
 - [x] Benjamini-Hochberg on enrichment p-values
 - [x] GSEA preranked (Subramanian et al. 2005, permutation-based)
-- [ ] Gene Ontology term association (if given annotation map)
+- [x] Gene Ontology term association (if given annotation map)
 
 ---
 

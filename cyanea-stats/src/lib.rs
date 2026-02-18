@@ -52,7 +52,10 @@ pub use correction::CorrectionMethod;
 pub use correlation::CorrelationMatrix;
 pub use descriptive::DescriptiveStats;
 pub use diffexpr::{DeGeneResult, DeMethod, DeResults, VolcanoPoint};
-pub use enrichment::{GeneSet, GseaResult, OraResult};
+pub use enrichment::{
+    GeneSet, GoAnnotation, GoEnrichmentConfig, GoEnrichmentResult, GoNamespace, GoTerm, GseaResult,
+    OraResult,
+};
 pub use distribution::{
     Binomial, ChiSquared, Distribution, FDistribution, NegativeBinomial, Normal, Poisson,
 };

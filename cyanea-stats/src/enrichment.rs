@@ -12,7 +12,7 @@
 //! Both methods apply Benjamini-Hochberg correction via
 //! [`crate::correction::benjamini_hochberg`].
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
 use cyanea_core::{CyaneaError, Result};
 
@@ -451,6 +451,259 @@ fn fisher_yates_shuffle(slice: &mut [f64], rng: &mut Xorshift64) {
     }
 }
 
+// ── Gene Ontology types ─────────────────────────────────────────────────────
+
+/// Gene Ontology namespace.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GoNamespace {
+    /// Biological Process (BP).
+    BiologicalProcess,
+    /// Molecular Function (MF).
+    MolecularFunction,
+    /// Cellular Component (CC).
+    CellularComponent,
+}
+
+/// A single Gene Ontology term with associated genes.
+#[derive(Debug, Clone)]
+pub struct GoTerm {
+    /// GO identifier (e.g., "GO:0008150").
+    pub id: String,
+    /// Human-readable term name.
+    pub name: String,
+    /// Ontology namespace.
+    pub namespace: GoNamespace,
+    /// Gene indices (0-based) annotated to this term.
+    pub genes: Vec<usize>,
+}
+
+/// A collection of GO term annotations.
+#[derive(Debug, Clone)]
+pub struct GoAnnotation {
+    terms: Vec<GoTerm>,
+}
+
+impl GoAnnotation {
+    /// Create from a pre-built list of GO terms.
+    pub fn new(terms: Vec<GoTerm>) -> Result<Self> {
+        if terms.is_empty() {
+            return Err(CyaneaError::InvalidInput(
+                "GoAnnotation: terms must be non-empty".into(),
+            ));
+        }
+        Ok(Self { terms })
+    }
+
+    /// Build from per-gene annotation entries, merging rows with the same term ID.
+    ///
+    /// Each entry is `(gene_index, term_id, term_name, namespace)`, mirroring the
+    /// one-row-per-annotation structure of GAF files.
+    pub fn from_entries(entries: &[(usize, &str, &str, GoNamespace)]) -> Result<Self> {
+        if entries.is_empty() {
+            return Err(CyaneaError::InvalidInput(
+                "GoAnnotation::from_entries: entries must be non-empty".into(),
+            ));
+        }
+        let mut map: BTreeMap<String, (String, GoNamespace, Vec<usize>)> = BTreeMap::new();
+        for &(gene, term_id, term_name, ns) in entries {
+            map.entry(term_id.to_string())
+                .and_modify(|e| e.2.push(gene))
+                .or_insert_with(|| (term_name.to_string(), ns, vec![gene]));
+        }
+        let terms = map
+            .into_iter()
+            .map(|(id, (name, namespace, genes))| GoTerm {
+                id,
+                name,
+                namespace,
+                genes,
+            })
+            .collect();
+        Ok(Self { terms })
+    }
+
+    /// Number of distinct GO terms.
+    pub fn n_terms(&self) -> usize {
+        self.terms.len()
+    }
+
+    /// Number of distinct genes across all terms.
+    pub fn n_genes(&self) -> usize {
+        let all: HashSet<usize> = self.terms.iter().flat_map(|t| t.genes.iter().copied()).collect();
+        all.len()
+    }
+
+    /// Return all term IDs that annotate a given gene.
+    pub fn terms_for_gene(&self, gene: usize) -> Vec<&str> {
+        self.terms
+            .iter()
+            .filter(|t| t.genes.contains(&gene))
+            .map(|t| t.id.as_str())
+            .collect()
+    }
+
+    /// Filter to a single namespace, returning a new `GoAnnotation`.
+    pub fn filter_namespace(&self, ns: GoNamespace) -> Result<Self> {
+        let filtered: Vec<GoTerm> = self
+            .terms
+            .iter()
+            .filter(|t| t.namespace == ns)
+            .cloned()
+            .collect();
+        if filtered.is_empty() {
+            return Err(CyaneaError::InvalidInput(format!(
+                "GoAnnotation::filter_namespace: no terms in namespace {:?}",
+                ns,
+            )));
+        }
+        Ok(Self { terms: filtered })
+    }
+}
+
+/// Configuration for GO enrichment analysis.
+#[derive(Debug, Clone)]
+pub struct GoEnrichmentConfig {
+    /// Minimum number of genes in a term to include (default 5).
+    pub min_genes: usize,
+    /// Maximum number of genes in a term to include (default 500).
+    pub max_genes: usize,
+    /// Restrict to a single namespace (`None` = test all).
+    pub namespace: Option<GoNamespace>,
+}
+
+impl Default for GoEnrichmentConfig {
+    fn default() -> Self {
+        Self {
+            min_genes: 5,
+            max_genes: 500,
+            namespace: None,
+        }
+    }
+}
+
+/// Result of GO enrichment analysis for one term.
+#[derive(Debug, Clone)]
+pub struct GoEnrichmentResult {
+    /// GO term identifier.
+    pub term_id: String,
+    /// Human-readable term name.
+    pub term_name: String,
+    /// Ontology namespace.
+    pub namespace: GoNamespace,
+    /// Number of significant genes annotated to this term.
+    pub overlap: usize,
+    /// Expected overlap under the null.
+    pub expected: f64,
+    /// Effective gene set size within the universe.
+    pub gene_set_size: usize,
+    /// Hypergeometric upper-tail p-value.
+    pub p_value: f64,
+    /// Benjamini-Hochberg adjusted p-value.
+    pub p_adjusted: f64,
+}
+
+/// GO enrichment analysis via over-representation (hypergeometric test).
+///
+/// Delegates to [`ora`] after converting GO annotations into gene sets,
+/// filtering by namespace and gene-set size.
+///
+/// - `significant`: indices of significant genes.
+/// - `annotation`: GO term annotations.
+/// - `n_total`: size of the gene universe.
+/// - `config`: filtering parameters.
+///
+/// Returns results sorted by ascending p-value with BH correction.
+///
+/// # Example
+///
+/// ```
+/// use cyanea_stats::enrichment::{
+///     GoTerm, GoAnnotation, GoEnrichmentConfig, GoNamespace, go_enrichment,
+/// };
+///
+/// let annotation = GoAnnotation::new(vec![
+///     GoTerm {
+///         id: "GO:0000001".into(),
+///         name: "mitochondrion inheritance".into(),
+///         namespace: GoNamespace::BiologicalProcess,
+///         genes: vec![0, 1, 2, 3, 4, 10, 11, 12, 13, 14],
+///     },
+/// ]).unwrap();
+/// let significant = vec![0, 1, 2, 3, 4];
+/// let config = GoEnrichmentConfig { min_genes: 1, ..Default::default() };
+/// let results = go_enrichment(&significant, &annotation, 100, &config).unwrap();
+/// assert_eq!(results[0].term_id, "GO:0000001");
+/// assert_eq!(results[0].overlap, 5);
+/// ```
+pub fn go_enrichment(
+    significant: &[usize],
+    annotation: &GoAnnotation,
+    n_total: usize,
+    config: &GoEnrichmentConfig,
+) -> Result<Vec<GoEnrichmentResult>> {
+    if config.min_genes > config.max_genes {
+        return Err(CyaneaError::InvalidInput(format!(
+            "go_enrichment: min_genes ({}) > max_genes ({})",
+            config.min_genes, config.max_genes,
+        )));
+    }
+
+    // Filter terms by namespace and deduplicate gene lists for size check
+    let filtered: Vec<&GoTerm> = annotation
+        .terms
+        .iter()
+        .filter(|t| match config.namespace {
+            Some(ns) => t.namespace == ns,
+            None => true,
+        })
+        .filter(|t| {
+            let unique: HashSet<usize> = t.genes.iter().copied().collect();
+            let n = unique.len();
+            n >= config.min_genes && n <= config.max_genes
+        })
+        .collect();
+
+    if filtered.is_empty() {
+        return Err(CyaneaError::InvalidInput(
+            "go_enrichment: no GO terms pass size/namespace filters".into(),
+        ));
+    }
+
+    // Build gene sets for ora()
+    let gene_sets: Vec<GeneSet> = filtered
+        .iter()
+        .map(|t| GeneSet {
+            name: t.id.clone(),
+            genes: t.genes.clone(),
+        })
+        .collect();
+
+    // Delegate to existing ORA
+    let ora_results = ora(significant, &gene_sets, n_total)?;
+
+    // Map back to GoEnrichmentResult with term metadata
+    let term_map: BTreeMap<&str, &GoTerm> = filtered.iter().map(|t| (t.id.as_str(), *t)).collect();
+
+    let results = ora_results
+        .into_iter()
+        .map(|r| {
+            let term = term_map[r.gene_set.as_str()];
+            GoEnrichmentResult {
+                term_id: r.gene_set,
+                term_name: term.name.clone(),
+                namespace: term.namespace,
+                overlap: r.overlap,
+                expected: r.expected,
+                gene_set_size: r.gene_set_size,
+                p_value: r.p_value,
+                p_adjusted: r.p_adjusted,
+            }
+        })
+        .collect();
+
+    Ok(results)
+}
+
 // ── Tests ───────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -807,5 +1060,211 @@ mod tests {
         // At least one of the first 10 values should differ
         let differs = (0..10).any(|_| rng1.next_u64() != rng2.next_u64());
         assert!(differs);
+    }
+
+    // ── GO enrichment tests ───────────────────────────────────────────
+
+    fn make_go_terms() -> Vec<GoTerm> {
+        vec![
+            GoTerm {
+                id: "GO:0000001".into(),
+                name: "mito inheritance".into(),
+                namespace: GoNamespace::BiologicalProcess,
+                genes: vec![0, 1, 2, 3, 4, 50, 51, 52, 53, 54],
+            },
+            GoTerm {
+                id: "GO:0000002".into(),
+                name: "mito genome maintenance".into(),
+                namespace: GoNamespace::BiologicalProcess,
+                genes: vec![60, 61, 62, 63, 64, 65, 66, 67, 68, 69],
+            },
+            GoTerm {
+                id: "GO:0000003".into(),
+                name: "ATP binding".into(),
+                namespace: GoNamespace::MolecularFunction,
+                genes: vec![0, 1, 10, 11, 12, 13, 14, 15, 16, 17],
+            },
+        ]
+    }
+
+    #[test]
+    fn go_annotation_new_empty_error() {
+        assert!(GoAnnotation::new(vec![]).is_err());
+    }
+
+    #[test]
+    fn go_annotation_from_entries_merges() {
+        let entries = vec![
+            (0usize, "GO:0000001", "term A", GoNamespace::BiologicalProcess),
+            (1, "GO:0000001", "term A", GoNamespace::BiologicalProcess),
+            (2, "GO:0000002", "term B", GoNamespace::MolecularFunction),
+        ];
+        let ann = GoAnnotation::from_entries(&entries).unwrap();
+        assert_eq!(ann.n_terms(), 2);
+        // GO:0000001 should have genes [0, 1]
+        let t = ann.terms.iter().find(|t| t.id == "GO:0000001").unwrap();
+        assert_eq!(t.genes, vec![0, 1]);
+    }
+
+    #[test]
+    fn go_annotation_from_entries_empty_error() {
+        let entries: Vec<(usize, &str, &str, GoNamespace)> = vec![];
+        assert!(GoAnnotation::from_entries(&entries).is_err());
+    }
+
+    #[test]
+    fn go_annotation_n_terms_and_n_genes() {
+        let ann = GoAnnotation::new(make_go_terms()).unwrap();
+        assert_eq!(ann.n_terms(), 3);
+        // Count distinct genes across all terms
+        let expected_genes: HashSet<usize> = make_go_terms()
+            .iter()
+            .flat_map(|t| t.genes.iter().copied())
+            .collect();
+        assert_eq!(ann.n_genes(), expected_genes.len());
+    }
+
+    #[test]
+    fn go_annotation_terms_for_gene() {
+        let ann = GoAnnotation::new(make_go_terms()).unwrap();
+        // Gene 0 is in GO:0000001 and GO:0000003
+        let mut ids = ann.terms_for_gene(0);
+        ids.sort();
+        assert_eq!(ids, vec!["GO:0000001", "GO:0000003"]);
+        // Gene 60 is only in GO:0000002
+        assert_eq!(ann.terms_for_gene(60), vec!["GO:0000002"]);
+        // Gene 99 is in no terms
+        assert!(ann.terms_for_gene(99).is_empty());
+    }
+
+    #[test]
+    fn go_annotation_filter_namespace() {
+        let ann = GoAnnotation::new(make_go_terms()).unwrap();
+        let bp = ann.filter_namespace(GoNamespace::BiologicalProcess).unwrap();
+        assert_eq!(bp.n_terms(), 2);
+        for t in &bp.terms {
+            assert_eq!(t.namespace, GoNamespace::BiologicalProcess);
+        }
+    }
+
+    #[test]
+    fn go_annotation_filter_namespace_empty_error() {
+        let ann = GoAnnotation::new(make_go_terms()).unwrap();
+        assert!(ann.filter_namespace(GoNamespace::CellularComponent).is_err());
+    }
+
+    #[test]
+    fn go_enrichment_basic() {
+        let ann = GoAnnotation::new(make_go_terms()).unwrap();
+        let significant = vec![0, 1, 2, 3, 4]; // 5 of 10 in GO:0000001
+        let config = GoEnrichmentConfig {
+            min_genes: 1,
+            ..Default::default()
+        };
+        let results = go_enrichment(&significant, &ann, 100, &config).unwrap();
+        // Should find GO:0000001 enriched
+        let r = results.iter().find(|r| r.term_id == "GO:0000001").unwrap();
+        assert_eq!(r.overlap, 5);
+        assert_eq!(r.term_name, "mito inheritance");
+        assert_eq!(r.namespace, GoNamespace::BiologicalProcess);
+        assert!(r.p_value < 0.01, "p={}", r.p_value);
+    }
+
+    #[test]
+    fn go_enrichment_size_filter_min() {
+        // All terms have 10 genes; setting min_genes=11 should filter them out
+        let ann = GoAnnotation::new(make_go_terms()).unwrap();
+        let config = GoEnrichmentConfig {
+            min_genes: 11,
+            max_genes: 500,
+            namespace: None,
+        };
+        assert!(go_enrichment(&[0], &ann, 100, &config).is_err());
+    }
+
+    #[test]
+    fn go_enrichment_size_filter_max() {
+        // All terms have 10 genes; setting max_genes=5 should filter them out
+        let ann = GoAnnotation::new(make_go_terms()).unwrap();
+        let config = GoEnrichmentConfig {
+            min_genes: 1,
+            max_genes: 5,
+            namespace: None,
+        };
+        assert!(go_enrichment(&[0], &ann, 100, &config).is_err());
+    }
+
+    #[test]
+    fn go_enrichment_namespace_filter() {
+        let ann = GoAnnotation::new(make_go_terms()).unwrap();
+        let config = GoEnrichmentConfig {
+            min_genes: 1,
+            max_genes: 500,
+            namespace: Some(GoNamespace::MolecularFunction),
+        };
+        let results = go_enrichment(&[0, 1], &ann, 100, &config).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].term_id, "GO:0000003");
+    }
+
+    #[test]
+    fn go_enrichment_no_terms_pass_error() {
+        let ann = GoAnnotation::new(make_go_terms()).unwrap();
+        let config = GoEnrichmentConfig {
+            min_genes: 1,
+            max_genes: 500,
+            namespace: Some(GoNamespace::CellularComponent),
+        };
+        assert!(go_enrichment(&[0], &ann, 100, &config).is_err());
+    }
+
+    #[test]
+    fn go_enrichment_min_gt_max_error() {
+        let ann = GoAnnotation::new(make_go_terms()).unwrap();
+        let config = GoEnrichmentConfig {
+            min_genes: 100,
+            max_genes: 5,
+            namespace: None,
+        };
+        assert!(go_enrichment(&[0], &ann, 100, &config).is_err());
+    }
+
+    #[test]
+    fn go_enrichment_sorted_by_pvalue() {
+        let ann = GoAnnotation::new(make_go_terms()).unwrap();
+        let significant = vec![0, 1, 2, 3, 4];
+        let config = GoEnrichmentConfig {
+            min_genes: 1,
+            ..Default::default()
+        };
+        let results = go_enrichment(&significant, &ann, 100, &config).unwrap();
+        for w in results.windows(2) {
+            assert!(
+                w[0].p_value <= w[1].p_value + 1e-15,
+                "not sorted: {} > {}",
+                w[0].p_value,
+                w[1].p_value,
+            );
+        }
+    }
+
+    #[test]
+    fn go_enrichment_bh_correction() {
+        let ann = GoAnnotation::new(make_go_terms()).unwrap();
+        let significant = vec![0, 1, 2, 3, 4];
+        let config = GoEnrichmentConfig {
+            min_genes: 1,
+            ..Default::default()
+        };
+        let results = go_enrichment(&significant, &ann, 100, &config).unwrap();
+        for r in &results {
+            assert!(
+                r.p_adjusted >= r.p_value - 1e-15,
+                "{}: padj={} < p={}",
+                r.term_id,
+                r.p_adjusted,
+                r.p_value,
+            );
+        }
     }
 }

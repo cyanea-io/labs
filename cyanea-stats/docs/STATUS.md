@@ -222,6 +222,12 @@ Exact and log-space combinatorial functions with overflow protection.
 | `ora(significant, gene_sets, n_total) -> Result<Vec<OraResult>>` | Over-representation analysis via hypergeometric upper-tail test with BH correction |
 | `GseaResult` | Per-set GSEA result: `gene_set`, `enrichment_score`, `normalized_es`, `p_value`, `p_adjusted`, `leading_edge_size`, `gene_set_size` |
 | `gsea_preranked(genes, scores, gene_sets, weight, n_permutations) -> Result<Vec<GseaResult>>` | Preranked GSEA (Subramanian et al. 2005) with score weighting, permutation p-values, NES, and BH correction |
+| `GoNamespace` | Enum: `BiologicalProcess`, `MolecularFunction`, `CellularComponent` |
+| `GoTerm` | GO term: `id`, `name`, `namespace`, `genes` (Vec<usize>) |
+| `GoAnnotation` | Collection of GO term annotations with `new()`, `from_entries()`, `n_terms()`, `n_genes()`, `terms_for_gene()`, `filter_namespace()` |
+| `GoEnrichmentConfig` | Config: `min_genes` (default 5), `max_genes` (default 500), `namespace` (optional filter) |
+| `GoEnrichmentResult` | Per-term result: `term_id`, `term_name`, `namespace`, `overlap`, `expected`, `gene_set_size`, `p_value`, `p_adjusted` |
+| `go_enrichment(significant, annotation, n_total, config) -> Result<Vec<GoEnrichmentResult>>` | GO enrichment via ORA — filters by namespace/size, delegates to `ora()`, returns BH-corrected results |
 
 ### Survival analysis (`survival.rs`)
 
@@ -237,7 +243,7 @@ Exact and log-space combinatorial functions with overflow protection.
 
 ## Tests
 
-304 unit tests + 8 doc tests across 17 source files.
+319 unit tests + 9 doc tests across 17 source files.
 
 ## Source Files
 
@@ -258,5 +264,5 @@ Exact and log-space combinatorial functions with overflow protection.
 | `popgen.rs` | 1445 | Population genetics (allele freq, HWE, Fst, diversity, Tajima's D, LD, PCA) |
 | `normalization.rs` | 357 | Expression normalization (TPM, FPKM, CPM, DESeq2 size factors) |
 | `diffexpr.rs` | 546 | Differential expression (NB Wald test, Wilcoxon, volcano plot) |
-| `enrichment.rs` | ~530 | Gene set enrichment (ORA, GSEA preranked) |
+| `enrichment.rs` | ~760 | Gene set enrichment (ORA, GSEA preranked, GO enrichment) |
 | `survival.rs` | 1164 | Survival analysis (Kaplan-Meier, log-rank test, Cox PH) |
