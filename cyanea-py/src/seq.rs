@@ -658,6 +658,176 @@ impl MinHashSketch {
 }
 
 // ---------------------------------------------------------------------------
+// RNA structure prediction
+// ---------------------------------------------------------------------------
+
+/// RNA secondary structure prediction result.
+#[pyclass(frozen, get_all)]
+pub struct PyRnaStructure {
+    pub structure: String,
+    pub pairs: Vec<(usize, usize)>,
+    pub max_pairs: usize,
+}
+
+/// Predict RNA secondary structure using the Nussinov algorithm (maximize base pairs).
+#[pyfunction]
+#[pyo3(signature = (seq, min_loop_size=3))]
+fn rna_nussinov(seq: &str, min_loop_size: usize) -> PyResult<PyRnaStructure> {
+    let result = cyanea_seq::nussinov(seq.as_bytes(), min_loop_size).into_pyresult()?;
+    let pairs = result.structure.base_pairs();
+    Ok(PyRnaStructure {
+        structure: result.structure.to_dot_bracket(),
+        pairs,
+        max_pairs: result.max_pairs,
+    })
+}
+
+/// RNA minimum free energy structure prediction result.
+#[pyclass(frozen, get_all)]
+pub struct PyRnaMfe {
+    pub structure: String,
+    pub pairs: Vec<(usize, usize)>,
+    pub energy: f64,
+}
+
+/// Predict RNA secondary structure using the Zuker MFE algorithm (minimize free energy).
+#[pyfunction]
+fn rna_zuker(seq: &str) -> PyResult<PyRnaMfe> {
+    let result = cyanea_seq::zuker_mfe(seq.as_bytes()).into_pyresult()?;
+    let pairs = result.structure.base_pairs();
+    Ok(PyRnaMfe {
+        structure: result.structure.to_dot_bracket(),
+        pairs,
+        energy: result.energy,
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Protein properties
+// ---------------------------------------------------------------------------
+
+/// Computed protein sequence properties.
+#[pyclass(frozen, get_all)]
+pub struct PyProteinProperties {
+    pub gravy: f64,
+    pub isoelectric_point: f64,
+    pub extinction_reduced: f64,
+    pub extinction_cystine: f64,
+}
+
+/// Compute physicochemical properties of a protein sequence.
+#[pyfunction]
+fn protein_properties(seq: &str) -> PyResult<PyProteinProperties> {
+    let bytes = seq.as_bytes();
+    let gravy = cyanea_seq::protein_properties::gravy(bytes).into_pyresult()?;
+    let pi = cyanea_seq::protein_properties::isoelectric_point(bytes).into_pyresult()?;
+    let ext = cyanea_seq::protein_properties::extinction_coefficient(bytes).into_pyresult()?;
+    Ok(PyProteinProperties {
+        gravy,
+        isoelectric_point: pi,
+        extinction_reduced: ext.reduced,
+        extinction_cystine: ext.cystine,
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Read simulation
+// ---------------------------------------------------------------------------
+
+/// A single simulated read.
+#[pyclass(frozen, get_all)]
+pub struct PySimulatedRead {
+    pub name: String,
+    pub sequence: String,
+    pub quality: String,
+    pub position: u64,
+    pub is_read1: bool,
+}
+
+/// Simulate Illumina-style reads from a reference sequence.
+#[pyfunction]
+#[pyo3(signature = (ref_seq, read_length=150, coverage=30.0, error_rate=0.001, seed=42))]
+fn simulate_reads(ref_seq: &str, read_length: usize, coverage: f64, error_rate: f64, seed: u64) -> PyResult<Vec<PySimulatedRead>> {
+    let config = cyanea_seq::ReadSimConfig {
+        read_length,
+        coverage,
+        error_rate,
+        seed,
+        ..Default::default()
+    };
+    let reads = cyanea_seq::simulate_reads(ref_seq.as_bytes(), "ref", &config);
+    Ok(reads.into_iter().map(|r| PySimulatedRead {
+        name: r.name,
+        sequence: String::from_utf8_lossy(&r.sequence).to_string(),
+        quality: String::from_utf8_lossy(&r.quality).to_string(),
+        position: r.true_position,
+        is_read1: r.is_read1,
+    }).collect())
+}
+
+// ---------------------------------------------------------------------------
+// Codon usage
+// ---------------------------------------------------------------------------
+
+/// Compute codon usage frequencies from a coding sequence.
+///
+/// Returns a dict mapping codon strings to counts.
+#[pyfunction]
+fn codon_usage(seq: &str) -> std::collections::HashMap<String, u64> {
+    let usage = cyanea_seq::codon::CodonUsage::from_sequence(seq.as_bytes());
+    let nucleotides = [b'A', b'C', b'G', b'T'];
+    let mut result = std::collections::HashMap::new();
+    for &a in &nucleotides {
+        for &b in &nucleotides {
+            for &c in &nucleotides {
+                let codon = [a, b, c];
+                let count = usage.count(&codon);
+                if count > 0 {
+                    result.insert(String::from_utf8_lossy(&codon).to_string(), count);
+                }
+            }
+        }
+    }
+    result
+}
+
+// ---------------------------------------------------------------------------
+// Assembly statistics
+// ---------------------------------------------------------------------------
+
+/// Assembly quality statistics.
+#[pyclass(frozen, get_all)]
+pub struct PyAssemblyStats {
+    pub n_contigs: usize,
+    pub total_length: usize,
+    pub n50: usize,
+    pub l50: usize,
+    pub n90: usize,
+    pub l90: usize,
+    pub largest_contig: usize,
+    pub smallest_contig: usize,
+    pub gc_content: f64,
+}
+
+/// Compute assembly quality statistics from contig sequences.
+#[pyfunction]
+fn assembly_stats(contigs: Vec<Vec<u8>>) -> PyResult<PyAssemblyStats> {
+    let refs: Vec<&[u8]> = contigs.iter().map(|c| c.as_slice()).collect();
+    let stats = cyanea_seq::assembly_stats(&refs).into_pyresult()?;
+    Ok(PyAssemblyStats {
+        n_contigs: stats.n_contigs,
+        total_length: stats.total_length,
+        n50: stats.n50,
+        l50: stats.l50,
+        n90: stats.n90,
+        l90: stats.l90,
+        largest_contig: stats.largest_contig,
+        smallest_contig: stats.smallest_contig,
+        gc_content: stats.gc_content,
+    })
+}
+
+// ---------------------------------------------------------------------------
 // Submodule registration
 // ---------------------------------------------------------------------------
 
@@ -675,6 +845,11 @@ pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<OrfResult>()?;
     m.add_class::<FmIndex>()?;
     m.add_class::<MinHashSketch>()?;
+    m.add_class::<PyRnaStructure>()?;
+    m.add_class::<PyRnaMfe>()?;
+    m.add_class::<PyProteinProperties>()?;
+    m.add_class::<PySimulatedRead>()?;
+    m.add_class::<PyAssemblyStats>()?;
     m.add_function(wrap_pyfunction!(fasta_stats, &m)?)?;
     m.add_function(wrap_pyfunction!(parse_fastq, &m)?)?;
     m.add_function(wrap_pyfunction!(fastq_stats, &m)?)?;
@@ -691,6 +866,12 @@ pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(ukkonen_search, &m)?)?;
     m.add_function(wrap_pyfunction!(find_orfs, &m)?)?;
     m.add_function(wrap_pyfunction!(find_orfs_both_strands, &m)?)?;
+    m.add_function(wrap_pyfunction!(rna_nussinov, &m)?)?;
+    m.add_function(wrap_pyfunction!(rna_zuker, &m)?)?;
+    m.add_function(wrap_pyfunction!(protein_properties, &m)?)?;
+    m.add_function(wrap_pyfunction!(simulate_reads, &m)?)?;
+    m.add_function(wrap_pyfunction!(codon_usage, &m)?)?;
+    m.add_function(wrap_pyfunction!(assembly_stats, &m)?)?;
     parent.add_submodule(&m)?;
     Ok(())
 }

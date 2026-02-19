@@ -119,6 +119,21 @@ pub fn vcf_stats(path: impl AsRef<Path>) -> Result<VcfStats> {
     })
 }
 
+/// Parse VCF text from a string and return all variant records.
+///
+/// Behaves like [`parse_vcf`] but reads from an in-memory string instead of a file.
+pub fn parse_vcf_str(text: &str) -> Result<Vec<Variant>> {
+    let dummy = Path::new("<string>");
+    text.lines()
+        .enumerate()
+        .filter(|(_, line)| {
+            let t = line.trim();
+            !t.is_empty() && !t.starts_with('#')
+        })
+        .map(|(i, line)| parse_vcf_line(line.trim(), i + 1, dummy))
+        .collect()
+}
+
 /// Parse a single VCF data line into a Variant.
 fn parse_vcf_line(line: &str, line_num: usize, path: &Path) -> Result<Variant> {
     let fields: Vec<&str> = line.split('\t').collect();
@@ -445,6 +460,20 @@ mod tests {
         let file = write_vcf("#CHROM\tPOS\n\nchr1\t100\n");
         let result = parse_vcf(file.path());
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_vcf_str() {
+        let text = "##fileformat=VCFv4.3\n\
+                    #CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n\
+                    chr1\t100\trs1\tA\tG\t30.0\tPASS\t.\n\
+                    chr1\t200\t.\tAC\tA\t.\t.\t.\n";
+        let variants = super::parse_vcf_str(text).unwrap();
+        assert_eq!(variants.len(), 2);
+        assert_eq!(variants[0].chrom, "chr1");
+        assert_eq!(variants[0].position, 100);
+        assert!(variants[0].is_snv());
+        assert!(variants[1].is_indel());
     }
 
     #[test]

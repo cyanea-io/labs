@@ -6,7 +6,7 @@
 //
 // Usage:
 //   import init from "../pkg/cyanea_wasm.js";
-//   import { Seq, Align, Stats, ML, Chem, StructBio, Phylo, Core } from "./index.js";
+//   import { Seq, Align, Stats, ML, Chem, StructBio, Phylo, IO, Omics, Core } from "./index.js";
 //
 //   await init();
 //   const stats = Seq.parseFasta(">seq1\nACGT\n");
@@ -44,6 +44,53 @@ import type {
   DistanceModel,
   Alphabet,
   WasmResult,
+  // New T15 types
+  RnaStructure,
+  ProteinProperties,
+  SimulatedRead,
+  CodonUsage,
+  AssemblyStats,
+  MsaResult,
+  PoaConsensus,
+  KmResult,
+  LogRankResult,
+  CoxPhResult,
+  WrightFisherResult,
+  TajimaD,
+  FstResult,
+  RandomForestResult,
+  GbdtRegressionResult,
+  GbdtClassifyResult,
+  HmmViterbiResult,
+  ConfusionMatrix,
+  RocCurve,
+  PrCurve,
+  CvResult,
+  FeatureSelection,
+  SdfMolecule,
+  MaccsFingerprint,
+  ContactMap,
+  RamachandranEntry,
+  MmcifInfo,
+  KabschResult,
+  NexusFile,
+  SimulatedAlignment,
+  CoalescentTree,
+  VcfVariant,
+  BedRecord,
+  Gff3Gene,
+  BlastXmlResult,
+  BedGraphRecord,
+  GfaGraph,
+  GenomicInterval,
+  VariantEffect,
+  CnvSegment,
+  CpgIsland,
+  SpatialAutocorrelation,
+  GearysC,
+  LiftoverResult,
+  JaccardResult,
+  ClosestResult,
 } from "./types.js";
 
 export type {
@@ -76,6 +123,53 @@ export type {
   RFDistance,
   DistanceModel,
   Alphabet,
+  // New T15 types
+  RnaStructure,
+  ProteinProperties,
+  SimulatedRead,
+  CodonUsage,
+  AssemblyStats,
+  MsaResult,
+  PoaConsensus,
+  KmResult,
+  LogRankResult,
+  CoxPhResult,
+  WrightFisherResult,
+  TajimaD,
+  FstResult,
+  RandomForestResult,
+  GbdtRegressionResult,
+  GbdtClassifyResult,
+  HmmViterbiResult,
+  ConfusionMatrix,
+  RocCurve,
+  PrCurve,
+  CvResult,
+  FeatureSelection,
+  SdfMolecule,
+  MaccsFingerprint,
+  ContactMap,
+  RamachandranEntry,
+  MmcifInfo,
+  KabschResult,
+  NexusFile,
+  SimulatedAlignment,
+  CoalescentTree,
+  VcfVariant,
+  BedRecord,
+  Gff3Gene,
+  BlastXmlResult,
+  BedGraphRecord,
+  GfaGraph,
+  GenomicInterval,
+  VariantEffect,
+  CnvSegment,
+  CpgIsland,
+  SpatialAutocorrelation,
+  GearysC,
+  LiftoverResult,
+  JaccardResult,
+  ClosestResult,
 } from "./types.js";
 
 // Re-export the envelope types for advanced users who want raw access.
@@ -88,6 +182,7 @@ export type { WasmOk, WasmErr, WasmResult } from "./types.js";
 // namespace wrapper functions that share similar names.
 
 import {
+  // seq
   parse_fasta as _raw_parse_fasta,
   parse_fastq as _raw_parse_fastq,
   gc_content_json as _raw_gc_content_json,
@@ -95,6 +190,15 @@ import {
   transcribe as _raw_transcribe,
   translate as _raw_translate,
   validate as _raw_validate,
+  minhash_sketch as _raw_minhash_sketch,
+  minhash_compare as _raw_minhash_compare,
+  rna_fold_nussinov as _raw_rna_fold_nussinov,
+  rna_fold_zuker as _raw_rna_fold_zuker,
+  protein_props as _raw_protein_props,
+  simulate_reads as _raw_simulate_reads,
+  codon_usage as _raw_codon_usage,
+  assembly_stats_json as _raw_assembly_stats_json,
+  // align
   align_dna as _raw_align_dna,
   align_dna_custom as _raw_align_dna_custom,
   align_protein as _raw_align_protein,
@@ -110,6 +214,10 @@ import {
   collapse_cigar as _raw_collapse_cigar,
   hard_clip_to_soft as _raw_hard_clip_to_soft,
   split_cigar as _raw_split_cigar,
+  progressive_msa as _raw_progressive_msa,
+  poa_consensus as _raw_poa_consensus,
+  align_banded as _raw_align_banded,
+  // stats
   describe as _raw_describe,
   pearson as _raw_pearson,
   spearman as _raw_spearman,
@@ -118,36 +226,95 @@ import {
   mann_whitney_u as _raw_mann_whitney_u,
   bonferroni as _raw_bonferroni,
   benjamini_hochberg as _raw_benjamini_hochberg,
+  kaplan_meier as _raw_kaplan_meier,
+  log_rank_test as _raw_log_rank_test,
+  cox_ph as _raw_cox_ph,
+  wright_fisher as _raw_wright_fisher,
+  permutation_test as _raw_permutation_test,
+  bootstrap_ci as _raw_bootstrap_ci,
+  shannon_index as _raw_shannon_index,
+  simpson_index as _raw_simpson_index,
+  bray_curtis as _raw_bray_curtis,
+  fst_hudson as _raw_fst_hudson,
+  tajimas_d as _raw_tajimas_d,
+  // ml
   kmer_count as _raw_kmer_count,
   euclidean_distance as _raw_euclidean_distance,
   manhattan_distance as _raw_manhattan_distance,
   hamming_distance as _raw_hamming_distance,
   cosine_similarity as _raw_cosine_similarity,
   umap as _raw_umap,
+  pca as _raw_pca,
+  tsne as _raw_tsne,
+  kmeans as _raw_kmeans,
+  random_forest_classify as _raw_random_forest_classify,
+  gbdt_regression as _raw_gbdt_regression,
+  gbdt_classify as _raw_gbdt_classify,
+  hmm_viterbi as _raw_hmm_viterbi,
+  hmm_likelihood as _raw_hmm_likelihood,
+  confusion_matrix as _raw_confusion_matrix,
+  roc_curve as _raw_roc_curve,
+  pr_curve as _raw_pr_curve,
+  cross_validate_rf as _raw_cross_validate_rf,
+  feature_importance_variance as _raw_feature_importance_variance,
+  // chem
   smiles_properties as _raw_smiles_properties,
   canonical as _raw_canonical,
   smiles_fingerprint as _raw_smiles_fingerprint,
   tanimoto as _raw_tanimoto,
   smiles_substructure as _raw_smiles_substructure,
+  parse_sdf as _raw_parse_sdf,
+  maccs_fingerprint as _raw_maccs_fingerprint,
+  tanimoto_maccs as _raw_tanimoto_maccs,
+  // struct_bio
   pdb_info as _raw_pdb_info,
   pdb_secondary_structure as _raw_pdb_secondary_structure,
   rmsd as _raw_rmsd,
+  contact_map as _raw_contact_map,
+  ramachandran_analysis as _raw_ramachandran_analysis,
+  parse_mmcif as _raw_parse_mmcif,
+  kabsch_align as _raw_kabsch_align,
+  // phylo
   newick_info as _raw_newick_info,
   evolutionary_distance as _raw_evolutionary_distance,
   build_upgma as _raw_build_upgma,
   build_nj as _raw_build_nj,
   rf_distance as _raw_rf_distance,
-  sha256 as _raw_sha256,
-  zstd_compress as _raw_zstd_compress,
-  zstd_decompress as _raw_zstd_decompress,
-  pca as _raw_pca,
-  tsne as _raw_tsne,
-  kmeans as _raw_kmeans,
-  minhash_sketch as _raw_minhash_sketch,
-  minhash_compare as _raw_minhash_compare,
+  parse_nexus as _raw_parse_nexus,
+  write_nexus as _raw_write_nexus,
+  simulate_evolution as _raw_simulate_evolution,
+  simulate_coalescent as _raw_simulate_coalescent,
+  simulate_coalescent_growth as _raw_simulate_coalescent_growth,
+  // io
   pileup_from_sam as _raw_pileup_from_sam,
   depth_stats_from_sam as _raw_depth_stats_from_sam,
   pileup_to_mpileup_text as _raw_pileup_to_mpileup_text,
+  parse_vcf_text as _raw_parse_vcf_text,
+  parse_bed_text as _raw_parse_bed_text,
+  parse_gff3_text as _raw_parse_gff3_text,
+  parse_blast_xml as _raw_parse_blast_xml,
+  parse_bedgraph as _raw_parse_bedgraph,
+  parse_gfa as _raw_parse_gfa,
+  ncbi_fetch_url as _raw_ncbi_fetch_url,
+  // omics
+  merge_intervals as _raw_merge_intervals,
+  intersect_intervals as _raw_intersect_intervals,
+  subtract_intervals as _raw_subtract_intervals,
+  complement_intervals as _raw_complement_intervals,
+  closest_intervals as _raw_closest_intervals,
+  jaccard_intervals as _raw_jaccard_intervals,
+  make_windows as _raw_make_windows,
+  liftover_interval as _raw_liftover_interval,
+  annotate_variant as _raw_annotate_variant,
+  cbs_segment as _raw_cbs_segment,
+  bisulfite_convert as _raw_bisulfite_convert,
+  find_cpg_islands as _raw_find_cpg_islands,
+  morans_i as _raw_morans_i,
+  gearys_c as _raw_gearys_c,
+  // core
+  sha256 as _raw_sha256,
+  zstd_compress as _raw_zstd_compress,
+  zstd_decompress as _raw_zstd_decompress,
 } from "../pkg/cyanea_wasm.js";
 
 // ── Error type ─────────────────────────────────────────────────────────────
@@ -181,552 +348,411 @@ function unwrap<T>(json: string): T {
 // ── Seq ────────────────────────────────────────────────────────────────────
 
 export namespace Seq {
-  /**
-   * Parse FASTA-formatted text and return summary statistics.
-   *
-   * @param data - FASTA-formatted string (e.g. ">seq1\nACGT\n")
-   */
   export function parseFasta(data: string): FastaStats {
     return unwrap<FastaStats>(_raw_parse_fasta(data));
   }
 
-  /**
-   * Parse FASTQ-formatted text and return an array of records.
-   *
-   * @param data - FASTQ-formatted string
-   */
   export function parseFastq(data: string): FastqRecord[] {
     return unwrap<FastqRecord[]>(_raw_parse_fastq(data));
   }
 
-  /**
-   * Compute GC content as a percentage (0-100) of a nucleotide string.
-   *
-   * @param seq - Raw nucleotide sequence string (e.g. "ACGT")
-   */
   export function gcContent(seq: string): number {
     return unwrap<number>(_raw_gc_content_json(seq));
   }
 
-  /**
-   * Compute the reverse complement of a DNA sequence.
-   *
-   * @param seq - DNA sequence string
-   */
   export function reverseComplement(seq: string): string {
     return unwrap<string>(_raw_reverse_complement(seq));
   }
 
-  /**
-   * Transcribe a DNA sequence to RNA (T -> U).
-   *
-   * @param seq - DNA sequence string
-   */
   export function transcribe(seq: string): string {
     return unwrap<string>(_raw_transcribe(seq));
   }
 
-  /**
-   * Translate a DNA sequence to a protein string (standard codon table).
-   *
-   * @param seq - DNA sequence string (length must be divisible by 3)
-   */
   export function translate(seq: string): string {
     return unwrap<string>(_raw_translate(seq));
   }
 
-  /**
-   * Validate a sequence against an alphabet.
-   *
-   * @param seq - Sequence string to validate
-   * @param alphabet - One of "dna", "rna", or "protein"
-   * @returns `true` if the sequence is valid
-   * @throws CyaneaError if the sequence contains invalid characters
-   */
   export function validate(seq: string, alphabet: Alphabet): boolean {
     return unwrap<boolean>(_raw_validate(seq, alphabet));
   }
 
-  /**
-   * Create a MinHash sketch of a nucleotide sequence.
-   *
-   * @param seq - Nucleotide sequence string
-   * @param k - K-mer size
-   * @param sketchSize - Number of hashes to keep in the sketch
-   */
   export function minhashSketch(seq: string, k: number, sketchSize: number): MinHashSketch {
     return unwrap<MinHashSketch>(_raw_minhash_sketch(seq, k, sketchSize));
   }
 
-  /**
-   * Compare two sequences using MinHash and return similarity metrics.
-   *
-   * @param seqA - First nucleotide sequence
-   * @param seqB - Second nucleotide sequence
-   * @param k - K-mer size
-   * @param sketchSize - Number of hashes to keep in the sketch
-   */
   export function minhashCompare(
-    seqA: string,
-    seqB: string,
-    k: number,
-    sketchSize: number,
+    seqA: string, seqB: string, k: number, sketchSize: number,
   ): MinHashComparison {
     return unwrap<MinHashComparison>(_raw_minhash_compare(seqA, seqB, k, sketchSize));
+  }
+
+  /** Predict RNA secondary structure using Nussinov algorithm. */
+  export function rnaFoldNussinov(seq: string): RnaStructure {
+    return unwrap<RnaStructure>(_raw_rna_fold_nussinov(seq));
+  }
+
+  /** Predict RNA secondary structure using Zuker MFE algorithm. */
+  export function rnaFoldZuker(seq: string): RnaStructure {
+    return unwrap<RnaStructure>(_raw_rna_fold_zuker(seq));
+  }
+
+  /** Compute protein sequence properties (MW, pI, GRAVY, etc.). */
+  export function proteinProperties(seq: string): ProteinProperties {
+    return unwrap<ProteinProperties>(_raw_protein_props(seq));
+  }
+
+  /** Simulate sequencing reads from a reference sequence. */
+  export function simulateReads(refSeq: string, configJson: string): SimulatedRead[] {
+    return unwrap<SimulatedRead[]>(_raw_simulate_reads(refSeq, configJson));
+  }
+
+  /** Compute codon usage from a coding DNA sequence. */
+  export function codonUsage(seq: string): CodonUsage {
+    return unwrap<CodonUsage>(_raw_codon_usage(seq));
+  }
+
+  /** Compute assembly statistics for a set of contigs. */
+  export function assemblyStats(contigsJson: string): AssemblyStats {
+    return unwrap<AssemblyStats>(_raw_assembly_stats_json(contigsJson));
   }
 }
 
 // ── Align ──────────────────────────────────────────────────────────────────
 
 export namespace Align {
-  /**
-   * Align two DNA sequences with default scoring (+2/-1/-5/-2).
-   *
-   * @param query - Query DNA sequence
-   * @param target - Target DNA sequence
-   * @param mode - Alignment mode: "local", "global", or "semiglobal"
-   */
   export function alignDna(
-    query: string,
-    target: string,
-    mode: AlignmentMode,
+    query: string, target: string, mode: AlignmentMode,
   ): AlignmentResult {
     return unwrap<AlignmentResult>(_raw_align_dna(query, target, mode));
   }
 
-  /**
-   * Align two DNA sequences with custom scoring parameters.
-   *
-   * @param query - Query DNA sequence
-   * @param target - Target DNA sequence
-   * @param mode - Alignment mode
-   * @param matchScore - Score for matching bases (positive)
-   * @param mismatchScore - Score for mismatching bases (negative)
-   * @param gapOpen - Gap opening penalty (negative)
-   * @param gapExtend - Gap extension penalty (negative)
-   */
   export function alignDnaCustom(
-    query: string,
-    target: string,
-    mode: AlignmentMode,
-    matchScore: number,
-    mismatchScore: number,
-    gapOpen: number,
-    gapExtend: number,
+    query: string, target: string, mode: AlignmentMode,
+    matchScore: number, mismatchScore: number, gapOpen: number, gapExtend: number,
   ): AlignmentResult {
     return unwrap<AlignmentResult>(
       _raw_align_dna_custom(query, target, mode, matchScore, mismatchScore, gapOpen, gapExtend),
     );
   }
 
-  /**
-   * Align two protein sequences using a named substitution matrix.
-   *
-   * @param query - Query protein sequence
-   * @param target - Target protein sequence
-   * @param mode - Alignment mode
-   * @param matrix - Substitution matrix name: "blosum62", "blosum45", "blosum80", or "pam250"
-   */
   export function alignProtein(
-    query: string,
-    target: string,
-    mode: AlignmentMode,
-    matrix: SubstitutionMatrix,
+    query: string, target: string, mode: AlignmentMode, matrix: SubstitutionMatrix,
   ): AlignmentResult {
     return unwrap<AlignmentResult>(_raw_align_protein(query, target, mode, matrix));
   }
 
-  /**
-   * Batch-align multiple sequence pairs with custom scoring.
-   *
-   * @param pairs - Array of query/target pairs
-   * @param mode - Alignment mode
-   * @param matchScore - Score for matching bases
-   * @param mismatchScore - Score for mismatching bases
-   * @param gapOpen - Gap opening penalty
-   * @param gapExtend - Gap extension penalty
-   */
   export function alignBatch(
-    pairs: SeqPair[],
-    mode: AlignmentMode,
-    matchScore: number,
-    mismatchScore: number,
-    gapOpen: number,
-    gapExtend: number,
+    pairs: SeqPair[], mode: AlignmentMode,
+    matchScore: number, mismatchScore: number, gapOpen: number, gapExtend: number,
   ): AlignmentResult[] {
-    const pairsJson = JSON.stringify(pairs);
     return unwrap<AlignmentResult[]>(
-      _raw_align_batch(pairsJson, mode, matchScore, mismatchScore, gapOpen, gapExtend),
+      _raw_align_batch(JSON.stringify(pairs), mode, matchScore, mismatchScore, gapOpen, gapExtend),
     );
   }
 
-  // -- CIGAR utilities --
-
-  /**
-   * Parse a SAM CIGAR string into an array of operations.
-   *
-   * Accepts the full SAM alphabet (M, I, D, N, S, H, P, =, X) and `*`.
-   *
-   * @param cigar - CIGAR string (e.g. "10M3I4D2S")
-   */
   export function parseCigar(cigar: string): CigarOp[] {
     return unwrap<CigarOp[]>(_raw_parse_cigar(cigar));
   }
 
-  /**
-   * Validate a CIGAR string against SAM spec rules.
-   *
-   * Returns `true` if valid.
-   * @throws CyaneaError if the CIGAR is invalid
-   */
   export function validateCigar(cigar: string): boolean {
     return unwrap<boolean>(_raw_validate_cigar(cigar));
   }
 
-  /**
-   * Compute statistics from a CIGAR string.
-   *
-   * @param cigar - CIGAR string
-   */
   export function cigarStats(cigar: string): CigarStats {
     return unwrap<CigarStats>(_raw_cigar_stats(cigar));
   }
 
-  /**
-   * Reconstruct gapped alignment from CIGAR and ungapped sequences.
-   *
-   * @param cigar - CIGAR string
-   * @param query - Ungapped query sequence
-   * @param target - Ungapped target/reference sequence
-   * @returns Object with `aligned_query` and `aligned_target` byte arrays
-   */
   export function cigarToAlignment(
-    cigar: string,
-    query: string,
-    target: string,
+    cigar: string, query: string, target: string,
   ): { aligned_query: number[]; aligned_target: number[] } {
     return unwrap<{ aligned_query: number[]; aligned_target: number[] }>(
       _raw_cigar_to_alignment(cigar, query, target),
     );
   }
 
-  /**
-   * Extract a CIGAR string from a gapped alignment (using =/X distinction).
-   *
-   * Both sequences must be the same length, with `-` for gaps.
-   *
-   * @param query - Gapped query sequence
-   * @param target - Gapped target sequence
-   * @returns CIGAR string
-   */
   export function alignmentToCigar(query: string, target: string): string {
     return unwrap<string>(_raw_alignment_to_cigar(query, target));
   }
 
-  /**
-   * Generate a SAM MD:Z tag from CIGAR and ungapped sequences.
-   *
-   * @param cigar - CIGAR string
-   * @param query - Ungapped query sequence
-   * @param reference - Ungapped reference sequence
-   */
   export function generateMdTag(cigar: string, query: string, reference: string): string {
     return unwrap<string>(_raw_generate_md_tag(cigar, query, reference));
   }
 
-  /**
-   * Merge adjacent same-type CIGAR operations.
-   *
-   * @param cigar - CIGAR string
-   * @returns Merged CIGAR string
-   */
   export function mergeCigar(cigar: string): string {
     return unwrap<string>(_raw_merge_cigar(cigar));
   }
 
-  /**
-   * Reverse CIGAR operation order.
-   *
-   * @param cigar - CIGAR string
-   * @returns Reversed CIGAR string
-   */
   export function reverseCigar(cigar: string): string {
     return unwrap<string>(_raw_reverse_cigar(cigar));
   }
 
-  /**
-   * Collapse =/X operations into M (alignment match).
-   *
-   * @param cigar - CIGAR string
-   * @returns Collapsed CIGAR string
-   */
   export function collapseCigar(cigar: string): string {
     return unwrap<string>(_raw_collapse_cigar(cigar));
   }
 
-  /**
-   * Convert hard clips (H) to soft clips (S).
-   *
-   * @param cigar - CIGAR string
-   * @returns Converted CIGAR string
-   */
   export function hardClipToSoft(cigar: string): string {
     return unwrap<string>(_raw_hard_clip_to_soft(cigar));
   }
 
-  /**
-   * Split CIGAR at a reference coordinate.
-   *
-   * @param cigar - CIGAR string
-   * @param refPos - 0-based reference position to split at
-   * @returns Object with `left` and `right` CIGAR strings
-   */
-  export function splitCigar(
-    cigar: string,
-    refPos: number,
-  ): { left: string; right: string } {
+  export function splitCigar(cigar: string, refPos: number): { left: string; right: string } {
     return unwrap<{ left: string; right: string }>(_raw_split_cigar(cigar, refPos));
+  }
+
+  /** Progressive multiple sequence alignment. */
+  export function progressiveMsa(
+    seqsJson: string, matchScore: number, mismatchScore: number,
+    gapOpen: number, gapExtend: number,
+  ): MsaResult {
+    return unwrap<MsaResult>(
+      _raw_progressive_msa(seqsJson, matchScore, mismatchScore, gapOpen, gapExtend),
+    );
+  }
+
+  /** Partial-order alignment consensus. */
+  export function poaConsensus(seqsJson: string): PoaConsensus {
+    return unwrap<PoaConsensus>(_raw_poa_consensus(seqsJson));
+  }
+
+  /** Banded pairwise alignment. */
+  export function alignBanded(
+    query: string, target: string, mode: AlignmentMode, bandwidth: number,
+    matchScore: number, mismatchScore: number, gapOpen: number, gapExtend: number,
+  ): AlignmentResult {
+    return unwrap<AlignmentResult>(
+      _raw_align_banded(query, target, mode, bandwidth, matchScore, mismatchScore, gapOpen, gapExtend),
+    );
   }
 }
 
 // ── Stats ──────────────────────────────────────────────────────────────────
 
 export namespace Stats {
-  /**
-   * Compute descriptive statistics for a numeric dataset.
-   *
-   * @param data - Array of numbers
-   */
   export function describe(data: number[]): DescriptiveStats {
     return unwrap<DescriptiveStats>(_raw_describe(JSON.stringify(data)));
   }
 
-  /**
-   * Compute Pearson correlation coefficient between two arrays.
-   *
-   * @param x - First array of numbers
-   * @param y - Second array of numbers (same length as x)
-   * @returns Pearson r in [-1, 1]
-   */
   export function pearson(x: number[], y: number[]): number {
     return unwrap<number>(_raw_pearson(JSON.stringify(x), JSON.stringify(y)));
   }
 
-  /**
-   * Compute Spearman rank correlation coefficient between two arrays.
-   *
-   * @param x - First array of numbers
-   * @param y - Second array of numbers (same length as x)
-   * @returns Spearman rho in [-1, 1]
-   */
   export function spearman(x: number[], y: number[]): number {
     return unwrap<number>(_raw_spearman(JSON.stringify(x), JSON.stringify(y)));
   }
 
-  /**
-   * One-sample t-test.
-   *
-   * @param data - Array of observations
-   * @param mu - Hypothesized population mean
-   */
   export function tTest(data: number[], mu: number): TestResult {
     return unwrap<TestResult>(_raw_t_test(JSON.stringify(data), mu));
   }
 
-  /**
-   * Two-sample t-test (Student's or Welch's).
-   *
-   * @param x - First sample
-   * @param y - Second sample
-   * @param equalVar - If true, assume equal variances (Student's t); if false, use Welch's
-   */
-  export function tTestTwoSample(
-    x: number[],
-    y: number[],
-    equalVar: boolean,
-  ): TestResult {
+  export function tTestTwoSample(x: number[], y: number[], equalVar: boolean): TestResult {
     return unwrap<TestResult>(
       _raw_t_test_two_sample(JSON.stringify(x), JSON.stringify(y), equalVar),
     );
   }
 
-  /**
-   * Mann-Whitney U test (non-parametric).
-   *
-   * @param x - First sample
-   * @param y - Second sample
-   */
   export function mannWhitneyU(x: number[], y: number[]): TestResult {
     return unwrap<TestResult>(
       _raw_mann_whitney_u(JSON.stringify(x), JSON.stringify(y)),
     );
   }
 
-  /**
-   * Bonferroni p-value correction for multiple comparisons.
-   *
-   * @param pValues - Array of raw p-values
-   * @returns Corrected p-values (capped at 1.0)
-   */
   export function bonferroni(pValues: number[]): number[] {
     return unwrap<number[]>(_raw_bonferroni(JSON.stringify(pValues)));
   }
 
-  /**
-   * Benjamini-Hochberg FDR correction for multiple comparisons.
-   *
-   * @param pValues - Array of raw p-values
-   * @returns Adjusted p-values
-   */
   export function benjaminiHochberg(pValues: number[]): number[] {
     return unwrap<number[]>(_raw_benjamini_hochberg(JSON.stringify(pValues)));
+  }
+
+  /** Kaplan-Meier survival analysis. */
+  export function kaplanMeier(timesJson: string, statusJson: string): KmResult {
+    return unwrap<KmResult>(_raw_kaplan_meier(timesJson, statusJson));
+  }
+
+  /** Log-rank test comparing two survival curves. */
+  export function logRankTest(
+    t1Json: string, s1Json: string, t2Json: string, s2Json: string,
+  ): LogRankResult {
+    return unwrap<LogRankResult>(_raw_log_rank_test(t1Json, s1Json, t2Json, s2Json));
+  }
+
+  /** Cox proportional hazards model. */
+  export function coxPh(
+    timesJson: string, statusJson: string, covariatesJson: string, nCovariates: number,
+  ): CoxPhResult {
+    return unwrap<CoxPhResult>(_raw_cox_ph(timesJson, statusJson, covariatesJson, nCovariates));
+  }
+
+  /** Wright-Fisher population simulation. */
+  export function wrightFisher(popSize: number, initFreq: number, nGens: number, seed: number): WrightFisherResult {
+    return unwrap<WrightFisherResult>(_raw_wright_fisher(popSize, initFreq, nGens, seed));
+  }
+
+  /** Permutation test for group differences. */
+  export function permutationTest(
+    valuesJson: string, groupSizesJson: string, nPerms: number, seed: number,
+  ): TestResult {
+    return unwrap<TestResult>(_raw_permutation_test(valuesJson, groupSizesJson, nPerms, seed));
+  }
+
+  /** Bootstrap confidence interval. */
+  export function bootstrapCi(dataJson: string, nBootstrap: number, seed: number): number[] {
+    return unwrap<number[]>(_raw_bootstrap_ci(dataJson, nBootstrap, seed));
+  }
+
+  /** Shannon diversity index. */
+  export function shannonIndex(countsJson: string): number {
+    return unwrap<number>(_raw_shannon_index(countsJson));
+  }
+
+  /** Simpson diversity index. */
+  export function simpsonIndex(countsJson: string): number {
+    return unwrap<number>(_raw_simpson_index(countsJson));
+  }
+
+  /** Bray-Curtis dissimilarity. */
+  export function brayCurtis(aJson: string, bJson: string): number {
+    return unwrap<number>(_raw_bray_curtis(aJson, bJson));
+  }
+
+  /** Hudson's Fst estimator. */
+  export function fstHudson(pop1Json: string, pop2Json: string): FstResult {
+    return unwrap<FstResult>(_raw_fst_hudson(pop1Json, pop2Json));
+  }
+
+  /** Tajima's D neutrality test. */
+  export function tajimasD(genotypesJson: string): TajimaD {
+    return unwrap<TajimaD>(_raw_tajimas_d(genotypesJson));
   }
 }
 
 // ── ML ─────────────────────────────────────────────────────────────────────
 
 export namespace ML {
-  /**
-   * Count k-mers in a nucleotide or protein sequence.
-   *
-   * @param seq - Sequence string
-   * @param k - K-mer length (must be >= 1)
-   */
   export function kmerCount(seq: string, k: number): KmerCounts {
     return unwrap<KmerCounts>(_raw_kmer_count(seq, k));
   }
 
-  /**
-   * Euclidean distance between two numeric vectors.
-   *
-   * @param a - First vector
-   * @param b - Second vector (same length as a)
-   */
   export function euclideanDistance(a: number[], b: number[]): number {
-    return unwrap<number>(
-      _raw_euclidean_distance(JSON.stringify(a), JSON.stringify(b)),
-    );
+    return unwrap<number>(_raw_euclidean_distance(JSON.stringify(a), JSON.stringify(b)));
   }
 
-  /**
-   * Manhattan (L1) distance between two numeric vectors.
-   *
-   * @param a - First vector
-   * @param b - Second vector (same length as a)
-   */
   export function manhattanDistance(a: number[], b: number[]): number {
-    return unwrap<number>(
-      _raw_manhattan_distance(JSON.stringify(a), JSON.stringify(b)),
-    );
+    return unwrap<number>(_raw_manhattan_distance(JSON.stringify(a), JSON.stringify(b)));
   }
 
-  /**
-   * Hamming distance between two strings (byte-level comparison).
-   *
-   * @param a - First string
-   * @param b - Second string (same length as a)
-   * @returns Number of positions where the strings differ
-   */
   export function hammingDistance(a: string, b: string): number {
     return unwrap<number>(_raw_hamming_distance(a, b));
   }
 
-  /**
-   * Cosine similarity between two numeric vectors.
-   *
-   * @param a - First vector
-   * @param b - Second vector (same length as a)
-   * @returns Similarity in [0, 1] (or [-1, 1] if vectors have negative components)
-   */
   export function cosineSimilarity(a: number[], b: number[]): number {
-    return unwrap<number>(
-      _raw_cosine_similarity(JSON.stringify(a), JSON.stringify(b)),
-    );
+    return unwrap<number>(_raw_cosine_similarity(JSON.stringify(a), JSON.stringify(b)));
   }
 
-  /**
-   * UMAP dimensionality reduction.
-   *
-   * @param data - Flat row-major matrix of input data
-   * @param nFeatures - Number of features (columns) per sample
-   * @param nComponents - Output dimensionality (typically 2 or 3)
-   * @param nNeighbors - Number of nearest neighbors (default 15)
-   * @param minDist - Minimum distance in embedding space (default 0.1)
-   * @param nEpochs - Optimization epochs (default 200)
-   * @param metric - Distance metric: "euclidean", "manhattan", or "cosine"
-   */
   export function umap(
-    data: number[],
-    nFeatures: number,
-    nComponents: number,
-    nNeighbors: number,
-    minDist: number,
-    nEpochs: number,
-    metric: DistanceMetric,
+    data: number[], nFeatures: number, nComponents: number,
+    nNeighbors: number, minDist: number, nEpochs: number, metric: DistanceMetric,
   ): UmapResult {
     return unwrap<UmapResult>(
       _raw_umap(JSON.stringify(data), nFeatures, nComponents, nNeighbors, minDist, nEpochs, metric),
     );
   }
 
-  /**
-   * PCA dimensionality reduction.
-   *
-   * @param data - Flat row-major matrix of input data
-   * @param nFeatures - Number of features (columns) per sample
-   * @param nComponents - Output dimensionality
-   */
-  export function pca(
-    data: number[],
-    nFeatures: number,
-    nComponents: number,
-  ): PcaResult {
+  export function pca(data: number[], nFeatures: number, nComponents: number): PcaResult {
     return unwrap<PcaResult>(_raw_pca(JSON.stringify(data), nFeatures, nComponents));
   }
 
-  /**
-   * t-SNE dimensionality reduction.
-   *
-   * @param data - Flat row-major matrix of input data
-   * @param nFeatures - Number of features (columns) per sample
-   * @param nComponents - Output dimensionality (typically 2 or 3)
-   * @param perplexity - Perplexity parameter (5-50 typical)
-   * @param learningRate - Learning rate
-   * @param nIter - Number of iterations
-   * @param seed - Random seed
-   */
   export function tsne(
-    data: number[],
-    nFeatures: number,
-    nComponents: number,
-    perplexity: number,
-    learningRate: number,
-    nIter: number,
-    seed: number,
+    data: number[], nFeatures: number, nComponents: number,
+    perplexity: number, learningRate: number, nIter: number, seed: number,
   ): TsneResult {
     return unwrap<TsneResult>(
       _raw_tsne(JSON.stringify(data), nFeatures, nComponents, perplexity, learningRate, nIter, seed),
     );
   }
 
-  /**
-   * K-means clustering.
-   *
-   * @param data - Flat row-major matrix of input data
-   * @param nFeatures - Number of features (columns) per sample
-   * @param nClusters - Number of clusters
-   * @param maxIter - Maximum iterations
-   * @param seed - Random seed
-   */
   export function kmeans(
-    data: number[],
-    nFeatures: number,
-    nClusters: number,
-    maxIter: number,
-    seed: number,
+    data: number[], nFeatures: number, nClusters: number, maxIter: number, seed: number,
   ): KmeansResult {
     return unwrap<KmeansResult>(
       _raw_kmeans(JSON.stringify(data), nFeatures, nClusters, maxIter, seed),
+    );
+  }
+
+  /** Random forest classification. */
+  export function randomForestClassify(
+    dataJson: string, nFeatures: number, labelsJson: string, configJson: string,
+  ): RandomForestResult {
+    return unwrap<RandomForestResult>(
+      _raw_random_forest_classify(dataJson, nFeatures, labelsJson, configJson),
+    );
+  }
+
+  /** Gradient-boosted tree regression. */
+  export function gbdtRegression(
+    dataJson: string, nFeatures: number, targetsJson: string, configJson: string,
+  ): GbdtRegressionResult {
+    return unwrap<GbdtRegressionResult>(
+      _raw_gbdt_regression(dataJson, nFeatures, targetsJson, configJson),
+    );
+  }
+
+  /** Gradient-boosted tree classification. */
+  export function gbdtClassify(
+    dataJson: string, nFeatures: number, labelsJson: string, configJson: string,
+  ): GbdtClassifyResult {
+    return unwrap<GbdtClassifyResult>(
+      _raw_gbdt_classify(dataJson, nFeatures, labelsJson, configJson),
+    );
+  }
+
+  /** HMM Viterbi decoding. */
+  export function hmmViterbi(
+    nStates: number, nSymbols: number,
+    initJson: string, transJson: string, emissJson: string, obsJson: string,
+  ): HmmViterbiResult {
+    return unwrap<HmmViterbiResult>(
+      _raw_hmm_viterbi(nStates, nSymbols, initJson, transJson, emissJson, obsJson),
+    );
+  }
+
+  /** HMM log-likelihood. */
+  export function hmmLikelihood(
+    nStates: number, nSymbols: number,
+    initJson: string, transJson: string, emissJson: string, obsJson: string,
+  ): number {
+    return unwrap<number>(
+      _raw_hmm_likelihood(nStates, nSymbols, initJson, transJson, emissJson, obsJson),
+    );
+  }
+
+  /** Confusion matrix from actual and predicted labels. */
+  export function confusionMatrix(actualJson: string, predictedJson: string): ConfusionMatrix {
+    return unwrap<ConfusionMatrix>(_raw_confusion_matrix(actualJson, predictedJson));
+  }
+
+  /** ROC curve from scores and binary labels. */
+  export function rocCurve(scoresJson: string, labelsJson: string): RocCurve {
+    return unwrap<RocCurve>(_raw_roc_curve(scoresJson, labelsJson));
+  }
+
+  /** Precision-recall curve from scores and binary labels. */
+  export function prCurve(scoresJson: string, labelsJson: string): PrCurve {
+    return unwrap<PrCurve>(_raw_pr_curve(scoresJson, labelsJson));
+  }
+
+  /** K-fold cross-validation with random forest. */
+  export function crossValidateRf(
+    dataJson: string, nFeatures: number, labelsJson: string, k: number, seed: number,
+  ): CvResult {
+    return unwrap<CvResult>(_raw_cross_validate_rf(dataJson, nFeatures, labelsJson, k, seed));
+  }
+
+  /** Variance-threshold feature selection. */
+  export function featureImportanceVariance(
+    dataJson: string, nFeatures: number, threshold: number,
+  ): FeatureSelection {
+    return unwrap<FeatureSelection>(
+      _raw_feature_importance_variance(dataJson, nFeatures, threshold),
     );
   }
 }
@@ -734,236 +760,277 @@ export namespace ML {
 // ── Chem ───────────────────────────────────────────────────────────────────
 
 export namespace Chem {
-  /**
-   * Parse a SMILES string and compute molecular properties.
-   *
-   * @param smiles - SMILES notation string
-   */
   export function properties(smiles: string): MolecularProperties {
     return unwrap<MolecularProperties>(_raw_smiles_properties(smiles));
   }
 
-  /**
-   * Generate canonical SMILES from an input SMILES string.
-   * Canonicalization produces a unique representation for each molecule.
-   *
-   * @param smiles - Input SMILES string
-   * @returns Canonical SMILES string
-   */
   export function canonical(smiles: string): string {
     return unwrap<string>(_raw_canonical(smiles));
   }
 
-  /**
-   * Compute a Morgan (circular) fingerprint for a molecule.
-   *
-   * @param smiles - SMILES string
-   * @param radius - Fingerprint radius (typically 2)
-   * @param nBits - Number of bits in the fingerprint (typically 2048)
-   */
-  export function fingerprint(
-    smiles: string,
-    radius: number,
-    nBits: number,
-  ): Fingerprint {
+  export function fingerprint(smiles: string, radius: number, nBits: number): Fingerprint {
     return unwrap<Fingerprint>(_raw_smiles_fingerprint(smiles, radius, nBits));
   }
 
-  /**
-   * Tanimoto similarity between two molecules (Morgan fingerprint r=2, 2048 bits).
-   *
-   * @param smiles1 - First molecule SMILES
-   * @param smiles2 - Second molecule SMILES
-   * @returns Similarity in [0, 1]
-   */
   export function tanimoto(smiles1: string, smiles2: string): number {
     return unwrap<number>(_raw_tanimoto(smiles1, smiles2));
   }
 
-  /**
-   * Substructure search: check if a molecule contains a pattern.
-   *
-   * @param molecule - SMILES of the molecule to search in
-   * @param pattern - SMILES of the substructure pattern
-   */
-  export function substructure(
-    molecule: string,
-    pattern: string,
-  ): SubstructureResult {
+  export function substructure(molecule: string, pattern: string): SubstructureResult {
     return unwrap<SubstructureResult>(_raw_smiles_substructure(molecule, pattern));
+  }
+
+  /** Parse SDF V2000/V3000 text and return molecules. */
+  export function parseSdf(sdfText: string): SdfMolecule[] {
+    return unwrap<SdfMolecule[]>(_raw_parse_sdf(sdfText));
+  }
+
+  /** Compute MACCS 166-key fingerprint. */
+  export function maccsFingerprint(smiles: string): MaccsFingerprint {
+    return unwrap<MaccsFingerprint>(_raw_maccs_fingerprint(smiles));
+  }
+
+  /** Tanimoto similarity using MACCS fingerprints. */
+  export function tanimotoMaccs(smiles1: string, smiles2: string): number {
+    return unwrap<number>(_raw_tanimoto_maccs(smiles1, smiles2));
   }
 }
 
 // ── StructBio ──────────────────────────────────────────────────────────────
 
 export namespace StructBio {
-  /**
-   * Parse PDB-formatted text and return structure summary information.
-   *
-   * @param pdbText - PDB file contents as a string
-   */
   export function pdbInfo(pdbText: string): StructureInfo {
     return unwrap<StructureInfo>(_raw_pdb_info(pdbText));
   }
 
-  /**
-   * Assign secondary structure (DSSP-like) from PDB text.
-   * Analyzes the first chain in the structure.
-   *
-   * @param pdbText - PDB file contents as a string
-   */
   export function secondaryStructure(pdbText: string): SecondaryStructure {
     return unwrap<SecondaryStructure>(_raw_pdb_secondary_structure(pdbText));
   }
 
-  /**
-   * Compute RMSD between two sets of 3D coordinates.
-   *
-   * @param coords1 - First set of coordinates as [x, y, z] arrays
-   * @param coords2 - Second set of coordinates (same length as coords1)
-   * @returns RMSD value in the same units as the input coordinates
-   */
   export function rmsd(
-    coords1: [number, number, number][],
-    coords2: [number, number, number][],
+    coords1: [number, number, number][], coords2: [number, number, number][],
   ): number {
     return unwrap<number>(_raw_rmsd(JSON.stringify(coords1), JSON.stringify(coords2)));
+  }
+
+  /** Compute CA-CA contact map from PDB text. */
+  export function contactMap(pdbText: string, cutoff: number): ContactMap {
+    return unwrap<ContactMap>(_raw_contact_map(pdbText, cutoff));
+  }
+
+  /** Ramachandran analysis from PDB text. */
+  export function ramachandran(pdbText: string): RamachandranEntry[] {
+    return unwrap<RamachandranEntry[]>(_raw_ramachandran_analysis(pdbText));
+  }
+
+  /** Parse mmCIF text and return structure info. */
+  export function parseMmcif(text: string): MmcifInfo {
+    return unwrap<MmcifInfo>(_raw_parse_mmcif(text));
+  }
+
+  /** Kabsch superposition on two coordinate sets. */
+  export function kabschAlign(
+    coords1Json: string, coords2Json: string,
+  ): KabschResult {
+    return unwrap<KabschResult>(_raw_kabsch_align(coords1Json, coords2Json));
   }
 }
 
 // ── Phylo ──────────────────────────────────────────────────────────────────
 
 export namespace Phylo {
-  /**
-   * Parse a Newick-format tree string and return tree information.
-   *
-   * @param newick - Newick tree string (e.g. "((A:0.1,B:0.2):0.3,C:0.4);")
-   */
   export function newickInfo(newick: string): TreeInfo {
     return unwrap<TreeInfo>(_raw_newick_info(newick));
   }
 
-  /**
-   * Compute evolutionary distance between two aligned sequences.
-   *
-   * @param seq1 - First sequence
-   * @param seq2 - Second sequence (same length as seq1)
-   * @param model - Distance model: "p" (p-distance), "jc" (Jukes-Cantor), or "k2p" (Kimura 2-parameter)
-   */
-  export function evolutionaryDistance(
-    seq1: string,
-    seq2: string,
-    model: DistanceModel,
-  ): number {
+  export function evolutionaryDistance(seq1: string, seq2: string, model: DistanceModel): number {
     return unwrap<number>(_raw_evolutionary_distance(seq1, seq2, model));
   }
 
-  /**
-   * Build a UPGMA tree from a distance matrix.
-   *
-   * @param labels - Array of taxon labels
-   * @param matrix - Symmetric distance matrix (2D array, labels.length x labels.length)
-   * @returns Newick string of the resulting tree
-   */
-  export function buildUpgma(
-    labels: string[],
-    matrix: number[][],
-  ): string {
+  export function buildUpgma(labels: string[], matrix: number[][]): string {
     return unwrap<string>(_raw_build_upgma(JSON.stringify(labels), JSON.stringify(matrix)));
   }
 
-  /**
-   * Build a Neighbor-Joining tree from a distance matrix.
-   *
-   * @param labels - Array of taxon labels
-   * @param matrix - Symmetric distance matrix (2D array, labels.length x labels.length)
-   * @returns Newick string of the resulting tree
-   */
-  export function buildNj(
-    labels: string[],
-    matrix: number[][],
-  ): string {
+  export function buildNj(labels: string[], matrix: number[][]): string {
     return unwrap<string>(_raw_build_nj(JSON.stringify(labels), JSON.stringify(matrix)));
   }
 
-  /**
-   * Compute Robinson-Foulds distance between two trees.
-   *
-   * @param newick1 - First Newick tree string
-   * @param newick2 - Second Newick tree string (must have same leaf set)
-   */
-  export function rfDistance(
-    newick1: string,
-    newick2: string,
-  ): RFDistance {
+  export function rfDistance(newick1: string, newick2: string): RFDistance {
     return unwrap<RFDistance>(_raw_rf_distance(newick1, newick2));
+  }
+
+  /** Parse NEXUS format text. */
+  export function parseNexus(text: string): NexusFile {
+    return unwrap<NexusFile>(_raw_parse_nexus(text));
+  }
+
+  /** Write NEXUS format from taxa and trees. */
+  export function writeNexus(taxaJson: string, treesJson: string): string {
+    return unwrap<string>(_raw_write_nexus(taxaJson, treesJson));
+  }
+
+  /** Simulate sequence evolution along a phylogenetic tree. */
+  export function simulateEvolution(
+    newick: string, seqLength: number, model: string, seed: number,
+  ): SimulatedAlignment {
+    return unwrap<SimulatedAlignment>(_raw_simulate_evolution(newick, seqLength, model, seed));
+  }
+
+  /** Simulate a coalescent tree. */
+  export function simulateCoalescent(nSamples: number, popSize: number, seed: number): CoalescentTree {
+    return unwrap<CoalescentTree>(_raw_simulate_coalescent(nSamples, popSize, seed));
+  }
+
+  /** Simulate a coalescent tree with exponential growth. */
+  export function simulateCoalescentGrowth(
+    nSamples: number, popSize: number, growthRate: number, seed: number,
+  ): CoalescentTree {
+    return unwrap<CoalescentTree>(
+      _raw_simulate_coalescent_growth(nSamples, popSize, growthRate, seed),
+    );
   }
 }
 
 // ── IO ─────────────────────────────────────────────────────────────────
 
 export namespace IO {
-  /**
-   * Generate pileup from SAM-formatted text.
-   *
-   * @param samText - SAM-formatted string (including header lines)
-   * @returns Array of pileups, one per reference sequence
-   */
   export function pileup(samText: string): Pileup[] {
     return unwrap<Pileup[]>(_raw_pileup_from_sam(samText));
   }
 
-  /**
-   * Compute depth statistics from SAM-formatted text.
-   *
-   * @param samText - SAM-formatted string
-   * @returns Array of depth statistics, one per reference sequence
-   */
   export function depthStats(samText: string): DepthStats[] {
     return unwrap<DepthStats[]>(_raw_depth_stats_from_sam(samText));
   }
 
-  /**
-   * Convert SAM text to mpileup format.
-   *
-   * @param samText - SAM-formatted string
-   * @returns mpileup-formatted text
-   */
   export function mpileup(samText: string): string {
     return unwrap<string>(_raw_pileup_to_mpileup_text(samText));
+  }
+
+  /** Parse VCF text. */
+  export function parseVcf(text: string): VcfVariant[] {
+    return unwrap<VcfVariant[]>(_raw_parse_vcf_text(text));
+  }
+
+  /** Parse BED text. */
+  export function parseBed(text: string): BedRecord[] {
+    return unwrap<BedRecord[]>(_raw_parse_bed_text(text));
+  }
+
+  /** Parse GFF3 text. */
+  export function parseGff3(text: string): Gff3Gene[] {
+    return unwrap<Gff3Gene[]>(_raw_parse_gff3_text(text));
+  }
+
+  /** Parse BLAST XML text. */
+  export function parseBlastXml(xml: string): BlastXmlResult {
+    return unwrap<BlastXmlResult>(_raw_parse_blast_xml(xml));
+  }
+
+  /** Parse bedGraph text. */
+  export function parseBedgraph(text: string): BedGraphRecord[] {
+    return unwrap<BedGraphRecord[]>(_raw_parse_bedgraph(text));
+  }
+
+  /** Parse GFA assembly graph text. */
+  export function parseGfa(text: string): GfaGraph {
+    return unwrap<GfaGraph>(_raw_parse_gfa(text));
+  }
+
+  /** Build an NCBI E-utilities fetch URL. */
+  export function ncbiFetchUrl(db: string, ids: string, rettype: string): string {
+    return unwrap<string>(_raw_ncbi_fetch_url(db, ids, rettype));
+  }
+}
+
+// ── Omics ──────────────────────────────────────────────────────────────────
+
+export namespace Omics {
+  /** Merge overlapping/adjacent intervals. */
+  export function mergeIntervals(intervalsJson: string): GenomicInterval[] {
+    return unwrap<GenomicInterval[]>(_raw_merge_intervals(intervalsJson));
+  }
+
+  /** Intersect two interval sets. */
+  export function intersectIntervals(aJson: string, bJson: string): GenomicInterval[] {
+    return unwrap<GenomicInterval[]>(_raw_intersect_intervals(aJson, bJson));
+  }
+
+  /** Subtract interval set B from A. */
+  export function subtractIntervals(aJson: string, bJson: string): GenomicInterval[] {
+    return unwrap<GenomicInterval[]>(_raw_subtract_intervals(aJson, bJson));
+  }
+
+  /** Complement intervals relative to genome. */
+  export function complementIntervals(intervalsJson: string, genomeJson: string): GenomicInterval[] {
+    return unwrap<GenomicInterval[]>(_raw_complement_intervals(intervalsJson, genomeJson));
+  }
+
+  /** Find closest intervals. */
+  export function closestIntervals(aJson: string, bJson: string): ClosestResult[] {
+    return unwrap<ClosestResult[]>(_raw_closest_intervals(aJson, bJson));
+  }
+
+  /** Jaccard similarity between interval sets. */
+  export function jaccardIntervals(aJson: string, bJson: string): JaccardResult {
+    return unwrap<JaccardResult>(_raw_jaccard_intervals(aJson, bJson));
+  }
+
+  /** Generate genomic windows. */
+  export function makeWindows(genomeJson: string, windowSize: number): GenomicInterval[] {
+    return unwrap<GenomicInterval[]>(_raw_make_windows(genomeJson, windowSize));
+  }
+
+  /** Liftover a genomic interval using chain file. */
+  export function liftoverInterval(
+    chainText: string, chrom: string, start: number, end: number,
+  ): LiftoverResult {
+    return unwrap<LiftoverResult>(_raw_liftover_interval(chainText, chrom, start, end));
+  }
+
+  /** Annotate a variant against gene definitions. */
+  export function annotateVariant(variantJson: string, genesJson: string): VariantEffect[] {
+    return unwrap<VariantEffect[]>(_raw_annotate_variant(variantJson, genesJson));
+  }
+
+  /** Circular binary segmentation for CNV detection. */
+  export function cbsSegment(
+    positionsJson: string, valuesJson: string, chrom: string, configJson: string,
+  ): CnvSegment[] {
+    return unwrap<CnvSegment[]>(_raw_cbs_segment(positionsJson, valuesJson, chrom, configJson));
+  }
+
+  /** Bisulfite convert a DNA sequence. */
+  export function bisulfiteConvert(seq: string, methylatedJson: string): string {
+    return unwrap<string>(_raw_bisulfite_convert(seq, methylatedJson));
+  }
+
+  /** Find CpG islands in a DNA sequence. */
+  export function findCpgIslands(seq: string, chrom: string): CpgIsland[] {
+    return unwrap<CpgIsland[]>(_raw_find_cpg_islands(seq, chrom));
+  }
+
+  /** Moran's I spatial autocorrelation. */
+  export function moransI(valuesJson: string, neighborsJson: string): SpatialAutocorrelation {
+    return unwrap<SpatialAutocorrelation>(_raw_morans_i(valuesJson, neighborsJson));
+  }
+
+  /** Geary's C spatial autocorrelation. */
+  export function gearysC(valuesJson: string, neighborsJson: string): GearysC {
+    return unwrap<GearysC>(_raw_gearys_c(valuesJson, neighborsJson));
   }
 }
 
 // ── Core Utilities ─────────────────────────────────────────────────────────
 
 export namespace Core {
-  /**
-   * Compute SHA-256 hash of a string.
-   *
-   * @param data - Input string
-   * @returns Hex-encoded SHA-256 hash
-   */
   export function sha256(data: string): string {
     return unwrap<string>(_raw_sha256(data));
   }
 
-  /**
-   * Compress a string with zstd at the given compression level.
-   *
-   * @param data - Input string
-   * @param level - Compression level (1-22, 3 is a good default)
-   * @returns Compressed data as a byte array
-   */
   export function zstdCompress(data: string, level: number): number[] {
     return unwrap<number[]>(_raw_zstd_compress(data, level));
   }
 
-  /**
-   * Decompress zstd-compressed data back to a string.
-   *
-   * @param data - Compressed byte array (as returned by zstdCompress)
-   * @returns Decompressed string
-   */
   export function zstdDecompress(data: number[]): string {
     return unwrap<string>(_raw_zstd_decompress(JSON.stringify(data)));
   }

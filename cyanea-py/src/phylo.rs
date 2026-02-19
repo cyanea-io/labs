@@ -226,6 +226,59 @@ fn branch_score_distance(tree1: &PhyloTree, tree2: &PhyloTree) -> PyResult<f64> 
 }
 
 // ---------------------------------------------------------------------------
+// Simulation classes
+// ---------------------------------------------------------------------------
+
+/// Result of simulating sequence evolution along a phylogenetic tree.
+#[pyclass(frozen, get_all)]
+pub struct PySimulatedAlignment {
+    pub names: Vec<String>,
+    pub sequences: Vec<String>,
+    pub n_substitutions: usize,
+}
+
+/// A coalescent tree result (wraps a PhyloTree with metadata).
+#[pyclass(frozen, get_all)]
+pub struct PyCoalescentTree {
+    pub newick: String,
+    pub n_samples: usize,
+}
+
+/// Simulate sequence evolution along a phylogenetic tree.
+///
+/// Models: "jc" (Jukes-Cantor), "k2p" (Kimura 2-parameter, kappa=2.0).
+#[pyfunction]
+#[pyo3(signature = (tree, seq_length, model="jc", seed=42))]
+fn simulate_evolution(tree: &PhyloTree, seq_length: usize, model: &str, seed: u64) -> PyResult<PySimulatedAlignment> {
+    let model_obj: Box<dyn cyanea_phylo::SubstitutionModel> = match model {
+        "jc" => Box::new(cyanea_phylo::Jc69Model::new()),
+        "k2p" => Box::new(cyanea_phylo::Hky85Model::new(2.0, [0.25, 0.25, 0.25, 0.25]).into_pyresult()?),
+        _ => return Err(pyo3::exceptions::PyValueError::new_err(format!("unknown model: {model} (expected 'jc' or 'k2p')"))),
+    };
+    let result = cyanea_phylo::simulate_evolution(&tree.inner, model_obj.as_ref(), seq_length, seed).into_pyresult()?;
+    let sequences = result.sequences.iter().map(|s| String::from_utf8_lossy(s).to_string()).collect();
+    Ok(PySimulatedAlignment { names: result.names, sequences, n_substitutions: result.n_substitutions })
+}
+
+/// Simulate a coalescent tree with constant population size.
+#[pyfunction]
+#[pyo3(signature = (n_samples, pop_size, seed=42))]
+fn simulate_coalescent(n_samples: usize, pop_size: f64, seed: u64) -> PyResult<PyCoalescentTree> {
+    let tree = cyanea_phylo::simulate_coalescent(n_samples, pop_size, seed).into_pyresult()?;
+    let newick = cyanea_phylo::write_newick(&tree);
+    Ok(PyCoalescentTree { newick, n_samples: tree.leaf_count() })
+}
+
+/// Simulate a coalescent tree with exponential population growth.
+#[pyfunction]
+#[pyo3(signature = (n_samples, pop_size, growth_rate, seed=42))]
+fn simulate_coalescent_growth(n_samples: usize, pop_size: f64, growth_rate: f64, seed: u64) -> PyResult<PyCoalescentTree> {
+    let tree = cyanea_phylo::simulate_coalescent_growth(n_samples, pop_size, growth_rate, seed).into_pyresult()?;
+    let newick = cyanea_phylo::write_newick(&tree);
+    Ok(PyCoalescentTree { newick, n_samples: tree.leaf_count() })
+}
+
+// ---------------------------------------------------------------------------
 // Submodule registration
 // ---------------------------------------------------------------------------
 
@@ -233,6 +286,8 @@ pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     let m = PyModule::new(parent.py(), "phylo")?;
     m.add_class::<PhyloTree>()?;
     m.add_class::<NexusFile>()?;
+    m.add_class::<PySimulatedAlignment>()?;
+    m.add_class::<PyCoalescentTree>()?;
     m.add_function(wrap_pyfunction!(parse_newick, &m)?)?;
     m.add_function(wrap_pyfunction!(evolutionary_distance, &m)?)?;
     m.add_function(wrap_pyfunction!(upgma, &m)?)?;
@@ -241,6 +296,9 @@ pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(write_nexus, &m)?)?;
     m.add_function(wrap_pyfunction!(robinson_foulds_normalized, &m)?)?;
     m.add_function(wrap_pyfunction!(branch_score_distance, &m)?)?;
+    m.add_function(wrap_pyfunction!(simulate_evolution, &m)?)?;
+    m.add_function(wrap_pyfunction!(simulate_coalescent, &m)?)?;
+    m.add_function(wrap_pyfunction!(simulate_coalescent_growth, &m)?)?;
     parent.add_submodule(&m)?;
     Ok(())
 }

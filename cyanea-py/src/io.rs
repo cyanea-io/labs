@@ -428,6 +428,124 @@ fn pileup_to_mpileup_str(path: &str) -> PyResult<String> {
 }
 
 // ---------------------------------------------------------------------------
+// BLAST XML
+// ---------------------------------------------------------------------------
+
+/// A BLAST XML search result.
+#[pyclass(frozen, get_all)]
+pub struct PyBlastXmlResult {
+    pub program: String,
+    pub query_id: String,
+    pub query_len: u64,
+    pub hits: Vec<PyBlastXmlHit>,
+}
+
+/// A single hit from BLAST XML output.
+#[derive(Clone)]
+#[pyclass(frozen, get_all)]
+pub struct PyBlastXmlHit {
+    pub hit_id: String,
+    pub hit_def: String,
+    pub hit_accession: String,
+    pub hit_len: u64,
+    pub bit_score: f64,
+    pub evalue: f64,
+}
+
+/// Parse BLAST XML output text.
+#[pyfunction]
+fn parse_blast_xml(text: &str) -> PyResult<PyBlastXmlResult> {
+    let result = cyanea_io::parse_blast_xml_str(text).into_pyresult()?;
+    let hits = result.iterations.into_iter().flat_map(|it| it.hits).map(|h| {
+        let best_hsp = h.hsps.first();
+        PyBlastXmlHit {
+            hit_id: h.hit_id,
+            hit_def: h.hit_def,
+            hit_accession: h.hit_accession,
+            hit_len: h.hit_len,
+            bit_score: best_hsp.map_or(0.0, |hsp| hsp.bit_score),
+            evalue: best_hsp.map_or(1.0, |hsp| hsp.evalue),
+        }
+    }).collect();
+    Ok(PyBlastXmlResult {
+        program: result.program,
+        query_id: result.query_id,
+        query_len: result.query_len,
+        hits,
+    })
+}
+
+// ---------------------------------------------------------------------------
+// bedGraph
+// ---------------------------------------------------------------------------
+
+/// A bedGraph record.
+#[pyclass(frozen, get_all)]
+pub struct PyBedGraphRecord {
+    pub chrom: String,
+    pub start: u64,
+    pub end: u64,
+    pub value: f64,
+}
+
+/// Parse bedGraph format text.
+#[pyfunction]
+fn parse_bedgraph(text: &str) -> PyResult<Vec<PyBedGraphRecord>> {
+    let records = cyanea_io::parse_bedgraph_str(text).into_pyresult()?;
+    Ok(records.into_iter().map(|r| PyBedGraphRecord {
+        chrom: r.chrom,
+        start: r.start,
+        end: r.end,
+        value: r.value,
+    }).collect())
+}
+
+// ---------------------------------------------------------------------------
+// GFA
+// ---------------------------------------------------------------------------
+
+/// Summary of a parsed GFA graph.
+#[pyclass(frozen, get_all)]
+pub struct PyGfaGraph {
+    pub n_segments: usize,
+    pub n_links: usize,
+    pub n_paths: usize,
+    pub total_sequence_length: usize,
+}
+
+/// Parse GFA (Graphical Fragment Assembly) format text.
+#[pyfunction]
+fn parse_gfa(text: &str) -> PyResult<PyGfaGraph> {
+    let graph = cyanea_io::parse_gfa_str(text).into_pyresult()?;
+    let total_sequence_length = graph.segments.iter().map(|s| s.sequence.len()).sum();
+    Ok(PyGfaGraph {
+        n_segments: graph.segments.len(),
+        n_links: graph.links.len(),
+        n_paths: graph.paths.len(),
+        total_sequence_length,
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Fetch URL builders
+// ---------------------------------------------------------------------------
+
+/// Build an NCBI Entrez efetch URL.
+#[pyfunction]
+#[pyo3(signature = (db, ids, rettype, retmode="text"))]
+fn ncbi_efetch_url(db: &str, ids: Vec<String>, rettype: &str, retmode: &str) -> String {
+    let id_refs: Vec<&str> = ids.iter().map(|s| s.as_str()).collect();
+    cyanea_io::EntrezUrl::efetch(db, &id_refs, rettype, retmode)
+}
+
+/// Build a UniProt entry retrieval URL.
+#[pyfunction]
+#[pyo3(signature = (accession, format="fasta"))]
+fn uniprot_url(accession: &str, format: &str) -> String {
+    cyanea_io::UniprotUrl::entry(accession, format)
+}
+
+// ---------------------------------------------------------------------------
 // Submodule registration
 // ---------------------------------------------------------------------------
 
@@ -461,6 +579,19 @@ pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(pileup_from_sam, &m)?)?;
     m.add_function(wrap_pyfunction!(depth_stats_from_sam, &m)?)?;
     m.add_function(wrap_pyfunction!(pileup_to_mpileup_str, &m)?)?;
+    // BLAST XML
+    m.add_class::<PyBlastXmlResult>()?;
+    m.add_class::<PyBlastXmlHit>()?;
+    m.add_function(wrap_pyfunction!(parse_blast_xml, &m)?)?;
+    // bedGraph
+    m.add_class::<PyBedGraphRecord>()?;
+    m.add_function(wrap_pyfunction!(parse_bedgraph, &m)?)?;
+    // GFA
+    m.add_class::<PyGfaGraph>()?;
+    m.add_function(wrap_pyfunction!(parse_gfa, &m)?)?;
+    // Fetch URL builders
+    m.add_function(wrap_pyfunction!(ncbi_efetch_url, &m)?)?;
+    m.add_function(wrap_pyfunction!(uniprot_url, &m)?)?;
     parent.add_submodule(&m)?;
     Ok(())
 }

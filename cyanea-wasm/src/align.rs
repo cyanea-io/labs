@@ -6,6 +6,9 @@
 use serde::Deserialize;
 
 use cyanea_align::{align, AlignmentMode, AlignmentResult, ScoringMatrix, ScoringScheme, SubstitutionMatrix};
+use cyanea_align::msa;
+use cyanea_align::poa::{PoaGraph, PoaScoring};
+use cyanea_align::simd::{banded_nw, banded_sw, banded_semi_global};
 use cyanea_core::CyaneaError;
 
 use crate::error::{wasm_err, wasm_ok, wasm_result};
@@ -345,6 +348,136 @@ pub fn split_cigar(cigar: &str, ref_pos: usize) -> String {
     })
 }
 
+// ── MSA, POA, and banded alignment functions ─────────────────────────────
+
+/// Result of a progressive multiple sequence alignment.
+#[derive(Debug, serde::Serialize)]
+pub struct JsMsaResult {
+    pub aligned: Vec<String>,
+    pub n_columns: usize,
+    pub n_sequences: usize,
+}
+
+/// Result of a POA consensus computation.
+#[derive(Debug, serde::Serialize)]
+pub struct JsPoaConsensus {
+    pub consensus: String,
+    pub n_sequences: usize,
+    pub n_nodes: usize,
+}
+
+/// Perform progressive multiple sequence alignment.
+///
+/// `seqs_json` is a JSON array of sequence strings (e.g. `["ACGT","ACTT"]`).
+/// Returns a JSON object with `aligned`, `n_columns`, and `n_sequences`.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn progressive_msa(
+    seqs_json: &str,
+    match_score: i32,
+    mismatch_score: i32,
+    gap_open: i32,
+    gap_extend: i32,
+) -> String {
+    let seqs: Vec<String> = match serde_json::from_str(seqs_json) {
+        Ok(s) => s,
+        Err(e) => return wasm_err(format!("invalid JSON sequences: {e}")),
+    };
+    let scoring = ScoringScheme::Simple(ScoringMatrix {
+        match_score,
+        mismatch_score,
+        gap_open,
+        gap_extend,
+    });
+    let byte_seqs: Vec<&[u8]> = seqs.iter().map(|s| s.as_bytes()).collect();
+    match msa::progressive_msa(&byte_seqs, &scoring) {
+        Ok(result) => {
+            let aligned: Vec<String> = result
+                .aligned
+                .iter()
+                .map(|s| String::from_utf8_lossy(s).into_owned())
+                .collect();
+            let n_columns = result.n_columns;
+            let n_sequences = result.n_sequences();
+            wasm_ok(&JsMsaResult {
+                aligned,
+                n_columns,
+                n_sequences,
+            })
+        }
+        Err(e) => wasm_err(e),
+    }
+}
+
+/// Compute a POA consensus from multiple sequences.
+///
+/// `seqs_json` is a JSON array of sequence strings. The first sequence
+/// initializes the graph; subsequent sequences are aligned and integrated.
+/// Returns a JSON object with `consensus`, `n_sequences`, and `n_nodes`.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn poa_consensus(seqs_json: &str) -> String {
+    let seqs: Vec<String> = match serde_json::from_str(seqs_json) {
+        Ok(s) => s,
+        Err(e) => return wasm_err(format!("invalid JSON sequences: {e}")),
+    };
+    if seqs.is_empty() {
+        return wasm_err("need at least one sequence");
+    }
+    let scoring = PoaScoring {
+        match_score: 2,
+        mismatch_score: -1,
+        gap_score: -2,
+    };
+    let mut graph = PoaGraph::from_sequence(seqs[0].as_bytes());
+    for seq in &seqs[1..] {
+        if let Err(e) = graph.add_sequence(seq.as_bytes(), &scoring) {
+            return wasm_err(e);
+        }
+    }
+    let consensus = graph.consensus();
+    wasm_ok(&JsPoaConsensus {
+        consensus: String::from_utf8_lossy(&consensus).into_owned(),
+        n_sequences: graph.num_sequences(),
+        n_nodes: graph.num_nodes(),
+    })
+}
+
+/// Perform banded alignment between two sequences.
+///
+/// `mode` is `"global"`, `"local"`, or `"semiglobal"`.
+/// `bandwidth` controls the diagonal band width (actual band is `2 * bandwidth + 1`).
+/// Returns a JSON `AlignmentResult`.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn align_banded(
+    query: &str,
+    target: &str,
+    mode: &str,
+    bandwidth: usize,
+    match_score: i32,
+    mismatch_score: i32,
+    gap_open: i32,
+    gap_extend: i32,
+) -> String {
+    let scoring = ScoringScheme::Simple(ScoringMatrix {
+        match_score,
+        mismatch_score,
+        gap_open,
+        gap_extend,
+    });
+    let result = match mode.to_ascii_lowercase().as_str() {
+        "global" => banded_nw(query.as_bytes(), target.as_bytes(), &scoring, bandwidth),
+        "local" => banded_sw(query.as_bytes(), target.as_bytes(), &scoring, bandwidth),
+        "semiglobal" | "semi-global" => {
+            banded_semi_global(query.as_bytes(), target.as_bytes(), &scoring, bandwidth)
+        }
+        _ => {
+            return wasm_err(CyaneaError::InvalidInput(format!(
+                "unknown alignment mode: {mode:?} (expected \"global\", \"local\", or \"semiglobal\")"
+            )));
+        }
+    };
+    wasm_result(result)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -533,5 +666,73 @@ mod tests {
         let v: serde_json::Value = serde_json::from_str(&json).unwrap();
         assert_eq!(v["ok"]["left"], "4M");
         assert_eq!(v["ok"]["right"], "6M");
+    }
+
+    // -- MSA, POA, and banded alignment --
+
+    #[test]
+    fn progressive_msa_basic() {
+        let seqs = r#"["ACGT","ACGT","ACGT"]"#;
+        let json = progressive_msa(seqs, 2, -1, -5, -2);
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let result = &v["ok"];
+        assert_eq!(result["n_sequences"], 3);
+        assert_eq!(result["n_columns"], 4);
+        let aligned = result["aligned"].as_array().unwrap();
+        assert_eq!(aligned.len(), 3);
+        for a in aligned {
+            assert_eq!(a.as_str().unwrap(), "ACGT");
+        }
+    }
+
+    #[test]
+    fn progressive_msa_different() {
+        let seqs = r#"["ACGT","ACTT"]"#;
+        let json = progressive_msa(seqs, 2, -1, -5, -2);
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let result = &v["ok"];
+        assert_eq!(result["n_sequences"], 2);
+        let aligned = result["aligned"].as_array().unwrap();
+        assert_eq!(aligned.len(), 2);
+        // Both should have the same length (n_columns)
+        let len0 = aligned[0].as_str().unwrap().len();
+        let len1 = aligned[1].as_str().unwrap().len();
+        assert_eq!(len0, len1);
+        assert!(result["n_columns"].as_u64().unwrap() >= 4);
+    }
+
+    #[test]
+    fn poa_consensus_identical() {
+        let seqs = r#"["ACGT","ACGT","ACGT"]"#;
+        let json = poa_consensus(seqs);
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let result = &v["ok"];
+        assert_eq!(result["consensus"].as_str().unwrap(), "ACGT");
+        assert_eq!(result["n_sequences"], 3);
+    }
+
+    #[test]
+    fn poa_consensus_majority() {
+        let seqs = r#"["ACGT","ACGT","ACTT"]"#;
+        let json = poa_consensus(seqs);
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let result = &v["ok"];
+        // Majority of sequences (2 out of 3) have ACGT
+        assert_eq!(result["consensus"].as_str().unwrap(), "ACGT");
+    }
+
+    #[test]
+    fn align_banded_global() {
+        let json = align_banded("ACGT", "ACGT", "global", 5, 2, -1, -5, -2);
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert!(v["ok"]["score"].as_i64().unwrap() > 0);
+        assert_eq!(v["ok"]["score"].as_i64().unwrap(), 8);
+    }
+
+    #[test]
+    fn align_banded_local() {
+        let json = align_banded("XXXACGTXXX", "ACGT", "local", 10, 2, -1, -5, -2);
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert!(v["ok"]["score"].as_i64().unwrap() > 0);
     }
 }

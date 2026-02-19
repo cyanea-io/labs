@@ -7,6 +7,8 @@ use cyanea_chem::{
     canonical_smiles, compute_properties, find_substructure_matches, has_substructure,
     morgan_fingerprint, parse_smiles, tanimoto_similarity,
 };
+use cyanea_chem::sdf;
+use cyanea_chem::maccs;
 
 use crate::error::{wasm_err, wasm_ok};
 
@@ -41,6 +43,24 @@ pub struct JsFingerprint {
 pub struct JsSubstructureResult {
     pub has_match: bool,
     pub match_count: usize,
+}
+
+/// Serializable SDF molecule summary.
+#[derive(Debug, Serialize)]
+pub struct JsSdfMolecule {
+    pub name: String,
+    pub formula: String,
+    pub n_atoms: usize,
+    pub n_bonds: usize,
+    pub molecular_weight: f64,
+}
+
+/// Serializable MACCS fingerprint result.
+#[derive(Debug, Serialize)]
+pub struct JsMaccsFingerprint {
+    pub bits: Vec<usize>,
+    pub n_bits_set: usize,
+    pub n_total_bits: usize,
 }
 
 // ── JSON boundary functions ──────────────────────────────────────────────
@@ -129,6 +149,66 @@ pub fn smiles_substructure(molecule: &str, pattern: &str) -> String {
     wasm_ok(&js)
 }
 
+/// Parse an SDF string and return molecule summaries as JSON.
+///
+/// Each successfully parsed molecule is returned with its name, formula,
+/// atom/bond counts, and molecular weight.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn parse_sdf(sdf_text: &str) -> String {
+    let results = sdf::parse_sdf(sdf_text);
+    let molecules: Vec<JsSdfMolecule> = results
+        .into_iter()
+        .filter_map(|r| r.ok())
+        .map(|mol| {
+            let props = compute_properties(&mol);
+            JsSdfMolecule {
+                name: mol.name.clone(),
+                formula: props.formula,
+                n_atoms: mol.atom_count(),
+                n_bonds: mol.bond_count(),
+                molecular_weight: props.molecular_weight,
+            }
+        })
+        .collect();
+    wasm_ok(&molecules)
+}
+
+/// Compute a MACCS 166-key structural fingerprint from a SMILES string.
+///
+/// Returns the set bit positions, count of set bits, and total bit count.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn maccs_fingerprint(smiles: &str) -> String {
+    let mol = match parse_smiles(smiles) {
+        Ok(m) => m,
+        Err(e) => return wasm_err(e),
+    };
+    let fp = maccs::maccs_fingerprint(&mol);
+    let bits: Vec<usize> = (0..fp.nbits()).filter(|&i| fp.get_bit(i)).collect();
+    let js = JsMaccsFingerprint {
+        n_bits_set: bits.len(),
+        bits,
+        n_total_bits: fp.nbits(),
+    };
+    wasm_ok(&js)
+}
+
+/// Compute Tanimoto similarity between two SMILES strings using MACCS fingerprints.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn tanimoto_maccs(smiles1: &str, smiles2: &str) -> String {
+    let mol1 = match parse_smiles(smiles1) {
+        Ok(m) => m,
+        Err(e) => return wasm_err(e),
+    };
+    let mol2 = match parse_smiles(smiles2) {
+        Ok(m) => m,
+        Err(e) => return wasm_err(e),
+    };
+    let fp1 = maccs::maccs_fingerprint(&mol1);
+    let fp2 = maccs::maccs_fingerprint(&mol2);
+    let sim = tanimoto_similarity(&fp1, &fp2);
+    wasm_ok(&sim)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -210,5 +290,64 @@ mod tests {
         let result = &v["ok"];
         assert_eq!(result["has_match"], false);
         assert_eq!(result["match_count"], 0);
+    }
+
+    // ── SDF parsing tests ────────────────────────────────────────────────
+
+    #[test]
+    fn parse_sdf_basic() {
+        let sdf_text = "\
+\x20\x20Molecule
+     CDK    \n
+  2  1  0  0  0  0  0  0  0  0999 V2000
+    0.0000    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+    1.5400    0.0000    0.0000 C   0  0  0  0  0  0  0  0  0  0  0  0
+  1  2  1  0  0  0  0
+M  END
+$$$$
+";
+        let json = parse_sdf(sdf_text);
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let mols = v["ok"].as_array().unwrap();
+        assert_eq!(mols.len(), 1);
+        assert_eq!(mols[0]["n_atoms"], 2);
+        assert_eq!(mols[0]["n_bonds"], 1);
+    }
+
+    #[test]
+    fn parse_sdf_empty() {
+        let json = parse_sdf("");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let mols = v["ok"].as_array().unwrap();
+        assert!(mols.is_empty());
+    }
+
+    // ── MACCS fingerprint tests ──────────────────────────────────────────
+
+    #[test]
+    fn maccs_fingerprint_basic() {
+        let json = maccs_fingerprint("CCO");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let fp = &v["ok"];
+        assert!(fp["n_bits_set"].as_u64().unwrap() > 0);
+        assert_eq!(fp["n_total_bits"], 166);
+    }
+
+    #[test]
+    fn maccs_fingerprint_benzene() {
+        let json = maccs_fingerprint("c1ccccc1");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let fp = &v["ok"];
+        assert!(fp["n_bits_set"].as_u64().unwrap() > 0);
+        assert!(!fp["bits"].as_array().unwrap().is_empty());
+    }
+
+    // ── Tanimoto MACCS tests ─────────────────────────────────────────────
+
+    #[test]
+    fn tanimoto_maccs_identical() {
+        let json = tanimoto_maccs("CCO", "CCO");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert!((v["ok"].as_f64().unwrap() - 1.0).abs() < 1e-10);
     }
 }

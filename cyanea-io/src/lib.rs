@@ -115,16 +115,16 @@ pub mod fetch;
 pub use csv::{csv_preview, parse_csv_info, CsvInfo};
 
 #[cfg(feature = "vcf")]
-pub use vcf::{parse_vcf, vcf_stats, write_vcf, write_vcf_string, VcfStats};
+pub use vcf::{parse_vcf, parse_vcf_str, vcf_stats, write_vcf, write_vcf_string, VcfStats};
 
 #[cfg(feature = "bed")]
-pub use bed::{bed_stats, parse_bed, parse_bed_intervals, BedRecord, BedStats};
+pub use bed::{bed_stats, parse_bed, parse_bed_intervals, parse_bed_str, BedRecord, BedStats};
 
 #[cfg(feature = "bed")]
 pub use bedpe::{bedpe_stats, parse_bedpe, BedpeRecord, BedpeStats};
 
 #[cfg(feature = "gff")]
-pub use gff::{gff3_stats, parse_gff3, GffStats};
+pub use gff::{gff3_stats, parse_gff3, parse_gff3_str, GffStats};
 
 #[cfg(feature = "sam")]
 pub use sam::{

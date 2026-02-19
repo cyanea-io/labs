@@ -1005,6 +1005,7 @@ dependencies = [
  "cyanea-core",
  "cyanea-io",
  "cyanea-ml",
+ "cyanea-omics",
  "cyanea-phylo",
  "cyanea-seq",
  "cyanea-stats",

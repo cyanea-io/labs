@@ -128,6 +128,24 @@ pub fn bed_stats(path: impl AsRef<Path>) -> Result<BedStats> {
     })
 }
 
+/// Parse BED text from a string and return all records.
+///
+/// Behaves like [`parse_bed`] but reads from an in-memory string instead of a file.
+pub fn parse_bed_str(text: &str) -> Result<Vec<BedRecord>> {
+    let dummy = Path::new("<string>");
+    text.lines()
+        .enumerate()
+        .filter(|(_, line)| {
+            let t = line.trim();
+            !t.is_empty()
+                && !t.starts_with('#')
+                && !t.starts_with("track")
+                && !t.starts_with("browser")
+        })
+        .map(|(i, line)| parse_bed_line(line.trim(), i + 1, dummy))
+        .collect()
+}
+
 /// Parse a single BED line into a BedRecord.
 fn parse_bed_line(line: &str, line_num: usize, path: &Path) -> Result<BedRecord> {
     let fields: Vec<&str> = line.split('\t').collect();
@@ -279,6 +297,16 @@ mod tests {
         let file = write_bed("chr1\t100\n");
         let result = parse_bed(file.path());
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_bed_str() {
+        let text = "chr1\t100\t200\tgene1\t500\t+\nchr2\t300\t400\n";
+        let records = super::parse_bed_str(text).unwrap();
+        assert_eq!(records.len(), 2);
+        assert_eq!(records[0].interval.chrom, "chr1");
+        assert_eq!(records[0].name, Some("gene1".to_string()));
+        assert_eq!(records[1].interval.chrom, "chr2");
     }
 
     #[test]

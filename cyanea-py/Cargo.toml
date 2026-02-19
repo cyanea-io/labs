@@ -23,7 +23,7 @@ pyo3 = { version = "0.23", features = ["extension-module"] }
 numpy = { version = "0.23", optional = true }
 cyanea-core  = { path = "../cyanea-core",  features = ["std"] }
 cyanea-seq   = { path = "../cyanea-seq",   features = ["std", "minhash"] }
-cyanea-io     = { path = "../cyanea-io",     features = ["csv", "vcf", "bed", "gff", "sam", "bam"] }
+cyanea-io     = { path = "../cyanea-io",     features = ["csv", "vcf", "bed", "gff", "sam", "bam", "blast-xml", "abi", "bedgraph", "gfa", "fetch"] }
 cyanea-align  = { path = "../cyanea-align",  features = ["std"] }
 cyanea-stats  = { path = "../cyanea-stats",  features = ["std"] }
 cyanea-ml     = { path = "../cyanea-ml",     features = ["std"] }

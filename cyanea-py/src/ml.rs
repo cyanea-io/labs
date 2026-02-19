@@ -677,6 +677,250 @@ fn silhouette_samples(data: Vec<f64>, n_features: usize, labels: Vec<i32>) -> Py
 }
 
 // ---------------------------------------------------------------------------
+// Gradient Boosted Trees
+// ---------------------------------------------------------------------------
+
+/// Gradient boosted decision tree model.
+#[pyclass]
+struct GradientBoostedTrees {
+    inner: cyanea_ml::GradientBoostedTrees,
+}
+
+#[pymethods]
+impl GradientBoostedTrees {
+    /// Fit a GBDT regression model.
+    #[staticmethod]
+    #[pyo3(signature = (data, n_features, targets, n_trees=100, max_depth=5, learning_rate=0.1, seed=42))]
+    fn fit_regression(
+        data: Vec<f64>,
+        n_features: usize,
+        targets: Vec<f64>,
+        n_trees: usize,
+        max_depth: usize,
+        learning_rate: f64,
+        seed: u64,
+    ) -> PyResult<Self> {
+        let config = cyanea_ml::GbdtConfig {
+            n_estimators: n_trees,
+            max_depth,
+            learning_rate,
+            seed,
+            ..Default::default()
+        };
+        let inner = cyanea_ml::GradientBoostedTrees::fit_regression(
+            &data, n_features, &targets, &config,
+        )
+        .into_pyresult()?;
+        Ok(Self { inner })
+    }
+
+    /// Fit a GBDT classification model.
+    #[staticmethod]
+    #[pyo3(signature = (data, n_features, labels, n_trees=100, max_depth=5, learning_rate=0.1, seed=42))]
+    fn fit_classification(
+        data: Vec<f64>,
+        n_features: usize,
+        labels: Vec<usize>,
+        n_trees: usize,
+        max_depth: usize,
+        learning_rate: f64,
+        seed: u64,
+    ) -> PyResult<Self> {
+        let config = cyanea_ml::GbdtConfig {
+            n_estimators: n_trees,
+            max_depth,
+            learning_rate,
+            seed,
+            ..Default::default()
+        };
+        let inner = cyanea_ml::GradientBoostedTrees::fit_classification(
+            &data, n_features, &labels, &config,
+        )
+        .into_pyresult()?;
+        Ok(Self { inner })
+    }
+
+    /// Predict the raw output for a single sample.
+    fn predict(&self, sample: Vec<f64>) -> f64 {
+        self.inner.predict(&sample)
+    }
+
+    /// Predict raw outputs for multiple samples (row-major).
+    fn predict_batch(&self, data: Vec<f64>, n_features: usize) -> Vec<f64> {
+        self.inner.predict_batch(&data, n_features)
+    }
+
+    /// Predict class label for a single sample.
+    fn predict_class(&self, sample: Vec<f64>) -> usize {
+        self.inner.predict_class(&sample)
+    }
+
+    /// Predict class labels for multiple samples (row-major).
+    fn predict_class_batch(&self, data: Vec<f64>, n_features: usize) -> Vec<usize> {
+        self.inner.predict_class_batch(&data, n_features)
+    }
+
+    /// Impurity-based feature importance scores.
+    fn feature_importances(&self) -> Vec<f64> {
+        self.inner.feature_importance()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Classification metrics
+// ---------------------------------------------------------------------------
+
+/// Confusion matrix result.
+#[pyclass(frozen, get_all)]
+struct PyConfusionMatrix {
+    matrix: Vec<Vec<usize>>,
+    labels: Vec<usize>,
+    accuracy: f64,
+}
+
+/// Compute a confusion matrix from actual and predicted labels.
+#[pyfunction]
+fn confusion_matrix(actual: Vec<usize>, predicted: Vec<usize>) -> PyResult<PyConfusionMatrix> {
+    let cm =
+        cyanea_ml::ConfusionMatrix::from_labels(&actual, &predicted, None).into_pyresult()?;
+    let nc = cm.n_classes;
+    let mut matrix = Vec::with_capacity(nc);
+    for i in 0..nc {
+        let row: Vec<usize> = (0..nc).map(|j| cm.get(i, j)).collect();
+        matrix.push(row);
+    }
+    let labels: Vec<usize> = (0..nc).collect();
+    let accuracy = cm.accuracy();
+    Ok(PyConfusionMatrix {
+        matrix,
+        labels,
+        accuracy,
+    })
+}
+
+/// Area under the ROC curve.
+#[pyfunction]
+fn roc_auc(scores: Vec<f64>, labels: Vec<bool>) -> PyResult<f64> {
+    cyanea_ml::roc_auc(&scores, &labels).into_pyresult()
+}
+
+/// ROC curve as a list of (fpr, tpr, threshold) tuples.
+#[pyfunction]
+fn roc_curve(scores: Vec<f64>, labels: Vec<bool>) -> PyResult<Vec<(f64, f64, f64)>> {
+    let curve = cyanea_ml::roc_curve(&scores, &labels).into_pyresult()?;
+    Ok(curve
+        .points
+        .iter()
+        .map(|p| (p.fpr, p.tpr, p.threshold))
+        .collect())
+}
+
+/// Precision-recall curve as a list of (precision, recall, threshold) tuples.
+#[pyfunction]
+fn pr_curve(scores: Vec<f64>, labels: Vec<bool>) -> PyResult<Vec<(f64, f64, f64)>> {
+    let curve = cyanea_ml::pr_curve(&scores, &labels).into_pyresult()?;
+    Ok(curve
+        .points
+        .iter()
+        .map(|p| (p.precision, p.recall, p.threshold))
+        .collect())
+}
+
+// ---------------------------------------------------------------------------
+// Cross-validation
+// ---------------------------------------------------------------------------
+
+/// Cross-validation result.
+#[pyclass(frozen, get_all)]
+struct PyCvResult {
+    fold_scores: Vec<f64>,
+    mean: f64,
+    std_dev: f64,
+}
+
+/// K-fold cross-validation using a random forest classifier.
+///
+/// Trains a random forest on each training fold and evaluates accuracy
+/// on the held-out fold.
+#[pyfunction]
+#[pyo3(signature = (data, n_features, labels, k=5, seed=42))]
+fn cross_validate_kfold(
+    data: Vec<f64>,
+    n_features: usize,
+    labels: Vec<usize>,
+    k: usize,
+    seed: u64,
+) -> PyResult<PyCvResult> {
+    let n_samples = data.len() / n_features;
+    let result = cyanea_ml::cross_validate_kfold(n_samples, k, seed, |train_idx, test_idx| {
+        // Build training data
+        let train_data: Vec<f64> = train_idx
+            .iter()
+            .flat_map(|&i| data[i * n_features..(i + 1) * n_features].iter().copied())
+            .collect();
+        let train_labels: Vec<usize> = train_idx.iter().map(|&i| labels[i]).collect();
+
+        let config = cyanea_ml::RandomForestConfig {
+            n_trees: 10,
+            max_depth: 5,
+            max_features: None,
+            seed,
+        };
+        let forest =
+            cyanea_ml::RandomForest::fit(&train_data, n_features, &train_labels, &config)?;
+
+        // Evaluate on test fold
+        let correct: usize = test_idx
+            .iter()
+            .filter(|&&i| {
+                let sample = &data[i * n_features..(i + 1) * n_features];
+                forest.predict(sample) == labels[i]
+            })
+            .count();
+        Ok(correct as f64 / test_idx.len() as f64)
+    })
+    .into_pyresult()?;
+
+    let fold_scores: Vec<f64> = result.folds.iter().map(|f| f.score).collect();
+    Ok(PyCvResult {
+        fold_scores,
+        mean: result.mean_score,
+        std_dev: result.std_score,
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Feature selection
+// ---------------------------------------------------------------------------
+
+/// Select features by variance threshold.
+///
+/// Returns indices of features whose variance exceeds the threshold.
+#[pyfunction]
+#[pyo3(signature = (data, n_features, threshold=0.0))]
+fn variance_threshold(data: Vec<f64>, n_features: usize, threshold: f64) -> PyResult<Vec<usize>> {
+    let result =
+        cyanea_ml::variance_threshold(&data, n_features, threshold).into_pyresult()?;
+    Ok(result.selected)
+}
+
+/// Mutual information between features and discrete labels.
+///
+/// Returns a vector of MI scores (one per feature, in nats).
+#[pyfunction]
+#[pyo3(signature = (data, n_features, labels, n_bins=10))]
+fn mutual_information(
+    data: Vec<f64>,
+    n_features: usize,
+    labels: Vec<usize>,
+    n_bins: usize,
+) -> PyResult<Vec<f64>> {
+    let result =
+        cyanea_ml::mutual_information(&data, n_features, &labels, n_bins).into_pyresult()?;
+    Ok(result.scores)
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -718,6 +962,16 @@ pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     // Evaluation
     m.add_function(wrap_pyfunction!(silhouette_score, &m)?)?;
     m.add_function(wrap_pyfunction!(silhouette_samples, &m)?)?;
+    // Classification metrics
+    m.add_function(wrap_pyfunction!(confusion_matrix, &m)?)?;
+    m.add_function(wrap_pyfunction!(roc_auc, &m)?)?;
+    m.add_function(wrap_pyfunction!(roc_curve, &m)?)?;
+    m.add_function(wrap_pyfunction!(pr_curve, &m)?)?;
+    // Cross-validation
+    m.add_function(wrap_pyfunction!(cross_validate_kfold, &m)?)?;
+    // Feature selection
+    m.add_function(wrap_pyfunction!(variance_threshold, &m)?)?;
+    m.add_function(wrap_pyfunction!(mutual_information, &m)?)?;
     // Classes
     m.add_class::<UmapResult>()?;
     m.add_class::<PcaResult>()?;
@@ -730,6 +984,9 @@ pub fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<DecisionTree>()?;
     m.add_class::<RandomForest>()?;
     m.add_class::<HmmModel>()?;
+    m.add_class::<GradientBoostedTrees>()?;
+    m.add_class::<PyConfusionMatrix>()?;
+    m.add_class::<PyCvResult>()?;
 
     #[cfg(feature = "numpy")]
     {

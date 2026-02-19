@@ -6,6 +6,11 @@
 
 use cyanea_core::{Annotated, CyaneaError, Result, Sequence};
 use cyanea_seq::FastaStats;
+use cyanea_seq::rna_structure;
+use cyanea_seq::protein_properties;
+use cyanea_seq::read_sim::{self, ReadSimConfig};
+use cyanea_seq::codon::CodonUsage;
+use cyanea_seq::assembly;
 
 use crate::error::{wasm_err, wasm_ok, wasm_result};
 
@@ -601,6 +606,49 @@ pub struct JsMinHashComparison {
     pub ani: f64,
 }
 
+#[derive(Debug, serde::Serialize)]
+pub struct JsRnaStructure {
+    pub structure: String,
+    pub pairs: Vec<(usize, usize)>,
+    pub free_energy: Option<f64>,
+    pub n_pairs: usize,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct JsProteinProperties {
+    pub molecular_weight: f64,
+    pub isoelectric_point: f64,
+    pub gravy: f64,
+    pub length: usize,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct JsSimulatedRead {
+    pub name: String,
+    pub sequence: String,
+    pub quality: String,
+    pub position: u64,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct JsCodonUsage {
+    pub codons: std::collections::HashMap<String, usize>,
+    pub total: usize,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct JsAssemblyStats {
+    pub n_contigs: usize,
+    pub total_length: usize,
+    pub largest_contig: usize,
+    pub smallest_contig: usize,
+    pub gc_content: f64,
+    pub n50: usize,
+    pub l50: usize,
+    pub n90: usize,
+    pub l90: usize,
+}
+
 /// Create a MinHash sketch of a nucleotide sequence.
 ///
 /// Returns a JSON object with k, sketch_size, num_hashes, and the hash values.
@@ -660,6 +708,198 @@ pub fn minhash_compare(seq_a: &str, seq_b: &str, k: usize, sketch_size: usize) -
         ani,
     };
     wasm_ok(&js)
+}
+
+// ── RNA structure prediction ────────────────────────────────────────────
+
+/// Predict RNA secondary structure using the Nussinov algorithm (maximize base pairs).
+///
+/// Returns JSON with dot-bracket structure, base pairs, and pair count.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn rna_fold_nussinov(seq: &str) -> String {
+    match rna_structure::nussinov(seq.as_bytes(), 3) {
+        Ok(result) => {
+            let pairs = result.structure.base_pairs();
+            let n_pairs = result.structure.num_pairs();
+            let js = JsRnaStructure {
+                structure: result.structure.to_dot_bracket(),
+                pairs,
+                free_energy: None,
+                n_pairs,
+            };
+            wasm_ok(&js)
+        }
+        Err(e) => wasm_err(e),
+    }
+}
+
+/// Predict RNA secondary structure using the Zuker MFE algorithm.
+///
+/// Returns JSON with dot-bracket structure, base pairs, free energy, and pair count.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn rna_fold_zuker(seq: &str) -> String {
+    match rna_structure::zuker_mfe(seq.as_bytes()) {
+        Ok(result) => {
+            let pairs = result.structure.base_pairs();
+            let n_pairs = result.structure.num_pairs();
+            let js = JsRnaStructure {
+                structure: result.structure.to_dot_bracket(),
+                pairs,
+                free_energy: Some(result.energy),
+                n_pairs,
+            };
+            wasm_ok(&js)
+        }
+        Err(e) => wasm_err(e),
+    }
+}
+
+// ── Protein properties ──────────────────────────────────────────────────
+
+/// Compute basic protein sequence properties.
+///
+/// Returns JSON with molecular weight (estimated), isoelectric point, GRAVY, and length.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn protein_props(seq: &str) -> String {
+    let pi = match protein_properties::isoelectric_point(seq.as_bytes()) {
+        Ok(v) => v,
+        Err(e) => return wasm_err(e),
+    };
+    let gravy_val = match protein_properties::gravy(seq.as_bytes()) {
+        Ok(v) => v,
+        Err(e) => return wasm_err(e),
+    };
+    // Simple MW estimate: average amino acid MW ~128.16 Da minus water (18.02) per peptide bond
+    let mw = seq.len() as f64 * 128.16 - (seq.len().saturating_sub(1)) as f64 * 18.02;
+    let js = JsProteinProperties {
+        molecular_weight: mw,
+        isoelectric_point: pi,
+        gravy: gravy_val,
+        length: seq.len(),
+    };
+    wasm_ok(&js)
+}
+
+// ── Read simulation ─────────────────────────────────────────────────────
+
+/// Simulate sequencing reads from a reference sequence.
+///
+/// `config_json`: JSON object with optional fields: `read_length`, `coverage`,
+/// `error_rate`, `seed`. Returns JSON array of simulated reads.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn simulate_reads(ref_seq: &str, config_json: &str) -> String {
+    match simulate_reads_impl(ref_seq, config_json) {
+        Ok(reads) => wasm_ok(&reads),
+        Err(e) => wasm_err(e),
+    }
+}
+
+/// JSON config for read simulation.
+#[derive(Debug, serde::Deserialize)]
+struct JsReadSimConfig {
+    read_length: Option<usize>,
+    coverage: Option<f64>,
+    error_rate: Option<f64>,
+    seed: Option<u64>,
+}
+
+fn simulate_reads_impl(
+    ref_seq: &str,
+    config_json: &str,
+) -> cyanea_core::Result<Vec<JsSimulatedRead>> {
+    let js_config: JsReadSimConfig = serde_json::from_str(config_json)
+        .map_err(|e| CyaneaError::InvalidInput(format!("invalid read sim config: {e}")))?;
+
+    let mut config = ReadSimConfig::default();
+    if let Some(rl) = js_config.read_length {
+        config.read_length = rl;
+    }
+    if let Some(cov) = js_config.coverage {
+        config.coverage = cov;
+    }
+    if let Some(er) = js_config.error_rate {
+        config.error_rate = er;
+    }
+    if let Some(s) = js_config.seed {
+        config.seed = s;
+    }
+    config.paired = false; // single-end for WASM simplicity
+
+    let reads = read_sim::simulate_reads(ref_seq.as_bytes(), "wasm_ref", &config);
+    let js_reads: Vec<JsSimulatedRead> = reads
+        .into_iter()
+        .map(|r| JsSimulatedRead {
+            name: r.name,
+            sequence: String::from_utf8_lossy(&r.sequence).into_owned(),
+            quality: String::from_utf8_lossy(&r.quality).into_owned(),
+            position: r.true_position,
+        })
+        .collect();
+    Ok(js_reads)
+}
+
+// ── Codon usage ─────────────────────────────────────────────────────────
+
+/// Compute codon usage from a coding DNA sequence.
+///
+/// The sequence should be in-frame coding DNA. Returns JSON with codon counts and total.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn codon_usage(seq: &str) -> String {
+    let usage = CodonUsage::from_sequence(seq.as_bytes());
+    let bases: [u8; 4] = [b'A', b'C', b'G', b'T'];
+    let mut codons = std::collections::HashMap::new();
+    let mut total: usize = 0;
+
+    for &b1 in &bases {
+        for &b2 in &bases {
+            for &b3 in &bases {
+                let codon = [b1, b2, b3];
+                let count = usage.count(&codon) as usize;
+                if count > 0 {
+                    let key = String::from_utf8_lossy(&codon).into_owned();
+                    codons.insert(key, count);
+                    total += count;
+                }
+            }
+        }
+    }
+
+    let js = JsCodonUsage { codons, total };
+    wasm_ok(&js)
+}
+
+// ── Assembly statistics ─────────────────────────────────────────────────
+
+/// Compute assembly statistics from a set of contigs.
+///
+/// `contigs_json`: JSON array of contig sequences (strings).
+/// Returns JSON with n_contigs, total_length, N50, L50, N90, L90, GC content, etc.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn assembly_stats_json(contigs_json: &str) -> String {
+    match assembly_stats_impl(contigs_json) {
+        Ok(stats) => wasm_ok(&stats),
+        Err(e) => wasm_err(e),
+    }
+}
+
+fn assembly_stats_impl(contigs_json: &str) -> cyanea_core::Result<JsAssemblyStats> {
+    let contigs: Vec<String> = serde_json::from_str(contigs_json)
+        .map_err(|e| CyaneaError::InvalidInput(format!("invalid contigs JSON: {e}")))?;
+
+    let contig_bytes: Vec<&[u8]> = contigs.iter().map(|s| s.as_bytes()).collect();
+    let stats = assembly::assembly_stats(&contig_bytes)?;
+
+    Ok(JsAssemblyStats {
+        n_contigs: stats.n_contigs,
+        total_length: stats.total_length,
+        largest_contig: stats.largest_contig,
+        smallest_contig: stats.smallest_contig,
+        gc_content: stats.gc_content,
+        n50: stats.n50,
+        l50: stats.l50,
+        n90: stats.n90,
+        l90: stats.l90,
+    })
 }
 
 #[cfg(test)]
@@ -1009,5 +1249,131 @@ mod tests {
         let v: serde_json::Value = serde_json::from_str(&json).unwrap();
         let obj = &v["ok"];
         assert!(obj["jaccard"].as_f64().unwrap() < 1.0);
+    }
+
+    // --- RNA structure prediction ---
+
+    #[test]
+    fn rna_fold_nussinov_basic() {
+        let json = rna_fold_nussinov("GGGAAACCC");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let obj = &v["ok"];
+        assert!(obj["n_pairs"].as_u64().unwrap() > 0);
+        assert!(!obj["structure"].as_str().unwrap().is_empty());
+        assert!(obj["free_energy"].is_null());
+    }
+
+    #[test]
+    fn rna_fold_nussinov_no_pairs() {
+        let json = rna_fold_nussinov("AAAA");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let obj = &v["ok"];
+        assert_eq!(obj["n_pairs"].as_u64().unwrap(), 0);
+        assert_eq!(obj["pairs"].as_array().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn rna_fold_zuker_basic() {
+        let json = rna_fold_zuker("GGGAAACCC");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let obj = &v["ok"];
+        assert!(!obj["structure"].as_str().unwrap().is_empty());
+        assert!(obj["free_energy"].is_number());
+    }
+
+    #[test]
+    fn rna_fold_zuker_pairs() {
+        let json = rna_fold_zuker("GGGAAACCC");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let obj = &v["ok"];
+        let pairs = obj["pairs"].as_array().unwrap();
+        // Each pair should be [i, j] with i < j
+        for pair in pairs {
+            let arr = pair.as_array().unwrap();
+            assert!(arr[0].as_u64().unwrap() < arr[1].as_u64().unwrap());
+        }
+    }
+
+    // --- Protein properties ---
+
+    #[test]
+    fn protein_properties_basic() {
+        let json = protein_props("MKWVTFISLLFLFSSAYS");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let obj = &v["ok"];
+        assert!(obj["isoelectric_point"].as_f64().unwrap() > 0.0);
+        assert!(obj["isoelectric_point"].as_f64().unwrap() < 14.0);
+        assert!(obj["molecular_weight"].as_f64().unwrap() > 0.0);
+        assert_eq!(obj["length"].as_u64().unwrap(), 18);
+    }
+
+    #[test]
+    fn protein_properties_short() {
+        let json = protein_props("MK");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let obj = &v["ok"];
+        assert_eq!(obj["length"].as_u64().unwrap(), 2);
+        assert!(obj["molecular_weight"].as_f64().unwrap() > 0.0);
+        assert!(obj["gravy"].is_number());
+    }
+
+    // --- Read simulation ---
+
+    #[test]
+    fn simulate_reads_basic() {
+        // Reference needs to be longer than read_length
+        let ref_seq = "ACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGTACGT";
+        let config = r#"{"read_length": 10, "coverage": 5.0, "error_rate": 0.0, "seed": 1}"#;
+        let json = simulate_reads(ref_seq, config);
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let reads = v["ok"].as_array().unwrap();
+        assert!(!reads.is_empty());
+        // Each read should have name, sequence, quality, and position
+        for read in reads {
+            assert!(read["name"].is_string());
+            assert!(read["sequence"].as_str().unwrap().len() > 0);
+            assert!(read["quality"].as_str().unwrap().len() > 0);
+        }
+    }
+
+    // --- Codon usage ---
+
+    #[test]
+    fn codon_usage_basic() {
+        let json = codon_usage("ATGAAAGGG");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let obj = &v["ok"];
+        assert_eq!(obj["total"].as_u64().unwrap(), 3);
+        let codons = obj["codons"].as_object().unwrap();
+        assert_eq!(codons["ATG"].as_u64().unwrap(), 1);
+        assert_eq!(codons["AAA"].as_u64().unwrap(), 1);
+        assert_eq!(codons["GGG"].as_u64().unwrap(), 1);
+    }
+
+    // --- Assembly statistics ---
+
+    #[test]
+    fn assembly_stats_basic() {
+        let contigs = r#"["ACGTACGTACGTACGT", "ACGTACGT", "ACGT"]"#;
+        let json = assembly_stats_json(contigs);
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let obj = &v["ok"];
+        assert_eq!(obj["n_contigs"].as_u64().unwrap(), 3);
+        assert_eq!(obj["total_length"].as_u64().unwrap(), 28);
+        assert_eq!(obj["largest_contig"].as_u64().unwrap(), 16);
+        assert_eq!(obj["smallest_contig"].as_u64().unwrap(), 4);
+        assert!(obj["n50"].as_u64().unwrap() > 0);
+    }
+
+    #[test]
+    fn assembly_stats_single() {
+        let contigs = r#"["ACGTACGTACGTACGT"]"#;
+        let json = assembly_stats_json(contigs);
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let obj = &v["ok"];
+        assert_eq!(obj["n_contigs"].as_u64().unwrap(), 1);
+        assert_eq!(obj["total_length"].as_u64().unwrap(), 16);
+        assert_eq!(obj["n50"].as_u64().unwrap(), 16);
+        assert_eq!(obj["l50"].as_u64().unwrap(), 1);
     }
 }

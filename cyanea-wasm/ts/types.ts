@@ -367,6 +367,441 @@ export interface RFDistance {
 /** Evolutionary distance model accepted by evolutionary_distance. */
 export type DistanceModel = "p" | "jc" | "k2p";
 
+// ── Seq Module (RNA / Protein / Reads / Assembly) ───────────────────────────
+
+/** RNA secondary structure prediction result. */
+export interface RnaStructure {
+  structure: string;
+  pairs: [number, number][];
+  free_energy: number;
+}
+
+/** Protein sequence properties. */
+export interface ProteinProperties {
+  molecular_weight: number;
+  isoelectric_point: number;
+  gravy: number;
+  instability_index: number;
+  extinction_280_reduced: number;
+  extinction_280_oxidized: number;
+}
+
+/** A simulated sequencing read. */
+export interface SimulatedRead {
+  name: string;
+  sequence: string;
+  quality: string;
+  position: number;
+}
+
+/** Codon usage table. */
+export interface CodonUsage {
+  codons: Record<string, number>;
+  total: number;
+}
+
+/** Assembly statistics for a set of contigs. */
+export interface AssemblyStats {
+  n_contigs: number;
+  total_length: number;
+  n50: number;
+  l50: number;
+  largest: number;
+  gc_content: number;
+}
+
+// ── Align Module (MSA / POA / Banded) ─────────────────────────────────────
+
+/** Multiple sequence alignment result. */
+export interface MsaResult {
+  alignment: string[];
+  score: number;
+  n_sequences: number;
+  alignment_length: number;
+}
+
+/** Partial-order alignment consensus result. */
+export interface PoaConsensus {
+  consensus: string;
+  n_sequences: number;
+  n_nodes: number;
+}
+
+// ── Stats Module (Survival / Diversity / PopGen / NullModel) ──────────────
+
+/** Kaplan-Meier survival step. */
+export interface KmStep {
+  time: number;
+  survival: number;
+  n_at_risk: number;
+  n_events: number;
+}
+
+/** Kaplan-Meier survival analysis result. */
+export interface KmResult {
+  steps: KmStep[];
+  median_survival: number | null;
+  total_events: number;
+  total_censored: number;
+}
+
+/** Log-rank test result. */
+export interface LogRankResult {
+  statistic: number;
+  p_value: number;
+  degrees_of_freedom: number;
+}
+
+/** Cox proportional hazards result. */
+export interface CoxPhResult {
+  coefficients: number[];
+  standard_errors: number[];
+  hazard_ratios: number[];
+  log_likelihood: number;
+}
+
+/** Wright-Fisher simulation result. */
+export interface WrightFisherResult {
+  trajectory: number[];
+  fixation_generation: number | null;
+  final_frequency: number;
+}
+
+/** Tajima's D result. */
+export interface TajimaD {
+  d: number;
+  pi: number;
+  s: number;
+}
+
+/** Hudson's Fst result. */
+export interface FstResult {
+  fst: number;
+  numerator: number;
+  denominator: number;
+}
+
+// ── ML Module (Forest / GBDT / HMM / Metrics / CV) ──────────────────────
+
+/** Random forest classification result. */
+export interface RandomForestResult {
+  predictions: number[];
+  oob_error: number | null;
+  n_trees: number;
+  feature_importances: number[];
+}
+
+/** Gradient-boosted tree regression result. */
+export interface GbdtRegressionResult {
+  predictions: number[];
+  n_trees: number;
+  feature_importances: number[];
+  training_loss: number[];
+}
+
+/** Gradient-boosted tree classification result. */
+export interface GbdtClassifyResult {
+  predictions: number[];
+  probabilities: number[];
+  n_trees: number;
+  feature_importances: number[];
+  training_loss: number[];
+}
+
+/** HMM Viterbi decoding result. */
+export interface HmmViterbiResult {
+  path: number[];
+  log_probability: number;
+  n_states: number;
+  n_observations: number;
+}
+
+/** Confusion matrix from classification evaluation. */
+export interface ConfusionMatrix {
+  matrix: number[][];
+  labels: number[];
+  accuracy: number;
+  precision_per_class: number[];
+  recall_per_class: number[];
+  f1_per_class: number[];
+}
+
+/** ROC curve point. */
+export interface RocPoint {
+  fpr: number;
+  tpr: number;
+  threshold: number;
+}
+
+/** ROC curve result. */
+export interface RocCurve {
+  points: RocPoint[];
+  auc: number;
+}
+
+/** Precision-recall curve point. */
+export interface PrPoint {
+  precision: number;
+  recall: number;
+  threshold: number;
+}
+
+/** Precision-recall curve result. */
+export interface PrCurve {
+  points: PrPoint[];
+  auc: number;
+}
+
+/** Cross-validation result. */
+export interface CvResult {
+  fold_scores: number[];
+  mean: number;
+  std_dev: number;
+}
+
+/** Feature selection result from variance threshold. */
+export interface FeatureSelection {
+  selected_indices: number[];
+  n_selected: number;
+  n_original: number;
+}
+
+// ── Chem Module (SDF / MACCS) ─────────────────────────────────────────────
+
+/** SDF-parsed molecule. */
+export interface SdfMolecule {
+  name: string;
+  smiles: string;
+  n_atoms: number;
+  n_bonds: number;
+  properties: Record<string, string>;
+}
+
+/** MACCS 166-key fingerprint result. */
+export interface MaccsFingerprint {
+  bits: number[];
+  n_bits: number;
+  n_on_bits: number;
+}
+
+// ── StructBio Module (Contact Map / Ramachandran / mmCIF / Kabsch) ──────
+
+/** Contact map from PDB structure. */
+export interface ContactMap {
+  chain_id: string;
+  size: number;
+  n_contacts: number;
+  contact_density: number;
+  contacts: [number, number][];
+}
+
+/** Ramachandran plot entry. */
+export interface RamachandranEntry {
+  residue_index: number;
+  residue_name: string;
+  phi: number;
+  psi: number;
+  region: string;
+}
+
+/** mmCIF structure info. */
+export interface MmcifInfo {
+  id: string;
+  n_chains: number;
+  n_residues: number;
+  n_atoms: number;
+}
+
+/** Kabsch superposition result. */
+export interface KabschResult {
+  rmsd: number;
+  rotation: number[];
+  translation: number[];
+}
+
+// ── Phylo Module (NEXUS / Simulation) ─────────────────────────────────────
+
+/** NEXUS file parse result. */
+export interface NexusFile {
+  taxa: string[];
+  trees: NamedTree[];
+}
+
+/** A named tree from a NEXUS file. */
+export interface NamedTree {
+  name: string;
+  newick: string;
+}
+
+/** Simulated sequence alignment from tree evolution. */
+export interface SimulatedAlignment {
+  names: string[];
+  sequences: string[];
+}
+
+/** Coalescent tree simulation result. */
+export interface CoalescentTree {
+  newick: string;
+  n_samples: number;
+  tmrca: number;
+}
+
+// ── IO Module (VCF / BED / GFF3 / BLAST XML / bedGraph / GFA / Fetch) ──
+
+/** Parsed VCF variant. */
+export interface VcfVariant {
+  chrom: string;
+  pos: number;
+  id: string;
+  ref_allele: string;
+  alt_allele: string;
+  qual: number | null;
+  filter: string;
+}
+
+/** Parsed BED record. */
+export interface BedRecord {
+  chrom: string;
+  start: number;
+  end: number;
+  name: string | null;
+  score: number | null;
+  strand: string;
+}
+
+/** Parsed GFF3 gene. */
+export interface Gff3Gene {
+  id: string;
+  chrom: string;
+  start: number;
+  end: number;
+  strand: string;
+  gene_type: string;
+  name: string | null;
+}
+
+/** BLAST XML hit. */
+export interface BlastXmlHit {
+  id: string;
+  definition: string;
+  accession: string;
+  length: number;
+  bit_score: number;
+  evalue: number;
+  identity: number;
+  query_from: number;
+  query_to: number;
+  hit_from: number;
+  hit_to: number;
+}
+
+/** BLAST XML parse result. */
+export interface BlastXmlResult {
+  program: string;
+  query: string;
+  hits: BlastXmlHit[];
+}
+
+/** bedGraph record. */
+export interface BedGraphRecord {
+  chrom: string;
+  start: number;
+  end: number;
+  value: number;
+}
+
+/** GFA assembly graph segment. */
+export interface GfaSegment {
+  name: string;
+  sequence: string;
+  length: number;
+}
+
+/** GFA assembly graph. */
+export interface GfaGraph {
+  segments: GfaSegment[];
+  n_links: number;
+  n_paths: number;
+  total_sequence_length: number;
+}
+
+// ── Omics Module (Intervals / VEP / CNV / Methylation / Spatial) ──────
+
+/** Genomic interval. */
+export interface GenomicInterval {
+  chrom: string;
+  start: number;
+  end: number;
+  strand: string;
+}
+
+/** Variant effect prediction result. */
+export interface VariantEffect {
+  consequence: string;
+  gene_id: string;
+  gene_name: string | null;
+  distance: number | null;
+}
+
+/** CNV segment from CBS. */
+export interface CnvSegment {
+  chrom: string;
+  start: number;
+  end: number;
+  mean_value: number;
+  n_probes: number;
+}
+
+/** CpG island. */
+export interface CpgIsland {
+  chrom: string;
+  start: number;
+  end: number;
+  cpg_count: number;
+  gc_content: number;
+  observed_expected: number;
+}
+
+/** Spatial autocorrelation result (Moran's I). */
+export interface SpatialAutocorrelation {
+  statistic: number;
+  expected: number;
+  variance: number;
+  z_score: number;
+  p_value: number;
+}
+
+/** Geary's C spatial autocorrelation result. */
+export interface GearysC {
+  statistic: number;
+  expected: number;
+  variance: number;
+  z_score: number;
+  p_value: number;
+}
+
+/** Liftover result. */
+export interface LiftoverResult {
+  chrom: string;
+  start: number;
+  end: number;
+  success: boolean;
+}
+
+/** Jaccard similarity between interval sets. */
+export interface JaccardResult {
+  jaccard: number;
+  intersection_bases: number;
+  union_bases: number;
+}
+
+/** Closest interval result. */
+export interface ClosestResult {
+  query: GenomicInterval;
+  closest: GenomicInterval;
+  distance: number;
+}
+
 // ── Sequence Alphabet ──────────────────────────────────────────────────────
 
 /** Alphabet name accepted by the validate function. */

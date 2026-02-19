@@ -61,6 +61,31 @@ pub fn parse_gff3(path: impl AsRef<Path>) -> Result<Vec<Gene>> {
     Ok(builder.build())
 }
 
+/// Parse GFF3 text from a string and return assembled gene models.
+///
+/// Behaves like [`parse_gff3`] but reads from an in-memory string instead of a file.
+pub fn parse_gff3_str(text: &str) -> Result<Vec<Gene>> {
+    let dummy = Path::new("<string>");
+    let mut builder = Gff3Builder::new();
+
+    for (line_num, line) in text.lines().enumerate() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        if line == "##FASTA" {
+            break;
+        }
+        if line.starts_with('#') {
+            continue;
+        }
+        let record = parse_gff3_line(line, line_num + 1, dummy)?;
+        builder.add_record(record);
+    }
+
+    Ok(builder.build())
+}
+
 /// Summary statistics for a GFF3 file.
 #[derive(Debug, Clone)]
 pub struct GffStats {
@@ -597,6 +622,19 @@ mod tests {
         let file = write_gff3("chr1\tgene\n");
         let result = parse_gff3(file.path());
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_gff3_str() {
+        let text = "##gff-version 3\n\
+                    chr1\t.\tgene\t1000\t5000\t.\t+\t.\tID=gene1;Name=TP53;biotype=protein_coding\n\
+                    chr1\t.\tmRNA\t1000\t5000\t.\t+\t.\tID=tx1;Parent=gene1\n\
+                    chr1\t.\texon\t1000\t1200\t.\t+\t.\tParent=tx1;exon_number=1\n";
+        let genes = super::parse_gff3_str(text).unwrap();
+        assert_eq!(genes.len(), 1);
+        assert_eq!(genes[0].gene_name, "TP53");
+        assert_eq!(genes[0].gene_type, GeneType::ProteinCoding);
+        assert_eq!(genes[0].n_transcripts(), 1);
     }
 
     #[test]
