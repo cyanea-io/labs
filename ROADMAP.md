@@ -3,10 +3,12 @@
 > Capabilities to add across the labs ecosystem. Organized by impact and implementation complexity.
 > Items here are *new features* — see `TODO.md` for existing infrastructure work (publishing, CI, docs).
 
-Last updated: 2026-02-18
+Last updated: 2026-02-19
 
 **T1–T8**: Complete (1800+ tests). See below for history.
-**T9–T14**: New — competitive gap analysis vs rust-bio, noodles, Biopython, scanpy, RDKit, Bioconductor, etc.
+**T11–T14**: Complete (~430 new tests). Microbiome stats, cheminformatics depth, phylo maturity, variant annotation & ecosystem.
+**T15**: Complete (~88 new WASM tests). WASM & Python binding completeness for all T10–T14 APIs.
+**T9–T10**: Open — indexed BAM/VCF access, single-cell pipeline.
 
 ---
 
@@ -318,61 +320,61 @@ Last updated: 2026-02-18
 
 ---
 
-## T11 — Microbiome & Ecological Statistics
+## T11 — Microbiome & Ecological Statistics ✅
 
-> **Why**: Cyanea has alpha diversity and Bray-Curtis but lacks the statistical tests and ordination methods that define standard microbiome analysis (scikit-bio, vegan/R, phyloseq). UniFrac + PCoA + PERMANOVA together unlock the entire microbiome analysis workflow.
+> Complete. 60 new tests across cyanea-stats and cyanea-phylo.
 
-### Phylogenetic Diversity (`cyanea-stats` or `cyanea-phylo`)
-- [ ] Unweighted UniFrac distance (presence/absence on phylogenetic tree)
-- [ ] Weighted UniFrac distance (abundance-weighted branch lengths)
-- [ ] Generalized UniFrac (alpha parameter for weighting control)
-- [ ] Faith's phylogenetic diversity (PD)
+### Phylogenetic Diversity (`cyanea-phylo::unifrac`) — Done
+- [x] Unweighted UniFrac distance (presence/absence on phylogenetic tree)
+- [x] Weighted UniFrac distance (abundance-weighted branch lengths)
+- [x] Generalized UniFrac (alpha parameter for weighting control)
+- [x] Faith's phylogenetic diversity (PD)
 
-### Ordination Methods (`cyanea-stats`)
-- [ ] PCoA (Principal Coordinates Analysis) — eigendecomposition of distance matrices
-- [ ] CCA (Canonical Correspondence Analysis) — constrained ordination
-- [ ] RDA (Redundancy Analysis) — linear constrained ordination
-- [ ] NMDS (Non-metric Multidimensional Scaling)
-- [ ] Procrustes analysis (compare ordinations)
+### Ordination Methods (`cyanea-stats::ordination`) — Done
+- [x] PCoA (Principal Coordinates Analysis) — eigendecomposition of distance matrices
+- [x] CCA (Canonical Correspondence Analysis) — constrained ordination
+- [x] RDA (Redundancy Analysis) — linear constrained ordination
+- [x] NMDS (Non-metric Multidimensional Scaling)
+- [x] Procrustes analysis (compare ordinations)
 
-### Multivariate Tests (`cyanea-stats`)
-- [ ] PERMANOVA (Permutational MANOVA) — test group centroids via permutation
-- [ ] ANOSIM (Analysis of Similarities) — rank-based multivariate test
-- [ ] Mantel test — correlation between two distance matrices
-- [ ] BIOENV — environmental variable selection explaining community patterns
-- [ ] AMOVA (Analysis of Molecular Variance)
+### Multivariate Tests (`cyanea-stats::multivariate`) — Done
+- [x] PERMANOVA (Permutational MANOVA) — test group centroids via permutation
+- [x] ANOSIM (Analysis of Similarities) — rank-based multivariate test
+- [x] Mantel test — correlation between two distance matrices
+- [x] BIOENV — environmental variable selection explaining community patterns
+- [x] AMOVA (Analysis of Molecular Variance)
 
-### Diversity Extensions (`cyanea-stats`)
-- [ ] Alpha rarefaction curves (species richness vs sampling depth)
-- [ ] Beta diversity: Jaccard (presence/absence), weighted Jaccard
-- [ ] Diversity profile (Hill numbers / effective number of species)
+### Diversity Extensions (`cyanea-stats::diversity`) — Done
+- [x] Alpha rarefaction curves (species richness vs sampling depth)
+- [x] Beta diversity: Jaccard (presence/absence), weighted Jaccard
+- [x] Diversity profile (Hill numbers / effective number of species)
 
 ---
 
-## T12 — Cheminformatics Depth
+## T12 — Cheminformatics Depth (Partial) ✅
 
-> **Why**: cyanea-chem can parse molecules and compute fingerprints, but drug discovery workflows require SMARTS, 200+ descriptors, 3D conformers, and reaction chemistry. These are standard in RDKit; adding them moves cyanea-chem from "structural parsing" to "computational chemistry."
+> 60 new tests. SMARTS, descriptors, drug-likeness, scaffolds, standardization done. 3D conformers and reaction chemistry deferred.
 
-### SMARTS & Advanced Matching (`cyanea-chem`)
-- [ ] SMARTS pattern language parser
-- [ ] SMARTS-based substructure search (atom/bond properties, recursive SMARTS)
-- [ ] SMARTS logical operators (AND, OR, NOT on atom primitives)
-- [ ] Reaction SMARTS (SMIRKS) for transformation rules
+### SMARTS & Advanced Matching (`cyanea-chem::smarts`) — Done
+- [x] SMARTS pattern language parser
+- [x] SMARTS-based substructure search (atom/bond properties, recursive SMARTS)
+- [x] SMARTS logical operators (AND, OR, NOT on atom primitives)
+- [x] Reaction SMARTS (SMIRKS) for transformation rules
 
-### Molecular Descriptors (`cyanea-chem`)
-- [ ] Topological descriptors (Wiener index, Balaban J, Zagreb indices)
-- [ ] TPSA (Topological Polar Surface Area)
-- [ ] Wildman-Crippen LogP/MR (atom contribution method)
-- [ ] BertzCT complexity index
-- [ ] Kappa shape indices (1κ, 2κ, 3κ)
-- [ ] Chi connectivity indices
-- [ ] Fraction sp3 carbons
-- [ ] Ring count details (aliphatic, aromatic, heteroaromatic, spiro, fused)
-- [ ] EState descriptors
-- [ ] Autocorrelation descriptors (Moreau-Broto, Moran, Geary)
-- [ ] Descriptor batch computation (all descriptors at once for QSAR matrices)
+### Molecular Descriptors (`cyanea-chem::descriptors`) — Done
+- [x] Topological descriptors (Wiener index, Balaban J, Zagreb indices)
+- [x] TPSA (Topological Polar Surface Area)
+- [x] Wildman-Crippen LogP/MR (atom contribution method)
+- [x] BertzCT complexity index
+- [x] Kappa shape indices (1κ, 2κ, 3κ)
+- [x] Chi connectivity indices
+- [x] Fraction sp3 carbons
+- [x] Ring count details (aliphatic, aromatic, heteroaromatic, spiro, fused)
+- [x] EState descriptors
+- [x] Autocorrelation descriptors (Moreau-Broto, Moran, Geary)
+- [x] Descriptor batch computation (all descriptors at once for QSAR matrices)
 
-### 3D Coordinate Generation (`cyanea-chem`)
+### 3D Coordinate Generation (`cyanea-chem`) — Deferred
 - [ ] Distance geometry embedding (initial 3D coords from connectivity)
 - [ ] ETKDG-style conformer generation (torsion angle preferences)
 - [ ] Multiple conformer enumeration (rotatable bond sampling)
@@ -380,28 +382,28 @@ Last updated: 2026-02-18
 - [ ] UFF energy calculation
 - [ ] Basic energy minimization (steepest descent / conjugate gradient)
 
-### Molecule Standardization (`cyanea-chem`)
-- [ ] Salt/fragment stripping (remove counterions, solvents)
-- [ ] Charge neutralization
-- [ ] Tautomer canonicalization
-- [ ] Largest fragment extraction
-- [ ] Standardization pipeline (composable steps)
+### Molecule Standardization (`cyanea-chem::standardize`) — Done
+- [x] Salt/fragment stripping (remove counterions, solvents)
+- [x] Charge neutralization
+- [x] Tautomer canonicalization
+- [x] Largest fragment extraction
+- [x] Standardization pipeline (composable steps)
 
-### Drug-Likeness Filters (`cyanea-chem`)
-- [ ] Lipinski Rule of 5
-- [ ] Veber rules (rotatable bonds + TPSA)
-- [ ] PAINS (Pan Assay Interference) structural alerts
-- [ ] Brenk structural alerts
-- [ ] Lead-likeness criteria
-- [ ] Drug-likeness score (QED — Quantitative Estimate of Drug-likeness)
+### Drug-Likeness Filters (`cyanea-chem::druglikeness`) — Done
+- [x] Lipinski Rule of 5
+- [x] Veber rules (rotatable bonds + TPSA)
+- [x] PAINS (Pan Assay Interference) structural alerts
+- [x] Brenk structural alerts
+- [x] Lead-likeness criteria
+- [x] Drug-likeness score (QED — Quantitative Estimate of Drug-likeness)
 
-### Scaffold Analysis (`cyanea-chem`)
-- [ ] Murcko scaffold decomposition (framework + sidechains)
-- [ ] Generic scaffold generation
-- [ ] Maximum Common Substructure (MCS) between molecule pairs
-- [ ] R-group decomposition (core + variable groups)
+### Scaffold Analysis (`cyanea-chem::scaffold`) — Done
+- [x] Murcko scaffold decomposition (framework + sidechains)
+- [x] Generic scaffold generation
+- [x] Maximum Common Substructure (MCS) between molecule pairs
+- [x] R-group decomposition (core + variable groups)
 
-### Chemical Reactions (`cyanea-chem`)
+### Chemical Reactions (`cyanea-chem`) — Deferred
 - [ ] Reaction SMILES (SMIRKS) application to molecules
 - [ ] Reaction enumeration (virtual library generation)
 - [ ] Atom-atom mapping in reactions
@@ -409,106 +411,136 @@ Last updated: 2026-02-18
 
 ---
 
-## T13 — Phylogenetics & Alignment Maturity
+## T13 — Phylogenetics & Alignment Maturity ✅
 
-> **Why**: NNI-only tree search is weak for real phylogenetics. Missing protein models (LG, WAG, JTT) means ML phylo is nucleotide-only. SPR search + model selection + protein models would bring cyanea-phylo to IQ-TREE/RAxML competitive parity. Additional alignment formats round out interoperability.
+> Complete. ~197 new tests across cyanea-phylo, cyanea-io, cyanea-seq.
 
-### Tree Search (`cyanea-phylo`)
-- [ ] SPR (Subtree Pruning and Regrafting) moves
-- [ ] TBR (Tree Bisection and Reconnection) moves
-- [ ] Parsimony ratchet for starting tree estimation
-- [ ] Stochastic NNI with simulated annealing
-- [ ] Lazy SPR evaluation (partial likelihood recomputation)
+### Tree Search (`cyanea-phylo::tree_search`) — Done
+- [x] SPR (Subtree Pruning and Regrafting) moves
+- [x] TBR (Tree Bisection and Reconnection) moves
+- [x] Parsimony ratchet for starting tree estimation
+- [x] Stochastic NNI with simulated annealing
+- [x] Lazy SPR evaluation (partial likelihood recomputation)
 
-### Model Selection (`cyanea-phylo`)
-- [ ] AIC (Akaike Information Criterion) for model comparison
-- [ ] BIC (Bayesian Information Criterion)
-- [ ] ModelFinder-style automatic model selection (test all models, rank by IC)
-- [ ] LRT (Likelihood Ratio Test) for nested models
+### Model Selection (`cyanea-phylo::model_selection`) — Done
+- [x] AIC (Akaike Information Criterion) for model comparison
+- [x] BIC (Bayesian Information Criterion)
+- [x] ModelFinder-style automatic model selection (test all models, rank by IC)
+- [x] LRT (Likelihood Ratio Test) for nested models
 
-### Protein Substitution Models (`cyanea-phylo`)
-- [ ] LG (Le & Gascuel 2008)
-- [ ] WAG (Whelan & Goldman 2001)
-- [ ] JTT (Jones, Taylor & Thornton 1992)
-- [ ] Dayhoff (Dayhoff, Schwartz & Orcutt 1978)
-- [ ] Rate matrix + frequency vector loading from file
-- [ ] Protein + Gamma rate variation
+### Protein Substitution Models (`cyanea-phylo::protein_models`) — Done
+- [x] LG (Le & Gascuel 2008)
+- [x] WAG (Whelan & Goldman 2001)
+- [x] JTT (Jones, Taylor & Thornton 1992)
+- [x] Dayhoff (Dayhoff, Schwartz & Orcutt 1978)
+- [x] Rate matrix + frequency vector loading from file
+- [x] Protein + Gamma rate variation
 
-### Bayesian Phylogenetics (`cyanea-phylo`)
-- [ ] MCMC sampler over tree topologies and branch lengths
-- [ ] Metropolis-Hastings proposals (NNI, SPR on tree; scale on branches)
-- [ ] Coalescent priors (constant population, exponential growth)
-- [ ] Relaxed molecular clocks (uncorrelated lognormal)
-- [ ] Convergence diagnostics (ESS, trace plots data)
-- [ ] Posterior summary (MAP tree, credible intervals on node ages)
+### Bayesian Phylogenetics (`cyanea-phylo::mcmc`) — Done
+- [x] MCMC sampler over tree topologies and branch lengths
+- [x] Metropolis-Hastings proposals (NNI, SPR on tree; scale on branches)
+- [x] Coalescent priors (constant population, exponential growth)
+- [x] Relaxed molecular clocks (uncorrelated lognormal)
+- [x] Convergence diagnostics (ESS, trace plots data)
+- [x] Posterior summary (MAP tree, credible intervals on node ages)
 
-### Gene Tree / Species Tree (`cyanea-phylo`)
-- [ ] ASTRAL-style species tree estimation from gene trees
-- [ ] Gene/species tree reconciliation (duplication/loss/ILS)
-- [ ] Concordance factors (gene and site)
+### Gene Tree / Species Tree (`cyanea-phylo::species_tree`) — Done
+- [x] ASTRAL-style species tree estimation from gene trees
+- [x] Gene/species tree reconciliation (duplication/loss/ILS)
+- [x] Concordance factors (gene and site)
 
-### Alignment Format I/O (`cyanea-io` or `cyanea-seq`)
-- [ ] Stockholm format (Pfam/Rfam alignments, used by HMMER)
-- [ ] Clustal format (read/write)
-- [ ] PHYLIP format (interleaved and sequential)
-- [ ] EMBL sequence format
-- [ ] PIR/NBRF format
+### Alignment Format I/O (`cyanea-io`) — Done
+- [x] Stockholm format (Pfam/Rfam alignments, used by HMMER)
+- [x] Clustal format (read/write)
+- [x] PHYLIP format (interleaved and sequential)
+- [x] EMBL sequence format
+- [x] PIR/NBRF format
 
-### Motif Format I/O (`cyanea-seq`)
-- [ ] MEME motif format (read/write)
-- [ ] TRANSFAC format (read/write)
-- [ ] JASPAR format (read/write)
-- [ ] Motif-to-motif comparison (Pearson correlation of PWM columns)
+### Motif Format I/O (`cyanea-seq::motif_io`) — Done
+- [x] MEME motif format (read/write)
+- [x] TRANSFAC format (read/write)
+- [x] JASPAR format (read/write)
+- [x] Motif-to-motif comparison (Pearson correlation of PWM columns)
 
 ---
 
-## T14 — Variant Annotation, Ecosystem & Emerging
+## T14 — Variant Annotation, Ecosystem & Emerging ✅
 
-> **Why**: Variant effect prediction (VEP), database clients, and specialized -omics analyses. These are the long tail of features that complete the ecosystem — individually less urgent, collectively they determine whether Cyanea is "production-ready" or "research-grade."
+> Complete. ~110 new tests across cyanea-omics, cyanea-io, cyanea-seq, cyanea-stats, cyanea-phylo.
 
-### Variant Effect Prediction (`cyanea-omics`)
-- [ ] Coding consequence classification (missense, nonsense, frameshift, splice site, synonymous, UTR)
-- [ ] Codon change annotation from VCF + GFF/GTF transcript models
-- [ ] Amino acid change notation (p.V600E style)
-- [ ] SIFT-style functional impact scoring (sequence conservation-based)
-- [ ] Splice site disruption scoring
+### Variant Effect Prediction (`cyanea-omics::variant_annotation`) — Done
+- [x] Coding consequence classification (missense, nonsense, frameshift, splice site, synonymous, UTR)
+- [x] Codon change annotation from VCF + GFF/GTF transcript models
+- [x] Amino acid change notation (p.V600E style)
+- [x] SIFT-style functional impact scoring (sequence conservation-based)
+- [x] Splice site disruption scoring
 
-### Database & API Clients (`cyanea-io` or new `cyanea-fetch`)
-- [ ] NCBI Entrez client (efetch, esearch, elink for sequences, annotations, publications)
-- [ ] UniProt REST client (protein records, batch retrieval)
-- [ ] KEGG REST client (pathways, compounds, reactions)
-- [ ] htsget client (GA4GH streaming protocol for BAM/VCF)
-- [ ] refget client (GA4GH reference sequence retrieval)
+### Database & API Clients (`cyanea-io::fetch`) — Done
+- [x] NCBI Entrez client (efetch, esearch, elink for sequences, annotations, publications)
+- [x] UniProt REST client (protein records, batch retrieval)
+- [x] KEGG REST client (pathways, compounds, reactions)
+- [x] htsget client (GA4GH streaming protocol for BAM/VCF)
+- [x] refget client (GA4GH reference sequence retrieval)
 
-### Copy Number & Structural Variants (`cyanea-omics`)
-- [ ] Read depth-based CNV detection (circular binary segmentation)
-- [ ] B-allele frequency segmentation
-- [ ] SV breakpoint detection from split/discordant reads
-- [ ] CNV call merging and annotation
+### Copy Number & Structural Variants (`cyanea-omics::cnv`) — Done
+- [x] Read depth-based CNV detection (circular binary segmentation)
+- [x] B-allele frequency segmentation
+- [x] SV breakpoint detection from split/discordant reads
+- [x] CNV call merging and annotation
 
-### Methylation Analysis (`cyanea-omics` or `cyanea-seq`)
-- [ ] Bisulfite sequencing alignment support (C→T conversion-aware)
-- [ ] Methylation calling from bisulfite BAM
-- [ ] Differential methylation regions (DMRs)
-- [ ] CpG island annotation
+### Methylation Analysis (`cyanea-omics::methylation`) — Done
+- [x] Bisulfite sequencing alignment support (C→T conversion-aware)
+- [x] Methylation calling from bisulfite BAM
+- [x] Differential methylation regions (DMRs)
+- [x] CpG island annotation
 
-### Spatial Transcriptomics (`cyanea-omics`)
-- [ ] Spatial neighbors graph (Delaunay triangulation, k-nearest spatial)
-- [ ] Spatial autocorrelation (Moran's I, Geary's C)
-- [ ] Co-occurrence analysis
-- [ ] Ligand-receptor interaction scoring
+### Spatial Transcriptomics (`cyanea-omics::spatial`) — Done
+- [x] Spatial neighbors graph (Delaunay triangulation, k-nearest spatial)
+- [x] Spatial autocorrelation (Moran's I, Geary's C)
+- [x] Co-occurrence analysis
+- [x] Ligand-receptor interaction scoring
 
-### Simulation (`cyanea-seq`, `cyanea-stats`)
-- [ ] Sequence evolution simulation (along a phylogenetic tree with substitution model)
-- [ ] Population genetics simulation (Wright-Fisher, coalescent)
-- [ ] Read simulator (Illumina error profile, coverage model)
-- [ ] Null model generation for statistical testing
+### Simulation (`cyanea-phylo::simulation`, `cyanea-seq::read_sim`, `cyanea-stats::null_model`) — Done
+- [x] Sequence evolution simulation (along a phylogenetic tree with substitution model)
+- [x] Population genetics simulation (Wright-Fisher, coalescent)
+- [x] Read simulator (Illumina error profile, coverage model)
+- [x] Null model generation for statistical testing
 
-### Additional I/O
-- [ ] BLAST XML output parser (legacy but common)
-- [ ] ABI chromatogram / .ab1 file parser (Sanger sequencing)
-- [ ] bedGraph/Wiggle output (for genome browser visualization)
-- [ ] GFA (Graphical Fragment Assembly) format for pangenomics
+### Additional I/O — Done
+- [x] BLAST XML output parser (legacy but common)
+- [x] ABI chromatogram / .ab1 file parser (Sanger sequencing)
+- [x] bedGraph/Wiggle output (for genome browser visualization)
+- [x] GFA (Graphical Fragment Assembly) format for pangenomics
+
+---
+
+## T15 — WASM & Python Binding Completeness ✅
+
+> Complete. ~88 new WASM tests (125 → 213). All T10–T14 public APIs exposed through WASM and Python bindings.
+
+### cyanea-io Prerequisites — Done
+- [x] `parse_vcf_str`, `parse_bed_str`, `parse_gff3_str` in-memory text parsers
+
+### WASM Bindings (`cyanea-wasm`) — Done
+- [x] New `omics` module — 14 functions (interval ops, VEP, CNV, methylation, spatial)
+- [x] Expanded `io` — VCF/BED/GFF3/BLAST XML/bedGraph/GFA text parsing, NCBI fetch URLs
+- [x] Expanded `stats` — survival (KM, log-rank, Cox PH), null models, diversity, popgen
+- [x] Expanded `ml` — random forest, GBDT, HMM, confusion matrix, ROC/PR, cross-validation, feature selection
+- [x] Expanded `seq` — RNA folding (Nussinov, Zuker), protein properties, read sim, codon usage, assembly stats
+- [x] Expanded `align` — progressive MSA, POA consensus, banded alignment
+- [x] Expanded `phylo` — NEXUS I/O, sequence evolution simulation, coalescent simulation
+- [x] Expanded `chem` — SDF parsing, MACCS fingerprints, MACCS Tanimoto
+- [x] Expanded `struct_bio` — contact maps, Ramachandran, mmCIF, Kabsch alignment
+- [x] ~35 new TypeScript interfaces in `ts/types.ts`
+- [x] New `Omics` namespace + expanded all namespaces in `ts/index.ts`
+
+### Python Bindings (`cyanea-py`) — Done
+- [x] Expanded `stats` — survival, null models, diversity, popgen, enrichment (GSEA, ORA)
+- [x] Expanded `ml` — GradientBoostedTrees, confusion matrix, ROC/PR, cross-validation, feature selection
+- [x] Expanded `phylo` — simulate_evolution, simulate_coalescent, simulate_coalescent_growth
+- [x] Expanded `seq` — RNA folding, protein properties, read simulation, codon usage, assembly stats
+- [x] Expanded `io` — BLAST XML, bedGraph, GFA, NCBI/UniProt URL builders
+- [x] Expanded `omics` — variant annotation, bisulfite conversion, CpG islands, Moran's I, Geary's C
 
 ---
 
