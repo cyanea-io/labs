@@ -921,6 +921,8 @@ name = "cyanea-omics"
 version = "0.1.0"
 dependencies = [
  "cyanea-core",
+ "cyanea-ml",
+ "cyanea-stats",
  "hdf5",
  "ndarray 0.15.6",
  "serde",

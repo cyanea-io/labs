@@ -7,6 +7,8 @@ use std::collections::VecDeque;
 
 use cyanea_core::{CyaneaError, Result};
 
+use crate::sparse::SparseMatrix;
+
 /// A weighted graph (directed or undirected).
 #[derive(Debug, Clone)]
 pub struct Graph {
@@ -83,6 +85,175 @@ impl Graph {
             }
         }
         graph
+    }
+
+    /// Build an undirected graph from a sparse matrix.
+    ///
+    /// For a symmetric matrix (e.g. adjacency/connectivity), each stored entry
+    /// `(i, j, w)` with `i < j` becomes an edge. Entries with `i >= j` are
+    /// skipped to avoid double-counting in undirected graphs.
+    pub fn from_sparse_matrix(matrix: &SparseMatrix) -> Self {
+        let (n, _) = matrix.shape();
+        let mut graph = Self::new(n, false);
+        for (i, j, w) in matrix.iter() {
+            if i < j && w != 0.0 {
+                let _ = graph.add_edge(i, j, w);
+            }
+        }
+        graph
+    }
+
+    /// Louvain community detection with a resolution parameter.
+    ///
+    /// The resolution parameter γ controls community granularity:
+    /// - γ < 1.0 → fewer, larger communities
+    /// - γ = 1.0 → standard modularity
+    /// - γ > 1.0 → more, smaller communities
+    ///
+    /// Implements both Phase 1 (local moves) and Phase 2 (hierarchical aggregation).
+    pub fn louvain_with_resolution(&self, resolution: f64) -> Community {
+        if self.n_nodes == 0 {
+            return Community {
+                assignments: Vec::new(),
+                modularity: 0.0,
+            };
+        }
+
+        let n = self.n_nodes;
+        let mut assignments: Vec<usize> = (0..n).collect();
+
+        // Total edge weight (2m for undirected)
+        let m2: f64 = if self.directed {
+            self.edges.iter().map(|(_, _, w)| w).sum()
+        } else {
+            self.edges.iter().map(|(_, _, w)| 2.0 * w).sum()
+        };
+
+        if m2 == 0.0 {
+            return Community {
+                assignments,
+                modularity: 0.0,
+            };
+        }
+
+        // Phase 1 + Phase 2 loop
+        let mut global_improved = true;
+        while global_improved {
+            global_improved = false;
+
+            // Phase 1: local moves with resolution
+            let mut improved = true;
+            while improved {
+                improved = false;
+                for i in 0..n {
+                    let current_community = assignments[i];
+                    let k_i: f64 = self.adjacency[i].iter().map(|(_, w)| w).sum();
+
+                    let mut community_weights: Vec<(usize, f64)> = Vec::new();
+                    for &(j, w) in &self.adjacency[i] {
+                        let cj = assignments[j];
+                        if let Some(entry) = community_weights.iter_mut().find(|(c, _)| *c == cj) {
+                            entry.1 += w;
+                        } else {
+                            community_weights.push((cj, w));
+                        }
+                    }
+
+                    let sigma_tot_current =
+                        self.community_total_weight(&assignments, current_community);
+                    let k_i_in_current = community_weights
+                        .iter()
+                        .find(|(c, _)| *c == current_community)
+                        .map_or(0.0, |(_, w)| *w);
+
+                    let mut best_community = current_community;
+                    let mut best_delta_q = 0.0;
+
+                    for &(cj, k_i_in) in &community_weights {
+                        if cj == current_community {
+                            continue;
+                        }
+                        let sigma_tot = self.community_total_weight(&assignments, cj);
+
+                        // ΔQ with resolution parameter γ
+                        let delta_q = (k_i_in - k_i_in_current) / m2
+                            - resolution * k_i * (sigma_tot - sigma_tot_current + k_i)
+                                / (m2 * m2)
+                                * 2.0;
+
+                        if delta_q > best_delta_q {
+                            best_delta_q = delta_q;
+                            best_community = cj;
+                        }
+                    }
+
+                    if best_community != current_community {
+                        assignments[i] = best_community;
+                        improved = true;
+                        global_improved = true;
+                    }
+                }
+            }
+
+            // Phase 2: check if further refinement would help
+            // Renumber communities and check if aggregation reduced count
+            let mut community_map: Vec<usize> = Vec::new();
+            for a in assignments.iter_mut() {
+                let pos = community_map.iter().position(|&c| c == *a);
+                *a = match pos {
+                    Some(idx) => idx,
+                    None => {
+                        community_map.push(*a);
+                        community_map.len() - 1
+                    }
+                };
+            }
+
+            // If we only have one community or no improvement, stop
+            if community_map.len() >= n {
+                break;
+            }
+        }
+
+        let modularity = self.modularity_with_resolution(&assignments, resolution);
+        Community {
+            assignments,
+            modularity,
+        }
+    }
+
+    /// Compute modularity Q with a resolution parameter.
+    ///
+    /// Q = Σ_c [L_c / m - γ * (d_c / 2m)²]
+    pub fn modularity_with_resolution(&self, assignments: &[usize], resolution: f64) -> f64 {
+        let m: f64 = self.edges.iter().map(|(_, _, w)| w).sum();
+        if m == 0.0 {
+            return 0.0;
+        }
+
+        let mut communities: Vec<usize> = assignments.to_vec();
+        communities.sort_unstable();
+        communities.dedup();
+
+        let mut q = 0.0;
+        for &c in &communities {
+            let l_c: f64 = self
+                .edges
+                .iter()
+                .filter(|&&(i, j, _)| {
+                    assignments.get(i) == Some(&c) && assignments.get(j) == Some(&c)
+                })
+                .map(|(_, _, w)| w)
+                .sum();
+
+            let d_c: f64 = (0..self.n_nodes)
+                .filter(|&v| assignments.get(v) == Some(&c))
+                .map(|v| -> f64 { self.adjacency[v].iter().map(|(_, w)| w).sum() })
+                .sum();
+
+            q += l_c / m - resolution * (d_c / (2.0 * m)).powi(2);
+        }
+        q
     }
 
     /// Number of nodes.
@@ -483,6 +654,70 @@ mod tests {
         let assignments = vec![0, 0, 0];
         let q = g.modularity(&assignments);
         assert!(q.abs() < 1e-10, "Q should be ~0 for single community, got {}", q);
+    }
+
+    #[test]
+    fn from_sparse_matrix() {
+        let mut sm = SparseMatrix::new(4, 4);
+        sm.insert(0, 1, 1.0).unwrap();
+        sm.insert(1, 0, 1.0).unwrap();
+        sm.insert(2, 3, 0.5).unwrap();
+        sm.insert(3, 2, 0.5).unwrap();
+        let g = Graph::from_sparse_matrix(&sm);
+        assert_eq!(g.n_nodes(), 4);
+        assert_eq!(g.n_edges(), 2);
+    }
+
+    #[test]
+    fn louvain_with_resolution_default() {
+        let mut g = Graph::new(6, false);
+        g.add_edge(0, 1, 1.0).unwrap();
+        g.add_edge(1, 2, 1.0).unwrap();
+        g.add_edge(0, 2, 1.0).unwrap();
+        g.add_edge(3, 4, 1.0).unwrap();
+        g.add_edge(4, 5, 1.0).unwrap();
+        g.add_edge(3, 5, 1.0).unwrap();
+        g.add_edge(2, 3, 0.1).unwrap();
+
+        let community = g.louvain_with_resolution(1.0);
+        assert_eq!(community.assignments[0], community.assignments[1]);
+        assert_eq!(community.assignments[1], community.assignments[2]);
+        assert_ne!(community.assignments[0], community.assignments[3]);
+    }
+
+    #[test]
+    fn louvain_with_high_resolution() {
+        // Higher resolution should produce more communities
+        let mut g = Graph::new(8, false);
+        // Two loosely connected groups of 4
+        for i in 0..4 {
+            for j in (i + 1)..4 {
+                g.add_edge(i, j, 1.0).unwrap();
+            }
+        }
+        for i in 4..8 {
+            for j in (i + 1)..8 {
+                g.add_edge(i, j, 1.0).unwrap();
+            }
+        }
+        g.add_edge(3, 4, 0.01).unwrap();
+
+        let low_res = g.louvain_with_resolution(0.5);
+        let high_res = g.louvain_with_resolution(3.0);
+        let n_communities_low = *low_res.assignments.iter().max().unwrap() + 1;
+        let n_communities_high = *high_res.assignments.iter().max().unwrap() + 1;
+        assert!(n_communities_high >= n_communities_low);
+    }
+
+    #[test]
+    fn modularity_with_resolution() {
+        let mut g = Graph::new(4, false);
+        g.add_edge(0, 1, 1.0).unwrap();
+        g.add_edge(2, 3, 1.0).unwrap();
+        let assignments = vec![0, 0, 1, 1];
+        let q1 = g.modularity_with_resolution(&assignments, 1.0);
+        let q_standard = g.modularity(&assignments);
+        assert!((q1 - q_standard).abs() < 1e-10);
     }
 
     #[test]

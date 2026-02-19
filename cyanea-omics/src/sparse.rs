@@ -248,6 +248,60 @@ impl SparseMatrix {
             .zip(self.values.iter())
             .map(|((&r, &c), &v)| (r, c, v))
     }
+
+    /// Sum of values in each column.
+    pub fn column_sums(&self) -> Vec<f64> {
+        let mut sums = vec![0.0; self.n_cols];
+        for i in 0..self.values.len() {
+            sums[self.cols[i]] += self.values[i];
+        }
+        sums
+    }
+
+    /// Mean value of each column (dividing by n_rows, treating missing as zero).
+    pub fn column_means(&self) -> Vec<f64> {
+        if self.n_rows == 0 {
+            return vec![0.0; self.n_cols];
+        }
+        let sums = self.column_sums();
+        let n = self.n_rows as f64;
+        sums.into_iter().map(|s| s / n).collect()
+    }
+
+    /// Sum of values in each row.
+    pub fn row_sums(&self) -> Vec<f64> {
+        let mut sums = vec![0.0; self.n_rows];
+        for i in 0..self.values.len() {
+            sums[self.rows[i]] += self.values[i];
+        }
+        sums
+    }
+
+    /// Multiply each row's values by the corresponding factor.
+    ///
+    /// `factors` must have length `n_rows`.
+    pub fn scale_rows(&mut self, factors: &[f64]) {
+        for i in 0..self.values.len() {
+            self.values[i] *= factors[self.rows[i]];
+        }
+    }
+
+    /// Apply a function to every stored value in place.
+    pub fn map_values(&mut self, f: impl Fn(f64) -> f64) {
+        for v in &mut self.values {
+            *v = f(*v);
+        }
+    }
+
+    /// Number of rows.
+    pub fn n_rows(&self) -> usize {
+        self.n_rows
+    }
+
+    /// Number of columns.
+    pub fn n_cols(&self) -> usize {
+        self.n_cols
+    }
 }
 
 impl Summarizable for SparseMatrix {
@@ -454,6 +508,98 @@ mod tests {
         let m2 = SparseMatrix::from_csr(data, indices, indptr, 3, 4).unwrap();
         assert_eq!(m2.nnz(), 0);
         assert_eq!(m2.shape(), (3, 4));
+    }
+
+    #[test]
+    fn test_column_sums() {
+        let m = SparseMatrix::from_triplets(
+            vec![0, 0, 1, 1],
+            vec![0, 1, 0, 2],
+            vec![1.0, 2.0, 3.0, 4.0],
+            2,
+            3,
+        )
+        .unwrap();
+        assert_eq!(m.column_sums(), vec![4.0, 2.0, 4.0]);
+    }
+
+    #[test]
+    fn test_column_sums_empty() {
+        let m = SparseMatrix::new(3, 4);
+        assert_eq!(m.column_sums(), vec![0.0, 0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn test_column_means() {
+        let m = SparseMatrix::from_triplets(
+            vec![0, 1],
+            vec![0, 0],
+            vec![4.0, 6.0],
+            2,
+            2,
+        )
+        .unwrap();
+        let means = m.column_means();
+        assert!((means[0] - 5.0).abs() < 1e-10);
+        assert!((means[1] - 0.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_column_means_zero_rows() {
+        let m = SparseMatrix::new(0, 3);
+        assert_eq!(m.column_means(), vec![0.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn test_row_sums() {
+        let m = SparseMatrix::from_triplets(
+            vec![0, 0, 1, 2],
+            vec![0, 1, 0, 2],
+            vec![1.0, 2.0, 3.0, 4.0],
+            3,
+            3,
+        )
+        .unwrap();
+        assert_eq!(m.row_sums(), vec![3.0, 3.0, 4.0]);
+    }
+
+    #[test]
+    fn test_scale_rows() {
+        let mut m = SparseMatrix::from_triplets(
+            vec![0, 0, 1, 1],
+            vec![0, 1, 0, 1],
+            vec![2.0, 4.0, 6.0, 8.0],
+            2,
+            2,
+        )
+        .unwrap();
+        m.scale_rows(&[0.5, 2.0]);
+        assert!((m.get(0, 0) - 1.0).abs() < 1e-10);
+        assert!((m.get(0, 1) - 2.0).abs() < 1e-10);
+        assert!((m.get(1, 0) - 12.0).abs() < 1e-10);
+        assert!((m.get(1, 1) - 16.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_map_values() {
+        let mut m = SparseMatrix::from_triplets(
+            vec![0, 1],
+            vec![0, 1],
+            vec![4.0, 9.0],
+            2,
+            2,
+        )
+        .unwrap();
+        m.map_values(|v| v.sqrt());
+        assert!((m.get(0, 0) - 2.0).abs() < 1e-10);
+        assert!((m.get(1, 1) - 3.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_n_rows_n_cols() {
+        let m = SparseMatrix::new(5, 8);
+        assert_eq!(m.n_rows(), 5);
+        assert_eq!(m.n_cols(), 8);
     }
 
     #[test]

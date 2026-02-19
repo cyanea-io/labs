@@ -44,6 +44,16 @@ pub mod liftover;
 pub mod h5ad;
 #[cfg(feature = "zarr")]
 pub mod zarr;
+#[cfg(feature = "single-cell")]
+pub mod sc_preprocess;
+#[cfg(feature = "single-cell")]
+pub mod sc_cluster;
+#[cfg(feature = "single-cell")]
+pub mod sc_trajectory;
+#[cfg(feature = "single-cell")]
+pub mod sc_markers;
+#[cfg(feature = "single-cell")]
+pub mod sc_integrate;
 
 pub use genomic::{GenomicInterval, GenomicPosition, Strand};
 pub use interval::IntervalSet;

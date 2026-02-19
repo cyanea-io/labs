@@ -16,9 +16,12 @@ wasm = []
 serde = ["dep:serde", "cyanea-core/serde"]
 h5ad = ["dep:hdf5", "dep:ndarray"]
 zarr = ["dep:zarrs", "dep:serde_json"]
+single-cell = ["dep:cyanea-stats", "dep:cyanea-ml"]
 
 [dependencies]
 cyanea-core = { path = "../cyanea-core", default-features = false }
+cyanea-stats = { path = "../cyanea-stats", optional = true, default-features = false }
+cyanea-ml = { path = "../cyanea-ml", optional = true, default-features = false }
 serde = { workspace = true, optional = true }
 hdf5 = { workspace = true, optional = true }
 ndarray = { version = "0.15", optional = true }
