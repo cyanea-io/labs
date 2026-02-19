@@ -2,11 +2,11 @@
 
 > Best-in-class Rust bioinformatics ecosystem targeting CPU, GPU, WASM (browser), and BEAM (Elixir NIFs).
 
-Last updated: 2026-02-18
+Last updated: 2026-02-19
 
 ---
 
-## Status: All 13 crates complete (1800+ tests)
+## Status: All 13 crates complete (2250+ tests)
 
 Every crate has a `docs/STATUS.md` with full API documentation.
 
@@ -14,9 +14,9 @@ Every crate has a `docs/STATUS.md` with full API documentation.
 |-------|--------|------:|
 | cyanea-core | Complete (traits, errors, hashing, compression, mmap, probability types, bitvectors, Fenwick tree) | 58 |
 | cyanea-seq | Complete (FASTA, FASTQ, k-mers, 2-bit encoding, suffix arrays, FM-index, FMD-Index, BWT, MinHash, pattern matching, PSSM, ORF finder, FASTA indexed reader, codon tables, masking, RNA secondary structure, protein properties) | 433 |
-| cyanea-io | Complete (CSV, VCF, BED, BEDPE, GFF3, GTF, SAM, BAM, CRAM, BCF, BLAST, MAF, GenBank, bigWig/bigBed, Parquet) | 167 |
+| cyanea-io | Complete (CSV, VCF, BED, BEDPE, GFF3, GTF, SAM, BAM, CRAM, BCF, BLAST, MAF, GenBank, bigWig/bigBed, Parquet, indexed BAM/VCF, BAM ops, VCF ops, BCF writer) | 264 |
 | cyanea-align | Complete (NW, SW, semi-global, banded, MSA, SIMD SW, seed-and-extend, minimizers, WFA, GPU dispatch, POA, LCSk++, pair HMM, PAM40/120/200, BLOSUM30, CIGAR utilities, X-drop/Z-drop, spliced alignment) | 290 |
-| cyanea-omics | Complete (genomic coords, intervals, matrices, variants, AnnData, h5ad, zarr) | 161 |
+| cyanea-omics | Complete (genomic coords, intervals, interval tree, coverage, matrices, variants, AnnData, h5ad, zarr) | 217 |
 | cyanea-stats | Complete (descriptive, correlation, hypothesis tests, distributions, PCA, effect sizes, chi-squared, Fisher's exact, Bayesian conjugate priors, combinatorics, population genetics, normalization, differential expression, enrichment analysis, survival analysis) | 304 |
 | cyanea-ml | Complete (clustering, distances, embeddings, KNN, PCA, t-SNE, UMAP, random forest, GBDT, feature selection, regression, HMM, classification metrics, cross-validation) | 269 |
 | cyanea-chem | Complete (SMILES, SDF V2000/V3000, fingerprints, MACCS keys, properties, substructure, stereochemistry, canonical SMILES) | 79 |
@@ -207,8 +207,8 @@ Every crate has a `docs/STATUS.md` with full API documentation.
 ## New Features
 
 See **[ROADMAP.md](ROADMAP.md)** for the full feature/capability roadmap:
-- **T1–T8**: Complete — original ecosystem build-out (1800+ tests)
-- **T9**: Indexed access (BAI/TBI/CSI), BAM sort/index/merge/markdup, VCF writing & manipulation, interval trees
+- **T1–T9**: Complete — original ecosystem build-out + indexed access & operations (2250+ tests)
+- ~~**T9**: Indexed access (BAI/TBI/CSI), BAM sort/index/merge/markdup, VCF writing & manipulation, interval trees~~
 - **T10**: Single-cell pipeline — Leiden clustering, HVG selection, pseudotime, batch correction
 - **T11**: Microbiome & ecological statistics — UniFrac, PCoA, PERMANOVA/ANOSIM/Mantel, CCA/RDA
 - **T12**: Cheminformatics depth — SMARTS, 200+ descriptors, 3D conformers, reactions, drug-likeness filters
