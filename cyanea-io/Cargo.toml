@@ -17,6 +17,9 @@ bed = ["dep:cyanea-omics"]
 gff = ["dep:cyanea-omics"]
 sam = []
 bam = ["sam", "dep:flate2"]
+indexed-bam = ["bam", "dep:noodles-bam", "dep:noodles-bgzf", "dep:noodles-sam", "dep:noodles-core", "dep:noodles-csi"]
+indexed-vcf = ["vcf", "dep:noodles-bgzf", "dep:noodles-csi", "dep:noodles-vcf", "dep:noodles-tabix", "dep:noodles-core"]
+indexed = ["indexed-bam", "indexed-vcf"]
 parquet = ["dep:parquet", "dep:arrow", "vcf", "bed"]
 cram = ["sam", "dep:noodles-cram", "dep:noodles-sam", "dep:noodles-fasta", "dep:noodles-core"]
 blast = []
@@ -44,6 +47,11 @@ noodles-cram = { workspace = true, optional = true }
 noodles-sam = { workspace = true, optional = true }
 noodles-fasta = { workspace = true, optional = true }
 noodles-core = { workspace = true, optional = true }
+noodles-bam = { workspace = true, optional = true }
+noodles-bgzf = { workspace = true, optional = true }
+noodles-csi = { workspace = true, optional = true }
+noodles-vcf = { workspace = true, optional = true }
+noodles-tabix = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

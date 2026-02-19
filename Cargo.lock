@@ -889,10 +889,15 @@ dependencies = [
  "cyanea-omics",
  "cyanea-stats",
  "flate2",
+ "noodles-bam",
+ "noodles-bgzf",
  "noodles-core",
  "noodles-cram",
+ "noodles-csi",
  "noodles-fasta",
  "noodles-sam",
+ "noodles-tabix",
+ "noodles-vcf",
  "parquet",
  "rayon",
  "serde",
@@ -2151,6 +2156,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "noodles-tabix"
+version = "0.47.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fde991a31c6203845117944c1d5f697b69c382e37eb2d70f3e3f2b575fbca62d"
+dependencies = [
+ "byteorder",
+ "indexmap",
+ "noodles-bgzf",
+ "noodles-core",
+ "noodles-csi",
+]
+
+[[package]]
+name = "noodles-vcf"
+version = "0.70.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ae18ab19252b5f8a4fe3310a0a1d2e2875a886e81a9e64aa69510a471655921"
+dependencies = [
+ "indexmap",
+ "memchr",
+ "noodles-bgzf",
+ "noodles-core",
+ "noodles-csi",
+ "noodles-tabix",
+ "percent-encoding",
+]
+
+[[package]]
 name = "num"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2384,6 +2417,12 @@ name = "pathdiff"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df94ce210e5bc13cb6651479fa48d14f601d9858cfe0467f43ae157023b938d3"
+
+[[package]]
+name = "percent-encoding"
+version = "2.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
 
 [[package]]
 name = "petgraph"

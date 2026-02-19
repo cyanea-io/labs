@@ -77,6 +77,11 @@ noodles-cram = "0.72"
 noodles-sam = "0.67"
 noodles-fasta = "0.46"
 noodles-core = "0.15"
+noodles-bam = "0.71"
+noodles-bgzf = "0.34"
+noodles-csi = "0.41"
+noodles-vcf = "0.70"
+noodles-tabix = "0.47"
 
 # Zarr
 zarrs = { version = "0.18", default-features = false, features = ["filesystem"] }

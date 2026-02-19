@@ -11,117 +11,14 @@ use std::io::{self, Read};
 use std::path::Path;
 
 use cyanea_core::{CyaneaError, Result};
-use flate2::read::DeflateDecoder;
 
 #[cfg(feature = "sam")]
 use crate::sam::{sam_stats, SamRecord, SamStats};
 
-// ---------------------------------------------------------------------------
-// BGZF constants
-// ---------------------------------------------------------------------------
-
-/// BGZF magic bytes: standard gzip header with BGZF extra field.
-const BGZF_MAGIC: [u8; 4] = [0x1f, 0x8b, 0x08, 0x04];
+use crate::bgzf;
 
 /// BAM magic bytes at the start of decompressed data.
 const BAM_MAGIC: [u8; 4] = [b'B', b'A', b'M', 0x01];
-
-// ---------------------------------------------------------------------------
-// BGZF block reader
-// ---------------------------------------------------------------------------
-
-/// Read and decompress the next BGZF block from a reader.
-///
-/// Returns `Ok(None)` at EOF, `Ok(Some(data))` for a valid block.
-fn read_bgzf_block(reader: &mut impl Read) -> Result<Option<Vec<u8>>> {
-    // Read gzip header (at least 18 bytes for basic header + BGZF extra)
-    let mut header = [0u8; 18];
-    match reader.read_exact(&mut header) {
-        Ok(()) => {}
-        Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => return Ok(None),
-        Err(e) => return Err(CyaneaError::Io(e)),
-    }
-
-    // Validate gzip magic + FEXTRA flag
-    if header[0] != BGZF_MAGIC[0]
-        || header[1] != BGZF_MAGIC[1]
-        || header[2] != BGZF_MAGIC[2]
-        || (header[3] & 0x04) == 0
-    {
-        return Err(CyaneaError::Parse("not a valid BGZF block".into()));
-    }
-
-    // XLEN is at offset 10-11 (little-endian)
-    let xlen = u16::from_le_bytes([header[10], header[11]]) as usize;
-
-    // We already read 18 bytes total (12 gzip header + 6 of extra field)
-    // The extra field starts at offset 12. We've read 6 bytes of it (offsets 12-17).
-    // Read remaining extra field bytes if xlen > 6
-    let mut extra = vec![0u8; xlen];
-    extra[..6].copy_from_slice(&header[12..18]);
-    if xlen > 6 {
-        reader
-            .read_exact(&mut extra[6..])
-            .map_err(CyaneaError::Io)?;
-    }
-
-    // Find BSIZE in extra field subfields
-    let bsize = find_bsize(&extra)?;
-
-    // Total block size = BSIZE + 1 (BSIZE is 0-based)
-    let block_size = bsize as usize + 1;
-
-    // Bytes remaining after the gzip header (12 bytes) + extra field (xlen bytes):
-    // block_size - 12 - xlen = compressed data + CRC32 + ISIZE
-    let header_size = 12 + xlen;
-    if block_size < header_size + 8 {
-        return Err(CyaneaError::Parse("BGZF block too small".into()));
-    }
-    let data_size = block_size - header_size - 8; // subtract CRC32(4) + ISIZE(4)
-
-    // Read compressed data
-    let mut cdata = vec![0u8; data_size];
-    reader.read_exact(&mut cdata).map_err(CyaneaError::Io)?;
-
-    // Read CRC32 and ISIZE (we validate ISIZE but skip CRC for speed)
-    let mut trailer = [0u8; 8];
-    reader.read_exact(&mut trailer).map_err(CyaneaError::Io)?;
-    let isize = u32::from_le_bytes([trailer[4], trailer[5], trailer[6], trailer[7]]) as usize;
-
-    // Empty block (EOF marker)
-    if isize == 0 {
-        return Ok(Some(Vec::new()));
-    }
-
-    // Decompress using raw DEFLATE (gzip payload without header)
-    let mut decompressed = vec![0u8; isize];
-    let mut decoder = DeflateDecoder::new(&cdata[..]);
-    decoder
-        .read_exact(&mut decompressed)
-        .map_err(|e| CyaneaError::Parse(format!("BGZF decompression failed: {e}")))?;
-
-    Ok(Some(decompressed))
-}
-
-/// Find the BSIZE field in BGZF extra data.
-///
-/// BGZF stores BSIZE in a subfield with SI1=66 ('B'), SI2=67 ('C'), SLEN=2.
-fn find_bsize(extra: &[u8]) -> Result<u16> {
-    let mut pos = 0;
-    while pos + 4 <= extra.len() {
-        let si1 = extra[pos];
-        let si2 = extra[pos + 1];
-        let slen = u16::from_le_bytes([extra[pos + 2], extra[pos + 3]]) as usize;
-
-        if si1 == b'B' && si2 == b'C' && slen == 2 && pos + 6 <= extra.len() {
-            return Ok(u16::from_le_bytes([extra[pos + 4], extra[pos + 5]]));
-        }
-        pos += 4 + slen;
-    }
-    Err(CyaneaError::Parse(
-        "BGZF extra field missing BSIZE subfield".into(),
-    ))
-}
 
 // ---------------------------------------------------------------------------
 // BAM reader
@@ -162,18 +59,7 @@ pub fn parse_bam(path: impl AsRef<Path>) -> Result<Vec<SamRecord>> {
 #[cfg(feature = "sam")]
 fn parse_bam_reader(reader: &mut impl Read) -> Result<Vec<SamRecord>> {
     // Decompress all BGZF blocks into a contiguous buffer
-    let mut data = Vec::new();
-    loop {
-        match read_bgzf_block(reader)? {
-            None => break,
-            Some(block) => {
-                if block.is_empty() {
-                    break; // EOF marker
-                }
-                data.extend_from_slice(&block);
-            }
-        }
-    }
+    let data = bgzf::decompress_all(reader)?;
 
     if data.len() < 4 {
         return Err(CyaneaError::Parse("BAM data too short".into()));
@@ -457,67 +343,7 @@ pub fn bam_stats(path: impl AsRef<Path>) -> Result<SamStats> {
 
 #[cfg(test)]
 mod test_helpers {
-    use flate2::write::DeflateEncoder;
-    use flate2::Compression;
-    use std::io::Write;
-
-    /// Create a BGZF-compressed block from uncompressed data.
-    pub(super) fn bgzf_compress(data: &[u8]) -> Vec<u8> {
-        // Compress with DEFLATE
-        let mut encoder = DeflateEncoder::new(Vec::new(), Compression::default());
-        encoder.write_all(data).unwrap();
-        let cdata = encoder.finish().unwrap();
-
-        let cdata_len = cdata.len();
-        // BSIZE = total block size - 1
-        // Block: 16 (header with extra) + cdata_len + 8 (trailer)
-        let bsize = (18 + cdata_len + 8 - 1) as u16;
-
-        let mut block = Vec::new();
-
-        // Gzip header with FEXTRA
-        block.extend_from_slice(&[0x1f, 0x8b, 0x08, 0x04]); // magic + FEXTRA
-        block.extend_from_slice(&[0u8; 6]); // MTIME, XFL, OS
-        block.extend_from_slice(&6u16.to_le_bytes()); // XLEN = 6
-
-        // BGZF extra subfield: SI1='B', SI2='C', SLEN=2, BSIZE
-        block.push(b'B');
-        block.push(b'C');
-        block.extend_from_slice(&2u16.to_le_bytes());
-        block.extend_from_slice(&bsize.to_le_bytes());
-
-        // Compressed data
-        block.extend_from_slice(&cdata);
-
-        // CRC32 and ISIZE
-        let crc = crc32(data);
-        block.extend_from_slice(&crc.to_le_bytes());
-        block.extend_from_slice(&(data.len() as u32).to_le_bytes());
-
-        block
-    }
-
-    /// Create a BGZF EOF marker block.
-    pub(super) fn bgzf_eof_block() -> Vec<u8> {
-        // Standard EOF marker: empty BGZF block
-        bgzf_compress(&[])
-    }
-
-    /// Simple CRC32 computation.
-    fn crc32(data: &[u8]) -> u32 {
-        let mut crc = 0xFFFFFFFFu32;
-        for &byte in data {
-            crc ^= byte as u32;
-            for _ in 0..8 {
-                if crc & 1 != 0 {
-                    crc = (crc >> 1) ^ 0xEDB88320;
-                } else {
-                    crc >>= 1;
-                }
-            }
-        }
-        !crc
-    }
+    pub(crate) use crate::bgzf::test_helpers::{bgzf_compress, bgzf_eof_block};
 
     /// Build a minimal valid BAM binary (uncompressed content).
     ///
@@ -952,7 +778,7 @@ mod tests {
         let original = b"Hello, BGZF world!";
         let compressed = bgzf_compress(original);
         let mut reader = io::Cursor::new(compressed);
-        let decompressed = read_bgzf_block(&mut reader).unwrap().unwrap();
+        let decompressed = crate::bgzf::read_bgzf_block(&mut reader).unwrap().unwrap();
         assert_eq!(decompressed, original);
     }
 
@@ -960,7 +786,7 @@ mod tests {
     fn bgzf_eof_detection() {
         let eof = bgzf_eof_block();
         let mut reader = io::Cursor::new(eof);
-        let block = read_bgzf_block(&mut reader).unwrap().unwrap();
+        let block = crate::bgzf::read_bgzf_block(&mut reader).unwrap().unwrap();
         assert!(block.is_empty());
     }
 

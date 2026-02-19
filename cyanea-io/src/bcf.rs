@@ -11,15 +11,12 @@ use std::path::Path;
 
 use cyanea_core::{CyaneaError, Result};
 use cyanea_omics::variant::{Variant, VariantFilter};
-use flate2::read::DeflateDecoder;
 
+use crate::bgzf;
 use crate::vcf::VcfStats;
 
 /// BCF2 magic: "BCF\2\1"
 const BCF_MAGIC: [u8; 5] = [b'B', b'C', b'F', 0x02, 0x01];
-
-/// BGZF magic bytes: standard gzip header with FEXTRA flag.
-const BGZF_MAGIC: [u8; 4] = [0x1f, 0x8b, 0x08, 0x04];
 
 /// Parse a BCF2 file and return variant records.
 ///
@@ -36,18 +33,7 @@ pub fn parse_bcf(path: impl AsRef<Path>) -> Result<Vec<Variant>> {
     let mut reader = io::BufReader::new(file);
 
     // Decompress all BGZF blocks
-    let mut data = Vec::new();
-    loop {
-        match read_bgzf_block(&mut reader)? {
-            None => break,
-            Some(block) => {
-                if block.is_empty() {
-                    break;
-                }
-                data.extend_from_slice(&block);
-            }
-        }
-    }
+    let data = bgzf::decompress_all(&mut reader)?;
 
     if data.len() < 9 {
         return Err(CyaneaError::Parse(format!(
@@ -131,81 +117,6 @@ pub fn bcf_stats(path: impl AsRef<Path>) -> Result<VcfStats> {
         pass_count,
         chromosomes: chroms,
     })
-}
-
-// ---------------------------------------------------------------------------
-// BGZF block reader (same pattern as bam.rs)
-// ---------------------------------------------------------------------------
-
-fn read_bgzf_block(reader: &mut impl Read) -> Result<Option<Vec<u8>>> {
-    let mut header = [0u8; 18];
-    match reader.read_exact(&mut header) {
-        Ok(()) => {}
-        Err(e) if e.kind() == io::ErrorKind::UnexpectedEof => return Ok(None),
-        Err(e) => return Err(CyaneaError::Io(e)),
-    }
-
-    if header[0] != BGZF_MAGIC[0]
-        || header[1] != BGZF_MAGIC[1]
-        || header[2] != BGZF_MAGIC[2]
-        || (header[3] & 0x04) == 0
-    {
-        return Err(CyaneaError::Parse("not a valid BGZF block".into()));
-    }
-
-    let xlen = u16::from_le_bytes([header[10], header[11]]) as usize;
-
-    let mut extra = vec![0u8; xlen];
-    extra[..6].copy_from_slice(&header[12..18]);
-    if xlen > 6 {
-        reader
-            .read_exact(&mut extra[6..])
-            .map_err(CyaneaError::Io)?;
-    }
-
-    let bsize = find_bsize(&extra)?;
-    let block_size = bsize as usize + 1;
-    let header_size = 12 + xlen;
-    if block_size < header_size + 8 {
-        return Err(CyaneaError::Parse("BGZF block too small".into()));
-    }
-    let data_size = block_size - header_size - 8;
-
-    let mut cdata = vec![0u8; data_size];
-    reader.read_exact(&mut cdata).map_err(CyaneaError::Io)?;
-
-    let mut trailer = [0u8; 8];
-    reader.read_exact(&mut trailer).map_err(CyaneaError::Io)?;
-    let isize = u32::from_le_bytes([trailer[4], trailer[5], trailer[6], trailer[7]]) as usize;
-
-    if isize == 0 {
-        return Ok(Some(Vec::new()));
-    }
-
-    let mut decompressed = vec![0u8; isize];
-    let mut decoder = DeflateDecoder::new(&cdata[..]);
-    decoder
-        .read_exact(&mut decompressed)
-        .map_err(|e| CyaneaError::Parse(format!("BGZF decompression failed: {e}")))?;
-
-    Ok(Some(decompressed))
-}
-
-fn find_bsize(extra: &[u8]) -> Result<u16> {
-    let mut pos = 0;
-    while pos + 4 <= extra.len() {
-        let si1 = extra[pos];
-        let si2 = extra[pos + 1];
-        let slen = u16::from_le_bytes([extra[pos + 2], extra[pos + 3]]) as usize;
-
-        if si1 == b'B' && si2 == b'C' && slen == 2 && pos + 6 <= extra.len() {
-            return Ok(u16::from_le_bytes([extra[pos + 4], extra[pos + 5]]));
-        }
-        pos += 4 + slen;
-    }
-    Err(CyaneaError::Parse(
-        "BGZF extra field missing BSIZE subfield".into(),
-    ))
 }
 
 // ---------------------------------------------------------------------------
@@ -548,53 +459,9 @@ fn parse_bcf_record(
 
 #[cfg(test)]
 mod test_helpers {
-    use flate2::write::DeflateEncoder;
-    use flate2::Compression;
     use std::io::Write;
 
-    pub fn bgzf_compress(data: &[u8]) -> Vec<u8> {
-        let mut encoder = DeflateEncoder::new(Vec::new(), Compression::default());
-        encoder.write_all(data).unwrap();
-        let cdata = encoder.finish().unwrap();
-
-        let cdata_len = cdata.len();
-        let bsize = (18 + cdata_len + 8 - 1) as u16;
-
-        let mut block = Vec::new();
-        block.extend_from_slice(&[0x1f, 0x8b, 0x08, 0x04]);
-        block.extend_from_slice(&[0u8; 6]);
-        block.extend_from_slice(&6u16.to_le_bytes());
-        block.push(b'B');
-        block.push(b'C');
-        block.extend_from_slice(&2u16.to_le_bytes());
-        block.extend_from_slice(&bsize.to_le_bytes());
-        block.extend_from_slice(&cdata);
-
-        let crc = crc32(data);
-        block.extend_from_slice(&crc.to_le_bytes());
-        block.extend_from_slice(&(data.len() as u32).to_le_bytes());
-
-        block
-    }
-
-    pub fn bgzf_eof_block() -> Vec<u8> {
-        bgzf_compress(&[])
-    }
-
-    fn crc32(data: &[u8]) -> u32 {
-        let mut crc = 0xFFFFFFFFu32;
-        for &byte in data {
-            crc ^= byte as u32;
-            for _ in 0..8 {
-                if crc & 1 != 0 {
-                    crc = (crc >> 1) ^ 0xEDB88320;
-                } else {
-                    crc >>= 1;
-                }
-            }
-        }
-        !crc
-    }
+    pub use crate::bgzf::test_helpers::{bgzf_compress, bgzf_eof_block};
 
     /// Encode a BCF typed string.
     pub fn encode_typed_string(s: &str) -> Vec<u8> {

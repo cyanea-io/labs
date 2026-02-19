@@ -29,6 +29,8 @@
 pub mod genomic;
 pub mod haplotype;
 pub mod interval;
+pub mod interval_tree;
+pub mod coverage;
 pub mod expr;
 pub mod network;
 pub mod otu;
@@ -45,6 +47,8 @@ pub mod zarr;
 
 pub use genomic::{GenomicInterval, GenomicPosition, Strand};
 pub use interval::IntervalSet;
+pub use interval_tree::{Interval, IntervalTree};
+pub use coverage::RleCoverage;
 pub use expr::ExpressionMatrix;
 pub use sparse::SparseMatrix;
 pub use variant::{Variant, VariantFilter, VariantType, Zygosity};
