@@ -215,4 +215,4 @@ BEDPE format: 6 required columns (chrom1/start1/end1/chrom2/start2/end2), 4 opti
 
 ## Tests
 
-3 tests with default features (CSV only), 158+ tests with all features enabled: CSV (3), VCF (5), BED (9), BEDPE (10), GFF3 (9), GTF (6), SAM (32), pileup (32), BAM (12), CRAM (7), Parquet (14), BLAST (5), MAF (5), GenBank (6), bigWig (6), BCF (5).
+3 tests with default features (CSV only), 344 unit + 18 doc tests with all features enabled: CSV (3), VCF (25), VCF ops (32), BED (9), BEDPE (10), GFF3 (9), GTF (6), SAM (32), pileup (36), BAM (35), indexed BAM/VCF (8), BGZF (4), CRAM (7), Parquet (14), BCF (12), variant calling (21), BLAST (5), BLAST XML (5), MAF (5), GenBank (6), bigWig (6), Stockholm (6), Clustal (5), Phylip (5), EMBL (5), PIR (6), ABI (5), bedGraph (5), GFA (5), fetch (12).

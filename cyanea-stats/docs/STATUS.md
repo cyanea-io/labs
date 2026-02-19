@@ -258,7 +258,7 @@ Alpha and beta diversity metrics for microbial ecology.
 
 ## Tests
 
-325 unit tests + 9 doc tests across 18 source files.
+384 unit + 12 doc tests across 21 source files.
 
 ## Source Files
 

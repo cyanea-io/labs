@@ -646,7 +646,7 @@ DNA motif PWMs, scanning, and EM-based de novo discovery. Complements the generi
 
 ## Tests
 
-458 tests across 28 source files.
+474 unit + 26 doc tests across 31 source files.
 
 ## Source Files
 

@@ -342,7 +342,7 @@ Pure Rust implementation using zarrs 0.18 (Zarr v3) — no system library requir
 
 ## Tests
 
-245 unit tests + 2 doc tests (base); 366 + 2 with `single-cell` feature (151 new T10 tests).
+311 unit tests + 2 doc tests (base); 434 + 2 with `single-cell` feature.
 
 ## Source Files
 
