@@ -3,6 +3,8 @@
 //! Provides normalization, splitting/joining multi-allelic variants, merging,
 //! filtering with expression parsing, set operations, and detailed statistics.
 
+use std::collections::HashMap;
+
 use cyanea_core::{CyaneaError, Result};
 use cyanea_omics::variant::{Variant, VariantFilter};
 
@@ -561,6 +563,10 @@ pub struct DetailedVcfStats {
     pub multiallelic_count: u64,
     /// Quality score histogram (bin_start, count).
     pub quality_histogram: Vec<(f64, u64)>,
+    /// Per-chromosome variant counts.
+    pub per_chrom_counts: Vec<(String, u64)>,
+    /// Indel size distribution: size → count (positive = insertion, negative = deletion).
+    pub indel_size_distribution: Vec<(i64, u64)>,
 }
 
 /// Compute detailed statistics over a variant set.
@@ -577,9 +583,13 @@ pub fn detailed_vcf_stats(variants: &[Variant]) -> DetailedVcfStats {
     // Quality histogram bins: 0-10, 10-20, ..., 90-100, 100+
     let bin_count = 11;
     let mut quality_bins = vec![0u64; bin_count];
+    let mut chrom_counts: HashMap<String, u64> = HashMap::new();
+    let mut indel_sizes: HashMap<i64, u64> = HashMap::new();
 
     for v in variants {
         total += 1;
+
+        *chrom_counts.entry(v.chrom.clone()).or_default() += 1;
 
         if v.is_snv() {
             snv_count += 1;
@@ -592,10 +602,16 @@ pub fn detailed_vcf_stats(variants: &[Variant]) -> DetailedVcfStats {
 
         // Check each alt allele for insertion/deletion
         for alt in &v.alt_alleles {
-            if alt.len() > v.ref_allele.len() {
+            let ref_len = v.ref_allele.len() as i64;
+            let alt_len = alt.len() as i64;
+            if alt_len > ref_len {
                 insertion_count += 1;
-            } else if alt.len() < v.ref_allele.len() {
+                let size = alt_len - ref_len;
+                *indel_sizes.entry(size).or_default() += 1;
+            } else if alt_len < ref_len {
                 deletion_count += 1;
+                let size = alt_len - ref_len; // negative
+                *indel_sizes.entry(size).or_default() += 1;
             }
         }
 
@@ -629,6 +645,12 @@ pub fn detailed_vcf_stats(variants: &[Variant]) -> DetailedVcfStats {
         .map(|(i, count)| (i as f64 * 10.0, count))
         .collect();
 
+    let mut per_chrom_counts: Vec<(String, u64)> = chrom_counts.into_iter().collect();
+    per_chrom_counts.sort_by(|a, b| a.0.cmp(&b.0));
+
+    let mut indel_size_distribution: Vec<(i64, u64)> = indel_sizes.into_iter().collect();
+    indel_size_distribution.sort_by_key(|&(size, _)| size);
+
     DetailedVcfStats {
         total,
         snv_count,
@@ -638,6 +660,76 @@ pub fn detailed_vcf_stats(variants: &[Variant]) -> DetailedVcfStats {
         pass_count,
         multiallelic_count,
         quality_histogram,
+        per_chrom_counts,
+        indel_size_distribution,
+    }
+}
+
+// ===========================================================================
+// Annotation
+// ===========================================================================
+
+/// An annotation source for adding INFO fields to variants.
+#[derive(Debug, Clone)]
+pub struct AnnotationSource {
+    /// Annotation key name (e.g., "dbSNP_ID", "gnomAD_AF").
+    pub key: String,
+    /// Lookup table: (chrom, position, ref, alt) → annotation value.
+    pub entries: HashMap<(String, u64, Vec<u8>, Vec<u8>), String>,
+}
+
+/// Annotate variants by matching against external sources.
+///
+/// For each variant, looks up matching entries in each source by
+/// (chrom, position, ref_allele, alt_allele). Returns a Vec of
+/// (variant, annotations) pairs where annotations is a list of (key, value).
+pub fn annotate_variants(
+    variants: &[Variant],
+    sources: &[AnnotationSource],
+) -> Vec<(Variant, Vec<(String, String)>)> {
+    variants
+        .iter()
+        .map(|v| {
+            let mut annotations = Vec::new();
+            for source in sources {
+                for alt in &v.alt_alleles {
+                    let key = (
+                        v.chrom.clone(),
+                        v.position,
+                        v.ref_allele.clone(),
+                        alt.clone(),
+                    );
+                    if let Some(value) = source.entries.get(&key) {
+                        annotations.push((source.key.clone(), value.clone()));
+                    }
+                }
+            }
+            (v.clone(), annotations)
+        })
+        .collect()
+}
+
+/// Add rsIDs to variants from a lookup table.
+///
+/// For each variant, looks up (chrom, position, ref_allele, first alt_allele)
+/// in the ID map and sets the variant's `id` field if found.
+pub fn annotate_variant_ids(
+    variants: &mut [Variant],
+    id_map: &HashMap<(String, u64, Vec<u8>, Vec<u8>), String>,
+) {
+    for v in variants.iter_mut() {
+        for alt in &v.alt_alleles {
+            let key = (
+                v.chrom.clone(),
+                v.position,
+                v.ref_allele.clone(),
+                alt.clone(),
+            );
+            if let Some(id) = id_map.get(&key) {
+                v.id = Some(id.clone());
+                break;
+            }
+        }
     }
 }
 
@@ -1044,5 +1136,134 @@ mod tests {
         let stats = detailed_vcf_stats(&variants);
         assert_eq!(stats.insertion_count, 2);
         assert_eq!(stats.deletion_count, 0);
+    }
+
+    // -----------------------------------------------------------------------
+    // Detailed stats — per-chrom and indel size
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn detailed_stats_per_chrom() {
+        let variants = vec![
+            snv("chr1", 100, "A", "G", Some(30.0)),
+            snv("chr1", 200, "C", "T", Some(40.0)),
+            snv("chr2", 100, "A", "C", Some(50.0)),
+            snv("chr3", 300, "G", "A", Some(20.0)),
+        ];
+        let stats = detailed_vcf_stats(&variants);
+        assert_eq!(stats.per_chrom_counts.len(), 3);
+        // Sorted alphabetically
+        assert_eq!(stats.per_chrom_counts[0], ("chr1".to_string(), 2));
+        assert_eq!(stats.per_chrom_counts[1], ("chr2".to_string(), 1));
+        assert_eq!(stats.per_chrom_counts[2], ("chr3".to_string(), 1));
+    }
+
+    #[test]
+    fn detailed_stats_indel_sizes() {
+        let variants = vec![
+            // 1-bp insertion: ref=A, alt=AT → size +1
+            variant("chr1", 100, "A", &["AT"], None, VariantFilter::Pass),
+            // 2-bp insertion: ref=A, alt=ATG → size +2
+            variant("chr1", 200, "A", &["ATG"], None, VariantFilter::Pass),
+            // 1-bp deletion: ref=AC, alt=A → size -1
+            variant("chr1", 300, "AC", &["A"], None, VariantFilter::Pass),
+            // 3-bp deletion: ref=ACGT, alt=A → size -3
+            variant("chr1", 400, "ACGT", &["A"], None, VariantFilter::Pass),
+            // Another 1-bp insertion
+            variant("chr1", 500, "G", &["GT"], None, VariantFilter::Pass),
+        ];
+        let stats = detailed_vcf_stats(&variants);
+        // Sorted by size: -3, -1, +1, +2
+        assert_eq!(stats.indel_size_distribution.len(), 4);
+        assert_eq!(stats.indel_size_distribution[0], (-3, 1)); // 1 deletion of size 3
+        assert_eq!(stats.indel_size_distribution[1], (-1, 1)); // 1 deletion of size 1
+        assert_eq!(stats.indel_size_distribution[2], (1, 2));  // 2 insertions of size 1
+        assert_eq!(stats.indel_size_distribution[3], (2, 1));  // 1 insertion of size 2
+    }
+
+    // -----------------------------------------------------------------------
+    // Annotation
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn annotate_with_rsid() {
+        let variants = vec![
+            snv("chr1", 100, "A", "G", Some(30.0)),
+            snv("chr1", 200, "C", "T", Some(40.0)),
+        ];
+        let mut entries = HashMap::new();
+        entries.insert(
+            ("chr1".to_string(), 100, b"A".to_vec(), b"G".to_vec()),
+            "rs12345".to_string(),
+        );
+        let source = AnnotationSource {
+            key: "dbSNP_ID".to_string(),
+            entries,
+        };
+        let annotated = annotate_variants(&variants, &[source]);
+        assert_eq!(annotated.len(), 2);
+        // First variant matches
+        assert_eq!(annotated[0].1.len(), 1);
+        assert_eq!(annotated[0].1[0].0, "dbSNP_ID");
+        assert_eq!(annotated[0].1[0].1, "rs12345");
+        // Second variant has no match
+        assert!(annotated[1].1.is_empty());
+    }
+
+    #[test]
+    fn annotate_no_match() {
+        let variants = vec![snv("chr1", 100, "A", "G", Some(30.0))];
+        let source = AnnotationSource {
+            key: "gnomAD_AF".to_string(),
+            entries: HashMap::new(),
+        };
+        let annotated = annotate_variants(&variants, &[source]);
+        assert_eq!(annotated.len(), 1);
+        assert!(annotated[0].1.is_empty());
+    }
+
+    #[test]
+    fn annotate_multiple_sources() {
+        let variants = vec![snv("chr1", 100, "A", "G", Some(30.0))];
+        let mut entries1 = HashMap::new();
+        entries1.insert(
+            ("chr1".to_string(), 100, b"A".to_vec(), b"G".to_vec()),
+            "rs12345".to_string(),
+        );
+        let mut entries2 = HashMap::new();
+        entries2.insert(
+            ("chr1".to_string(), 100, b"A".to_vec(), b"G".to_vec()),
+            "0.05".to_string(),
+        );
+        let sources = vec![
+            AnnotationSource {
+                key: "dbSNP_ID".to_string(),
+                entries: entries1,
+            },
+            AnnotationSource {
+                key: "gnomAD_AF".to_string(),
+                entries: entries2,
+            },
+        ];
+        let annotated = annotate_variants(&variants, &sources);
+        assert_eq!(annotated[0].1.len(), 2);
+        assert_eq!(annotated[0].1[0].0, "dbSNP_ID");
+        assert_eq!(annotated[0].1[1].0, "gnomAD_AF");
+    }
+
+    #[test]
+    fn annotate_variant_ids_basic() {
+        let mut variants = vec![
+            snv("chr1", 100, "A", "G", Some(30.0)),
+            snv("chr1", 200, "C", "T", Some(40.0)),
+        ];
+        let mut id_map = HashMap::new();
+        id_map.insert(
+            ("chr1".to_string(), 100, b"A".to_vec(), b"G".to_vec()),
+            "rs99999".to_string(),
+        );
+        annotate_variant_ids(&mut variants, &id_map);
+        assert_eq!(variants[0].id, Some("rs99999".to_string()));
+        assert_eq!(variants[1].id, None);
     }
 }

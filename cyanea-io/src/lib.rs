@@ -186,10 +186,10 @@ pub use vcf_header::{ContigLine, FieldDef, FilterDef, VcfHeader};
 
 #[cfg(feature = "vcf")]
 pub use vcf_ops::{
-    detailed_vcf_stats, eval_filter, filter_variants, join_biallelic, merge_variants,
-    normalize_variant, parse_filter, split_multiallelic, variant_complement,
-    variant_concordance, variant_intersection, CmpOp, ConcordanceStats, DetailedVcfStats,
-    FilterExpr,
+    annotate_variant_ids, annotate_variants, detailed_vcf_stats, eval_filter, filter_variants,
+    join_biallelic, merge_variants, normalize_variant, parse_filter, split_multiallelic,
+    variant_complement, variant_concordance, variant_intersection, AnnotationSource, CmpOp,
+    ConcordanceStats, DetailedVcfStats, FilterExpr,
 };
 
 #[cfg(feature = "bcf")]
@@ -199,7 +199,7 @@ pub use bcf::{bcf_stats, parse_bcf};
 pub use bcf_write::{write_bcf, write_bcf_bytes};
 
 #[cfg(feature = "indexed-bam")]
-pub use indexed_bam::{fetch_bam, IndexedBamReader};
+pub use indexed_bam::{create_bai_index, fetch_bam, IndexedBamReader};
 
 #[cfg(feature = "indexed-vcf")]
 pub use indexed_vcf::{fetch_vcf, IndexedVcfReader};

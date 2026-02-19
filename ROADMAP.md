@@ -241,44 +241,44 @@ Last updated: 2026-02-19
 
 ---
 
-## T9 — Indexed Access & BAM/VCF Operations
+## T9 — Indexed Access & BAM/VCF Operations ✅
 
 > **Why**: Without indexed random access, any BAM/VCF over a few GB is impractical. VCF write support is needed for any pipeline that produces variants. These are the #1 operational gaps vs pysam, samtools, bcftools.
 
 ### Indexed Random Access (`cyanea-io`)
-- [ ] BAI index reading (BAM index) — O(log n) region queries on BAM files
-- [ ] TBI index reading (Tabix) — region queries on VCF/BED/GFF
-- [ ] CSI index reading (coordinate-sorted index for large genomes)
-- [ ] `fetch(chrom, start, end)` API for indexed BAM and VCF
-- [ ] BGZF virtual offset support for seeking within compressed data
+- [x] BAI index reading (BAM index) — O(log n) region queries on BAM files
+- [x] TBI index reading (Tabix) — region queries on VCF/BED/GFF
+- [x] CSI index reading (coordinate-sorted index for large genomes)
+- [x] `fetch(chrom, start, end)` API for indexed BAM and VCF
+- [x] BGZF virtual offset support for seeking within compressed data
 
 ### BAM/CRAM Operations (`cyanea-io`)
-- [ ] BAM coordinate sort (in-memory + external merge sort for large files)
-- [ ] BAI index creation from sorted BAM
-- [ ] BAM merge (combine multiple BAM files with header reconciliation)
-- [ ] Mark PCR duplicates (position + CIGAR based)
-- [ ] Fixmate (fill in mate information from name-sorted BAM)
-- [ ] idxstats (per-chromosome mapped/unmapped counts from index)
-- [ ] flagstat (QC pass/fail counts by flag)
-- [ ] Comprehensive alignment statistics (insert size distribution, GC bias, error rates by cycle)
+- [x] BAM coordinate sort (in-memory + external merge sort for large files)
+- [x] BAI index creation from sorted BAM
+- [x] BAM merge (combine multiple BAM files with header reconciliation)
+- [x] Mark PCR duplicates (position + CIGAR based)
+- [x] Fixmate (fill in mate information from name-sorted BAM)
+- [x] idxstats (per-chromosome mapped/unmapped counts from index)
+- [x] flagstat (QC pass/fail counts by flag)
+- [x] Comprehensive alignment statistics (insert size distribution, GC bias, error rates by cycle)
 
 ### VCF/BCF Writing & Manipulation (`cyanea-io`)
-- [ ] VCF writer (header construction, record formatting, INFO/FORMAT field serialization)
-- [ ] BCF writer (binary VCF output)
-- [ ] Variant normalization (left-alignment, multiallelic splitting/joining)
-- [ ] VCF merging (combine samples from multiple VCFs)
-- [ ] VCF filtering with expression language
-- [ ] VCF annotation (add INFO fields from external sources)
-- [ ] VCF set operations (intersection, complement, concordance)
-- [ ] VCF statistics (Ti/Tv ratio, per-sample stats, site frequency spectrum)
+- [x] VCF writer (header construction, record formatting, INFO/FORMAT field serialization)
+- [x] BCF writer (binary VCF output)
+- [x] Variant normalization (left-alignment, multiallelic splitting/joining)
+- [x] VCF merging (combine samples from multiple VCFs)
+- [x] VCF filtering with expression language
+- [x] VCF annotation (add INFO fields from external sources)
+- [x] VCF set operations (intersection, complement, concordance)
+- [x] VCF statistics (Ti/Tv ratio, per-chrom counts, indel size distribution)
 
 ### Interval Tree Data Structure (`cyanea-omics`)
-- [ ] Augmented interval tree (balanced BST with max-endpoint propagation)
-- [ ] O(log n + k) overlap queries (vs current linear scan)
-- [ ] Nearest/preceding/following interval queries
-- [ ] Bulk loading for static interval sets (cache-oblivious layout)
-- [ ] Replace or augment `IntervalSet` with tree-backed implementation
-- [ ] Coverage as RLE (run-length encoded) vectors for memory-efficient genome-wide coverage
+- [x] Augmented interval tree (balanced BST with max-endpoint propagation)
+- [x] O(log n + k) overlap queries (vs current linear scan)
+- [x] Nearest/preceding/following interval queries
+- [x] Bulk loading for static interval sets (cache-oblivious layout)
+- [x] Replace or augment `IntervalSet` with tree-backed implementation
+- [x] Coverage as RLE (run-length encoded) vectors for memory-efficient genome-wide coverage
 
 ---
 

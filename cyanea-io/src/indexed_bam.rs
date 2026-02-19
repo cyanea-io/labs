@@ -131,6 +131,76 @@ impl IndexedBamReader {
     }
 }
 
+/// Create a BAI index from a coordinate-sorted BAM file.
+///
+/// Reads the BAM file, tracks virtual positions and reference sequence placements,
+/// then writes a standard BAI index to `bai_path`.
+pub fn create_bai_index(bam_path: &Path, bai_path: &Path) -> Result<()> {
+    use noodles_csi::binning_index::index::reference_sequence::bin::Chunk;
+    use noodles_csi::binning_index::index::reference_sequence::index::LinearIndex;
+    use noodles_csi::binning_index::Indexer;
+    use noodles_sam::alignment::Record;
+
+    let file = std::fs::File::open(bam_path).map_err(|e| {
+        CyaneaError::Io(std::io::Error::new(
+            e.kind(),
+            format!("{}: {}", bam_path.display(), e),
+        ))
+    })?;
+
+    let mut reader = noodles_bam_crate::io::Reader::new(file);
+    let header = reader.read_header().map_err(|e| {
+        CyaneaError::Parse(format!("failed to read BAM header: {e}"))
+    })?;
+
+    let mut indexer = Indexer::<LinearIndex>::new(14, 5);
+    let mut record = noodles_bam_crate::Record::default();
+
+    loop {
+        let start_vpos = reader.get_ref().virtual_position();
+        match reader.read_record(&mut record) {
+            Ok(0) => break,
+            Ok(_) => {}
+            Err(e) => {
+                return Err(CyaneaError::Parse(format!(
+                    "failed to read BAM record during indexing: {e}"
+                )));
+            }
+        }
+        let end_vpos = reader.get_ref().virtual_position();
+
+        let chunk = Chunk::new(start_vpos, end_vpos);
+
+        let ref_seq_id = record.reference_sequence_id().and_then(|r| r.ok());
+        let start = record.alignment_start().and_then(|r| r.ok());
+        let end = Record::alignment_end(&record).and_then(|r| r.ok());
+        let is_mapped = !record.flags().is_unmapped();
+
+        if let (Some(ref_id), Some(s)) = (ref_seq_id, start) {
+            let e = end.unwrap_or(s);
+            indexer
+                .add_record(Some((ref_id, s, e, is_mapped)), chunk)
+                .map_err(|e| CyaneaError::Parse(format!("indexer error: {e}")))?;
+        } else {
+            indexer
+                .add_record(None, chunk)
+                .map_err(|e| CyaneaError::Parse(format!("indexer error: {e}")))?;
+        }
+    }
+
+    let ref_count = header.reference_sequences().len();
+    let index = indexer.build(ref_count);
+
+    noodles_bam_crate::bai::write(bai_path, &index).map_err(|e| {
+        CyaneaError::Io(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("{}: {}", bai_path.display(), e),
+        ))
+    })?;
+
+    Ok(())
+}
+
 /// Convenience function: open a BAM file and fetch records in a region.
 pub fn fetch_bam(
     path: impl AsRef<Path>,
@@ -430,6 +500,46 @@ mod tests {
         assert_eq!(refs.len(), 2);
         assert_eq!(refs[0].name, "chr1");
         assert_eq!(refs[1].name, "chr2");
+    }
+
+    #[test]
+    fn create_bai_roundtrip() {
+        let records = vec![
+            make_record(0, 100, 60, "read1", "ACGTACGTAC"),
+            make_record(0, 200, 40, "read2", "TGCATGCATG"),
+            make_record(0, 500, 50, "read3", "GGCCGGCCGG"),
+        ];
+
+        // Write BAM using the test helper (which creates its own BAI)
+        let (bam_file, _original_bai) = write_indexed_bam(&records);
+
+        // Now create a new BAI using the public function
+        let new_bai = tempfile::NamedTempFile::with_suffix(".bai").unwrap();
+        create_bai_index(bam_file.path(), new_bai.path()).unwrap();
+
+        // Verify we can fetch records using the newly created index
+        let mut reader =
+            IndexedBamReader::open_with_index(bam_file.path(), new_bai.path()).unwrap();
+        let results = reader.fetch("chr1", 50, 250).unwrap();
+        assert!(results.len() >= 2);
+        let names: Vec<&str> = results.iter().map(|r| r.qname.as_str()).collect();
+        assert!(names.contains(&"read1"));
+        assert!(names.contains(&"read2"));
+    }
+
+    #[test]
+    fn create_bai_empty() {
+        // Empty BAM file → valid empty index
+        let (bam_file, _) = write_indexed_bam(&[]);
+
+        let new_bai = tempfile::NamedTempFile::with_suffix(".bai").unwrap();
+        create_bai_index(bam_file.path(), new_bai.path()).unwrap();
+
+        // Verify the index works (no records to fetch)
+        let mut reader =
+            IndexedBamReader::open_with_index(bam_file.path(), new_bai.path()).unwrap();
+        let results = reader.fetch("chr1", 0, 1000).unwrap();
+        assert!(results.is_empty());
     }
 
     #[test]

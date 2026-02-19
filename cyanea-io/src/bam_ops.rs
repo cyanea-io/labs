@@ -392,6 +392,11 @@ pub struct AlignmentStats {
     pub insert_size_std: f64,
     /// Mean GC content across mapped reads.
     pub gc_content_mean: f64,
+    /// Per-cycle mismatch rates (cycle index → mismatch rate 0.0–1.0).
+    /// Only computed for reads with '='/'X' CIGAR ops.
+    pub error_rate_by_cycle: Vec<f64>,
+    /// Per-cycle base counts (for normalization).
+    pub bases_by_cycle: Vec<u64>,
 }
 
 /// Compute extended alignment statistics.
@@ -400,6 +405,8 @@ pub fn alignment_stats(records: &[SamRecord]) -> AlignmentStats {
 
     let mut insert_sizes: Vec<f64> = Vec::new();
     let mut gc_values: Vec<f64> = Vec::new();
+    let mut mismatches_by_cycle: Vec<u64> = Vec::new();
+    let mut bases_by_cycle: Vec<u64> = Vec::new();
 
     for rec in records {
         // Insert sizes from proper pairs (first in pair only, positive TLEN)
@@ -418,6 +425,46 @@ pub fn alignment_stats(records: &[SamRecord]) -> AlignmentStats {
                 .filter(|&b| b == b'G' || b == b'C' || b == b'g' || b == b'c')
                 .count();
             gc_values.push(gc as f64 / rec.sequence.len() as f64);
+        }
+
+        // Per-cycle error rate from =/X CIGAR ops
+        if rec.flag & FLAG_UNMAPPED == 0 && rec.cigar != "*" {
+            let has_eq_x = rec.cigar.contains('=') || rec.cigar.contains('X');
+            if has_eq_x {
+                let mut cycle = 0usize;
+                let ops = parse_cigar_ops(&rec.cigar);
+                for (len, op) in ops {
+                    match op {
+                        '=' => {
+                            for _ in 0..len {
+                                if cycle >= bases_by_cycle.len() {
+                                    bases_by_cycle.resize(cycle + 1, 0);
+                                    mismatches_by_cycle.resize(cycle + 1, 0);
+                                }
+                                bases_by_cycle[cycle] += 1;
+                                cycle += 1;
+                            }
+                        }
+                        'X' => {
+                            for _ in 0..len {
+                                if cycle >= bases_by_cycle.len() {
+                                    bases_by_cycle.resize(cycle + 1, 0);
+                                    mismatches_by_cycle.resize(cycle + 1, 0);
+                                }
+                                bases_by_cycle[cycle] += 1;
+                                mismatches_by_cycle[cycle] += 1;
+                                cycle += 1;
+                            }
+                        }
+                        'I' | 'S' => {
+                            // Insertions and soft clips consume read bases
+                            cycle += len;
+                        }
+                        // D, N, H, P don't consume read bases
+                        _ => {}
+                    }
+                }
+            }
         }
     }
 
@@ -455,13 +502,42 @@ pub fn alignment_stats(records: &[SamRecord]) -> AlignmentStats {
         gc_values.iter().sum::<f64>() / gc_values.len() as f64
     };
 
+    let error_rate_by_cycle: Vec<f64> = bases_by_cycle
+        .iter()
+        .zip(mismatches_by_cycle.iter())
+        .map(|(&bases, &mismatches)| {
+            if bases > 0 {
+                mismatches as f64 / bases as f64
+            } else {
+                0.0
+            }
+        })
+        .collect();
+
     AlignmentStats {
         flagstats: fs,
         insert_size_median,
         insert_size_mean,
         insert_size_std,
         gc_content_mean,
+        error_rate_by_cycle,
+        bases_by_cycle,
     }
+}
+
+/// Parse a CIGAR string into (length, op_char) pairs.
+fn parse_cigar_ops(cigar: &str) -> Vec<(usize, char)> {
+    let mut ops = Vec::new();
+    let mut num_start = 0;
+    for (i, c) in cigar.char_indices() {
+        if c.is_ascii_alphabetic() || c == '=' {
+            if let Ok(len) = cigar[num_start..i].parse::<usize>() {
+                ops.push((len, c));
+            }
+            num_start = i + 1;
+        }
+    }
+    ops
 }
 
 // ===========================================================================
@@ -1031,6 +1107,54 @@ mod tests {
         coordinate_sort(&mut records, &ref_order);
         // Both have same position, order is stable-ish
         assert_eq!(records.len(), 2);
+    }
+
+    #[test]
+    fn alignment_stats_error_by_cycle() {
+        // Reads with =/X CIGAR: 3= 1X 2= means cycle 0-2 match, cycle 3 mismatch, cycle 4-5 match
+        let records = vec![
+            SamRecord {
+                cigar: "3=1X2=".to_string(),
+                ..make_record("r1", 0, "chr1", 100, 60, "ACGTAC")
+            },
+            SamRecord {
+                cigar: "3=1X2=".to_string(),
+                ..make_record("r2", 0, "chr1", 200, 60, "ACGTAC")
+            },
+        ];
+
+        let stats = alignment_stats(&records);
+
+        // 6 cycles, each with 2 reads
+        assert_eq!(stats.error_rate_by_cycle.len(), 6);
+        assert_eq!(stats.bases_by_cycle.len(), 6);
+        // Cycles 0, 1, 2: 0% error
+        assert!((stats.error_rate_by_cycle[0]).abs() < f64::EPSILON);
+        assert!((stats.error_rate_by_cycle[1]).abs() < f64::EPSILON);
+        assert!((stats.error_rate_by_cycle[2]).abs() < f64::EPSILON);
+        // Cycle 3: 100% error (1X in both reads)
+        assert!((stats.error_rate_by_cycle[3] - 1.0).abs() < f64::EPSILON);
+        // Cycles 4, 5: 0% error
+        assert!((stats.error_rate_by_cycle[4]).abs() < f64::EPSILON);
+        assert!((stats.error_rate_by_cycle[5]).abs() < f64::EPSILON);
+        // Each cycle should have 2 bases
+        for &b in &stats.bases_by_cycle {
+            assert_eq!(b, 2);
+        }
+    }
+
+    #[test]
+    fn alignment_stats_error_by_cycle_no_eq_x() {
+        // Reads with 'M' CIGAR only → empty error_rate_by_cycle
+        let records = vec![
+            make_record("r1", 0, "chr1", 100, 60, "ACGT"),
+            make_record("r2", 0, "chr1", 200, 60, "TGCA"),
+        ];
+
+        let stats = alignment_stats(&records);
+
+        assert!(stats.error_rate_by_cycle.is_empty());
+        assert!(stats.bases_by_cycle.is_empty());
     }
 
     #[test]
