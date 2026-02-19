@@ -29,13 +29,18 @@
 //! ```
 
 pub mod canon;
+pub mod descriptors;
+pub mod druglikeness;
 pub mod element;
 pub mod fingerprint;
 pub mod maccs;
 pub mod molecule;
 pub mod properties;
+pub mod scaffold;
 pub mod sdf;
+pub mod smarts;
 pub mod smiles;
+pub mod standardize;
 pub mod stereo;
 pub mod substructure;
 
@@ -51,6 +56,26 @@ pub use sdf::{parse_mol_v2000, parse_mol_v3000, parse_sdf};
 pub use smiles::{parse_smiles, parse_smiles_named};
 pub use stereo::{assign_ez, assign_rs};
 pub use substructure::{find_substructure_matches, has_substructure, SubstructureMatch};
+
+pub use smarts::{parse_smarts, smarts_find_all, smarts_match, SmartsPattern};
+pub use descriptors::{
+    autocorrelation_descriptors, balaban_j, bertz_ct, chi_connectivity,
+    compute_all_descriptors, estate_indices, fraction_sp3, kappa_shape_indices,
+    ring_count_details, tpsa, wiener_index, wildman_crippen_logp, zagreb_indices,
+    AutocorrelationResult, DescriptorSet, RingDetails,
+};
+pub use standardize::{
+    canonical_tautomer, largest_fragment, neutralize, standardize, strip_salts,
+    StandardizeConfig, StandardizeStep,
+};
+pub use druglikeness::{
+    brenk_filter, drug_likeness_report, lead_likeness, lipinski, pains_filter, qed, veber,
+    AlertFilterResult, AlertResult, DrugLikenessReport, LipinskiResult, QedResult, VeberResult,
+};
+pub use scaffold::{
+    generic_scaffold, maximum_common_substructure, murcko_scaffold, r_group_decomposition,
+    McsResult, MurckoResult, RGroupResult,
+};
 
 #[cfg(feature = "std")]
 pub use sdf::parse_sdf_file;
