@@ -79,6 +79,21 @@ pub mod indexed_vcf;
 #[cfg(feature = "variant-calling")]
 pub mod variant_call;
 
+#[cfg(feature = "stockholm")]
+pub mod stockholm;
+
+#[cfg(feature = "clustal")]
+pub mod clustal;
+
+#[cfg(feature = "phylip")]
+pub mod phylip;
+
+#[cfg(feature = "embl")]
+pub mod embl;
+
+#[cfg(feature = "pir")]
+pub mod pir;
+
 // Re-exports for convenience.
 
 #[cfg(feature = "csv")]
@@ -182,3 +197,20 @@ pub use variant_call::{
 
 #[cfg(feature = "variant-calling")]
 pub use vcf::{write_called_vcf, write_called_vcf_string};
+
+#[cfg(feature = "stockholm")]
+pub use stockholm::{parse_stockholm, write_stockholm, StockholmAlignment};
+
+#[cfg(feature = "clustal")]
+pub use clustal::{parse_clustal, write_clustal, ClustalAlignment};
+
+#[cfg(feature = "phylip")]
+pub use phylip::{
+    parse_phylip, parse_phylip_sequential, write_phylip, PhylipAlignment,
+};
+
+#[cfg(feature = "embl")]
+pub use embl::{parse_embl, write_embl, EmblRecord};
+
+#[cfg(feature = "pir")]
+pub use pir::{parse_pir, write_pir, PirRecord};

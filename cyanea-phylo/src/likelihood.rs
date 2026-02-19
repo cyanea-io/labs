@@ -271,7 +271,7 @@ pub fn nni_search(
 /// across the internal edge between `parent_id` and `child_id`.
 ///
 /// Returns a new tree with the swap applied.
-fn nni_swap(
+pub(crate) fn nni_swap(
     tree: &PhyloTree,
     parent_id: NodeId,
     child_id: NodeId,

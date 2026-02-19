@@ -21,13 +21,20 @@ pub mod consensus;
 pub mod dating;
 pub mod distance;
 pub mod drawing;
+pub mod generic_likelihood;
 pub mod likelihood;
 pub mod marginal;
+pub mod mcmc;
+pub mod model_selection;
 pub mod models;
 pub mod newick;
 pub mod nexus;
+pub mod protein_models;
 pub mod reconstruct;
+pub mod species_tree;
+pub mod subst_model;
 pub mod tree;
+pub mod tree_search;
 pub mod unifrac;
 
 #[cfg(feature = "ml")]
@@ -47,6 +54,39 @@ pub use tree::{Node, NodeId, PhyloTree};
 pub use unifrac::{
     faiths_pd, generalized_unifrac, unweighted_unifrac, weighted_unifrac, unifrac_matrix,
     UnifracMethod, UnifracResult,
+};
+
+// Re-export substitution model trait and wrappers
+pub use subst_model::{SubstitutionModel, Jc69Model, Hky85Model, GtrModel};
+
+// Re-export protein models
+pub use protein_models::{
+    amino_acid_index, load_aa_model, CustomAaModel, DayhoffModel, JttModel, LgModel, WagModel,
+    AA_STATES,
+};
+
+// Re-export generic likelihood
+pub use generic_likelihood::{generic_tree_likelihood, site_likelihoods};
+
+// Re-export tree search
+pub use tree_search::{
+    nni_search_generic, parsimony_ratchet, spr_move, spr_search, stochastic_nni, tbr_move,
+    AnnealingConfig,
+};
+
+// Re-export model selection
+pub use model_selection::{aic, aicc, bic, lrt, model_finder, LrtResult, ModelResult, ModelSelectionResult};
+
+// Re-export MCMC
+pub use mcmc::{
+    convergence_diagnostics, mcmc_sample, posterior_summary, ClockModel, ConvergenceDiag,
+    McmcConfig, McmcResult, McmcSample, PosteriorSummary, ProposalWeights, TreePrior,
+};
+
+// Re-export species tree
+pub use species_tree::{
+    astral_species_tree, concordance_factors, reconcile, ConcordanceFactors,
+    ReconciliationResult,
 };
 
 #[cfg(feature = "ml")]

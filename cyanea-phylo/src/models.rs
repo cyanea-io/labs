@@ -352,7 +352,7 @@ fn jacobi_eigen_4x4(mut a: [[f64; 4]; 4]) -> ([f64; 4], [[f64; 4]; 4]) {
 }
 
 /// Regularized lower incomplete gamma function P(a, x) = γ(a,x) / Γ(a).
-fn gamma_regularized(a: f64, x: f64) -> f64 {
+pub(crate) fn gamma_regularized(a: f64, x: f64) -> f64 {
     if x < 0.0 {
         return 0.0;
     }
@@ -413,7 +413,7 @@ fn gamma_cf(a: f64, x: f64) -> f64 {
 }
 
 /// Log-gamma function (Lanczos approximation).
-fn ln_gamma(x: f64) -> f64 {
+pub(crate) fn ln_gamma(x: f64) -> f64 {
     let coeffs = [
         76.18009172947146,
         -86.50532032941677,

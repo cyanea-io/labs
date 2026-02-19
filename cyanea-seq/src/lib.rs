@@ -51,6 +51,7 @@ pub mod kmer;
 pub mod masking;
 pub mod minhash;
 pub mod motif;
+pub mod motif_io;
 pub mod orf;
 pub mod pattern;
 pub mod protein_properties;
@@ -168,3 +169,9 @@ pub use restriction::{
 
 // Re-export motif discovery types
 pub use motif::{discover_motifs, DiscoveredMotif, Pwm};
+
+// Re-export motif format I/O
+pub use motif_io::{
+    motif_similarity, parse_jaspar, parse_meme, parse_transfac, write_jaspar, write_meme,
+    write_transfac, Motif, MotifAlphabet,
+};
