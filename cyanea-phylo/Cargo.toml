@@ -18,9 +18,9 @@ ml = ["dep:cyanea-ml"]
 parallel = ["dep:rayon"]
 
 [dependencies]
-cyanea-core = { path = "../cyanea-core", default-features = false }
+cyanea-core = { path = "../cyanea-core", version = "0.1.0", default-features = false }
 serde = { workspace = true, optional = true }
-cyanea-ml = { path = "../cyanea-ml", default-features = false, optional = true }
+cyanea-ml = { path = "../cyanea-ml", version = "0.1.0", default-features = false, optional = true }
 rayon = { workspace = true, optional = true }
 
 [dev-dependencies]

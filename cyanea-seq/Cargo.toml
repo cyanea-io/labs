@@ -17,7 +17,7 @@ minhash = []
 serde = ["dep:serde", "cyanea-core/serde"]
 
 [dependencies]
-cyanea-core = { path = "../cyanea-core", default-features = false }
+cyanea-core = { path = "../cyanea-core", version = "0.1.0", default-features = false }
 needletail = { workspace = true }
 serde = { workspace = true, optional = true }
 

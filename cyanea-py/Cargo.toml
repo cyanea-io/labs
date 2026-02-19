@@ -21,13 +21,13 @@ h5ad = ["cyanea-omics/h5ad"]
 [dependencies]
 pyo3 = { version = "0.23", features = ["extension-module"] }
 numpy = { version = "0.23", optional = true }
-cyanea-core  = { path = "../cyanea-core",  features = ["std"] }
-cyanea-seq   = { path = "../cyanea-seq",   features = ["std", "minhash"] }
-cyanea-io     = { path = "../cyanea-io",     features = ["csv", "vcf", "bed", "gff", "sam", "bam", "blast-xml", "abi", "bedgraph", "gfa", "fetch"] }
-cyanea-align  = { path = "../cyanea-align",  features = ["std"] }
-cyanea-stats  = { path = "../cyanea-stats",  features = ["std"] }
-cyanea-ml     = { path = "../cyanea-ml",     features = ["std"] }
-cyanea-chem   = { path = "../cyanea-chem",   features = ["std"] }
-cyanea-struct = { path = "../cyanea-struct", features = ["std"] }
-cyanea-phylo  = { path = "../cyanea-phylo", features = ["std", "ml"] }
-cyanea-omics  = { path = "../cyanea-omics", features = ["std"] }
+cyanea-core  = { path = "../cyanea-core",  version = "0.1.0", features = ["std"] }
+cyanea-seq   = { path = "../cyanea-seq",   version = "0.1.0", features = ["std", "minhash"] }
+cyanea-io     = { path = "../cyanea-io",     version = "0.1.0", features = ["csv", "vcf", "bed", "gff", "sam", "bam", "blast-xml", "abi", "bedgraph", "gfa", "fetch"] }
+cyanea-align  = { path = "../cyanea-align",  version = "0.1.0", features = ["std"] }
+cyanea-stats  = { path = "../cyanea-stats",  version = "0.1.0", features = ["std"] }
+cyanea-ml     = { path = "../cyanea-ml",     version = "0.1.0", features = ["std"] }
+cyanea-chem   = { path = "../cyanea-chem",   version = "0.1.0", features = ["std"] }
+cyanea-struct = { path = "../cyanea-struct", version = "0.1.0", features = ["std"] }
+cyanea-phylo  = { path = "../cyanea-phylo", version = "0.1.0", features = ["std", "ml"] }
+cyanea-omics  = { path = "../cyanea-omics", version = "0.1.0", features = ["std"] }

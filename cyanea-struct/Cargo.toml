@@ -17,7 +17,7 @@ serde = ["dep:serde", "cyanea-core/serde"]
 parallel = ["dep:rayon", "std"]
 
 [dependencies]
-cyanea-core = { path = "../cyanea-core", default-features = false }
+cyanea-core = { path = "../cyanea-core", version = "0.1.0", default-features = false }
 sha2  = { workspace = true }
 hex   = { workspace = true }
 serde = { workspace = true, optional = true }

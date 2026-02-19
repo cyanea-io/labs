@@ -18,7 +18,7 @@ parallel = ["dep:rayon"]
 blas = ["dep:ndarray"]
 
 [dependencies]
-cyanea-core = { path = "../cyanea-core", default-features = false }
+cyanea-core = { path = "../cyanea-core", version = "0.1.0", default-features = false }
 serde = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
 ndarray = { workspace = true, optional = true }

@@ -43,9 +43,9 @@ parallel = ["dep:rayon"]
 variant-calling = ["sam", "vcf", "dep:cyanea-stats"]
 
 [dependencies]
-cyanea-core = { path = "../cyanea-core", default-features = false }
-cyanea-omics = { path = "../cyanea-omics", default-features = false, optional = true }
-cyanea-stats = { path = "../cyanea-stats", default-features = false, optional = true }
+cyanea-core = { path = "../cyanea-core", version = "0.1.0", default-features = false }
+cyanea-omics = { path = "../cyanea-omics", version = "0.1.0", default-features = false, optional = true }
+cyanea-stats = { path = "../cyanea-stats", version = "0.1.0", default-features = false, optional = true }
 csv = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
