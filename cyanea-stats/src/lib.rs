@@ -37,7 +37,9 @@ pub mod distribution;
 pub mod diversity;
 pub mod enrichment;
 pub mod effect_size;
+pub mod multivariate;
 pub mod normalization;
+pub mod ordination;
 pub mod popgen;
 pub mod rank;
 pub mod reduction;
@@ -67,6 +69,15 @@ pub use rank::RankMethod;
 pub use survival::{CoxPhResult, KmResult, KmStep, LogRankResult};
 pub use testing::TestResult;
 pub use diversity::{
-    alpha_diversity, bray_curtis, bray_curtis_matrix, chao1, rarefaction_curve, shannon_index,
-    simpson_index, AlphaDiversity,
+    alpha_diversity, alpha_rarefaction, bray_curtis, bray_curtis_matrix, chao1, hill_numbers,
+    jaccard, jaccard_matrix, rarefaction_curve, shannon_index, simpson_index, weighted_jaccard,
+    AlphaDiversity,
+};
+pub use multivariate::{
+    amova, anosim, bioenv, mantel_test, permanova, AmovaResult, AnosimResult, BioenvResult,
+    MantelResult, PermanovaResult,
+};
+pub use ordination::{
+    cca, nmds, pcoa, procrustes, rda, ConstrainedOrdinationResult, NmdsConfig, NmdsResult,
+    PcoaResult, ProcrustesResult,
 };

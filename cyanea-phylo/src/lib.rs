@@ -28,6 +28,7 @@ pub mod newick;
 pub mod nexus;
 pub mod reconstruct;
 pub mod tree;
+pub mod unifrac;
 
 #[cfg(feature = "ml")]
 pub mod construct;
@@ -43,6 +44,10 @@ pub use marginal::{marginal_reconstruct, MarginalPosterior, MarginalReconstructi
 pub use models::{gtr_probability, hky85_params, jc69_probability, nucleotide_index, GammaRates, GtrParams};
 pub use newick::{parse as parse_newick, write as write_newick};
 pub use tree::{Node, NodeId, PhyloTree};
+pub use unifrac::{
+    faiths_pd, generalized_unifrac, unweighted_unifrac, weighted_unifrac, unifrac_matrix,
+    UnifracMethod, UnifracResult,
+};
 
 #[cfg(feature = "ml")]
 pub use construct::{neighbor_joining, upgma};
