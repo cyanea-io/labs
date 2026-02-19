@@ -37,9 +37,13 @@ pub mod otu;
 pub mod sparse;
 pub mod variant;
 pub mod annotation;
+pub mod variant_annotation;
 pub mod single_cell;
+pub mod spatial;
 pub mod genome_arithmetic;
+pub mod cnv;
 pub mod liftover;
+pub mod methylation;
 #[cfg(feature = "h5ad")]
 pub mod h5ad;
 #[cfg(feature = "zarr")]
@@ -55,6 +59,10 @@ pub mod sc_markers;
 #[cfg(feature = "single-cell")]
 pub mod sc_integrate;
 
+pub use cnv::{
+    BafSegment, CbsConfig, CnvSegment, SvBreakpoint, SvType,
+    baf_segmentation, circular_binary_segmentation, detect_sv_breakpoints, merge_cnv_segments,
+};
 pub use genomic::{GenomicInterval, GenomicPosition, Strand};
 pub use interval::IntervalSet;
 pub use interval_tree::{Interval, IntervalTree};
@@ -63,6 +71,10 @@ pub use expr::ExpressionMatrix;
 pub use sparse::SparseMatrix;
 pub use variant::{Variant, VariantFilter, VariantType, Zygosity};
 pub use annotation::{Exon, Gene, GeneType, Transcript};
+pub use variant_annotation::{
+    AnnotationConfig, Consequence, SpliceScore, VariantEffect,
+    annotate_variant, annotate_variants, score_splice_disruption,
+};
 pub use single_cell::ColumnData;
 pub use genome_arithmetic::{
     ClosestResult, GenomeInfo, JaccardStats, StrandMode,
@@ -71,6 +83,15 @@ pub use genome_arithmetic::{
     merge, subtract, union, windows_around,
 };
 pub use liftover::{ChainFile, LiftoverResult, liftover, liftover_batch, parse_chain};
+pub use methylation::{
+    CpgIsland, CpgSite, DmRegion, DmrConfig,
+    bisulfite_convert, call_methylation, find_cpg_islands, find_dmrs,
+};
+pub use spatial::{
+    CooccurrenceResult, GearysC, LrInteraction, SpatialAutocorrelation, SpatialGraph, SpatialPoint,
+    cooccurrence, delaunay_neighbors, gearys_c, knn_spatial_neighbors, ligand_receptor_score,
+    morans_i,
+};
 pub use otu::OtuTable;
 pub use network::{CentralityScores, Community, Graph};
 pub use haplotype::{

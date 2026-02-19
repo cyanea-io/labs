@@ -31,6 +31,7 @@ pub mod newick;
 pub mod nexus;
 pub mod protein_models;
 pub mod reconstruct;
+pub mod simulation;
 pub mod species_tree;
 pub mod subst_model;
 pub mod tree;
@@ -82,6 +83,9 @@ pub use mcmc::{
     convergence_diagnostics, mcmc_sample, posterior_summary, ClockModel, ConvergenceDiag,
     McmcConfig, McmcResult, McmcSample, PosteriorSummary, ProposalWeights, TreePrior,
 };
+
+// Re-export simulation
+pub use simulation::{simulate_coalescent, simulate_coalescent_growth, simulate_evolution, SimulatedAlignment};
 
 // Re-export species tree
 pub use species_tree::{

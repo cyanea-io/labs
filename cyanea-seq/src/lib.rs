@@ -59,6 +59,7 @@ pub mod pssm;
 pub mod restriction;
 pub mod rna_structure;
 pub mod quality;
+pub mod read_sim;
 pub mod seq;
 pub mod suffix;
 pub mod taxonomy;
@@ -169,6 +170,9 @@ pub use restriction::{
 
 // Re-export motif discovery types
 pub use motif::{discover_motifs, DiscoveredMotif, Pwm};
+
+// Re-export read simulator types
+pub use read_sim::{simulate_reads, ReadSimConfig, SimulatedRead};
 
 // Re-export motif format I/O
 pub use motif_io::{

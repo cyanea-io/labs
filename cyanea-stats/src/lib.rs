@@ -39,6 +39,7 @@ pub mod enrichment;
 pub mod effect_size;
 pub mod multivariate;
 pub mod normalization;
+pub mod null_model;
 pub mod ordination;
 pub mod popgen;
 pub mod rank;

@@ -94,6 +94,21 @@ pub mod embl;
 #[cfg(feature = "pir")]
 pub mod pir;
 
+#[cfg(feature = "bedgraph")]
+pub mod bedgraph;
+
+#[cfg(feature = "gfa")]
+pub mod gfa;
+
+#[cfg(feature = "blast-xml")]
+pub mod blast_xml;
+
+#[cfg(feature = "abi")]
+pub mod abi;
+
+#[cfg(feature = "fetch")]
+pub mod fetch;
+
 // Re-exports for convenience.
 
 #[cfg(feature = "csv")]
@@ -214,3 +229,27 @@ pub use embl::{parse_embl, write_embl, EmblRecord};
 
 #[cfg(feature = "pir")]
 pub use pir::{parse_pir, write_pir, PirRecord};
+
+#[cfg(feature = "bedgraph")]
+pub use bedgraph::{
+    parse_bedgraph_str, parse_wiggle_str, write_bedgraph_string, BedGraphRecord,
+};
+
+#[cfg(feature = "gfa")]
+pub use gfa::{
+    gfa_stats, parse_gfa_str, write_gfa_string, GfaGraph, GfaLink, GfaPath, GfaSegment, GfaStats,
+};
+
+#[cfg(feature = "blast-xml")]
+pub use blast_xml::{
+    parse_blast_xml_str, BlastXmlHit, BlastXmlHsp, BlastXmlIteration, BlastXmlResult,
+};
+
+#[cfg(feature = "abi")]
+pub use abi::{parse_abi_bytes, AbiRecord, AbiTraces};
+
+#[cfg(feature = "fetch")]
+pub use fetch::{
+    parse_efetch_fasta, parse_esearch_response, parse_refget_metadata, EntrezUrl, HtsgetUrl,
+    KeggUrl, RefgetAlias, RefgetMetadata, RefgetUrl, UniprotUrl,
+};
