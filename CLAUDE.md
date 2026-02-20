@@ -1,6 +1,6 @@
 # Cyanea Labs
 
-Rust bioinformatics ecosystem — 13 crates, 2780+ tests, targeting native, WASM, Python, and Elixir NIFs.
+Rust bioinformatics ecosystem — 13 crates, 2900+ tests, targeting native, WASM, Python, and Elixir NIFs.
 
 ## Workspace
 
@@ -23,7 +23,7 @@ All crates are complete. Each has `docs/STATUS.md` with full API docs.
 | **cyanea-seq** | DNA/RNA/protein, FASTA/FASTQ, k-mers, 2-bit encoding, suffix array, FM-index, BWT, MinHash, pattern matching, PSSM/motif scanning, ORF finder, FASTA indexed reader (.fai), FMD-Index, quality trimming/filtering, codon tables (7 NCBI), codon usage/CAI, DUST/SEG/tandem repeat masking, paired-end FASTQ, RNA secondary structure prediction, protein sequence properties, read simulation | 474 | cyanea-core, needletail |
 | **cyanea-io** | CSV, VCF, BED, BEDPE, GFF3, GTF, SAM, BAM, CRAM, BCF, Parquet, BLAST, BLAST XML, MAF, GenBank, bigWig, Stockholm, Clustal, Phylip, EMBL, PIR, ABI, bedGraph, GFA, fetch helpers (feature-gated) | 357 | cyanea-core, cyanea-omics, csv, flate2, noodles, arrow/parquet |
 | **cyanea-align** | NW, SW, semi-global, MSA, banded, seed-and-extend, minimizers, WFA, GPU dispatch, POA, LCSk++ sparse alignment, pair HMM, PAM40/120/200, BLOSUM30, CIGAR utilities, X-drop/Z-drop extension, spliced alignment | 290 | cyanea-core |
-| **cyanea-omics** | Genomic coords, intervals, matrices, variants, AnnData, h5ad, zarr, variant annotation/VEP, CNV/CBS, methylation, spatial transcriptomics | 311 | cyanea-core, zarrs |
+| **cyanea-omics** | Genomic coords, intervals, matrices, variants, AnnData, h5ad, zarr, variant annotation/VEP, CNV/CBS, methylation, spatial transcriptomics, single-cell (HVG, normalize, clustering, trajectory, markers, integration) | 434 | cyanea-core, zarrs, cyanea-stats, cyanea-ml |
 | **cyanea-stats** | Descriptive, correlation, hypothesis tests, distributions, PCA, effect sizes, Bayesian conjugate priors, combinatorics, population genetics, enrichment analysis, survival analysis, null models | 384 | cyanea-core |
 | **cyanea-ml** | Clustering, distances, embeddings, KNN, PCA, t-SNE, UMAP, random forest, GBDT, feature selection, HMM, classification metrics, cross-validation | 269 | cyanea-core |
 | **cyanea-chem** | SMILES/SDF V2000/V3000, fingerprints, MACCS keys, properties, substructure, stereochemistry, canonical SMILES | 79 | cyanea-core, sha2 |
@@ -57,6 +57,7 @@ All crates are complete. Each has `docs/STATUS.md` with full API docs.
 - `h5ad` — HDF5-backed `.h5ad` file I/O in cyanea-omics (requires system HDF5 1.10.x; build with `HDF5_DIR`)
 - `zarr` — Zarr v3 directory-based file I/O in cyanea-omics (pure Rust, zarrs 0.18)
 - `cram` — CRAM alignment format in cyanea-io (implies `sam`, noodles-cram 0.72)
+- `single-cell` — Single-cell analysis pipeline in cyanea-omics (HVG, normalize, Leiden/Louvain, diffusion map, DPT, PAGA, RNA velocity, markers, Harmony/ComBat/MNN; requires cyanea-stats + cyanea-ml)
 - `parquet` — Apache Parquet columnar format in cyanea-io (implies `vcf`, `bed`; arrow/parquet 54)
 
 ### Code patterns
@@ -115,7 +116,7 @@ PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo check -p cyanea-py
 PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 cargo check -p cyanea-py --features numpy
 # Full build: cd cyanea-py && PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin develop --release
 ```
-Python bindings include: seq, align, stats, ml (pca/tsne/umap/kmeans/pairwise_distances + NumPy variants), chem, struct_bio, phylo, io (csv/vcf/bed/gff/sam/bam/pileup), omics (genome arithmetic, liftover).
+Python bindings include: seq, align, stats, ml (pca/tsne/umap/kmeans/pairwise_distances + NumPy variants), chem, struct_bio, phylo, io (csv/vcf/bed/gff/sam/bam/pileup), omics (genome arithmetic, liftover), sc (single-cell: normalize, HVG, neighbors, Leiden/Louvain, diffusion map, DPT, PAGA, markers, Harmony/ComBat/MNN).
 
 ### NIF (Elixir)
 The NIF crate lives in `../cyanea/native/cyanea_native/` and depends on labs crates via path.

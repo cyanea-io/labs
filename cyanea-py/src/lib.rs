@@ -20,6 +20,7 @@ mod io;
 mod ml;
 mod omics;
 mod phylo;
+mod sc;
 mod seq;
 mod stats;
 mod struct_bio;
@@ -38,6 +39,7 @@ fn cyanea(m: &Bound<'_, PyModule>) -> PyResult<()> {
     phylo::register(m)?;
     io::register(m)?;
     omics::register(m)?;
+    sc::register(m)?;
 
     // Register submodules in sys.modules so `from cyanea.seq import DnaSequence` works.
     let py = m.py();
@@ -54,6 +56,7 @@ fn cyanea(m: &Bound<'_, PyModule>) -> PyResult<()> {
         "cyanea.phylo",
         "cyanea.io",
         "cyanea.omics",
+        "cyanea.sc",
     ] {
         let submod = m.getattr(name.rsplit('.').next().unwrap())?;
         modules.set_item(name, submod)?;

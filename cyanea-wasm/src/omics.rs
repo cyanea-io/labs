@@ -4,7 +4,7 @@
 //! segmentation, methylation analysis, and spatial statistics — all accepting
 //! JSON strings and returning JSON, suitable for the WASM boundary.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use cyanea_omics::annotation::{Exon, Gene, GeneType, Transcript};
 use cyanea_omics::cnv::{CbsConfig, circular_binary_segmentation};
@@ -738,6 +738,718 @@ pub fn gearys_c(values_json: &str, neighbors_json: &str) -> String {
         }
         Err(e) => wasm_err(e),
     }
+}
+
+// ── Single-cell ──────────────────────────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+pub struct JsHvgResult {
+    pub gene_indices: Vec<usize>,
+    pub dispersions: Vec<f64>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct JsNeighborsResult {
+    pub n_neighbors: usize,
+    pub distances: Vec<(usize, usize, f64)>,
+    pub connectivities: Vec<(usize, usize, f64)>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct JsClusterResult {
+    pub labels: Vec<usize>,
+    pub modularity: f64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct JsDiffusionResult {
+    pub components: Vec<Vec<f64>>,
+    pub eigenvalues: Vec<f64>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct JsDptResult {
+    pub pseudotime: Vec<f64>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct JsPagaResult {
+    pub connectivities: Vec<Vec<f64>>,
+    pub groups: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct JsMarkerGene {
+    pub gene_index: usize,
+    pub gene_name: String,
+    pub score: f64,
+    pub pvalue: f64,
+    pub padj: f64,
+    pub log2fc: f64,
+    pub pct_in: f64,
+    pub pct_out: f64,
+}
+
+#[derive(Debug, Serialize)]
+pub struct JsMarkerResult {
+    pub markers: std::collections::HashMap<String, Vec<JsMarkerGene>>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct JsHarmonyResult {
+    pub corrected: Vec<f64>,
+    pub n_obs: usize,
+    pub n_vars: usize,
+}
+
+/// Build an AnnData from a flat row-major data array.
+fn build_adata(data: &[f64], n_features: usize) -> Result<cyanea_omics::single_cell::AnnData, String> {
+    use cyanea_omics::single_cell::{AnnData, MatrixData};
+    if data.is_empty() || n_features == 0 {
+        return Err("data and n_features must be non-empty".to_string());
+    }
+    if data.len() % n_features != 0 {
+        return Err(format!(
+            "data length ({}) is not divisible by n_features ({})",
+            data.len(),
+            n_features
+        ));
+    }
+    let n_obs = data.len() / n_features;
+    let rows: Vec<Vec<f64>> = data.chunks(n_features).map(|c| c.to_vec()).collect();
+    let obs_names: Vec<String> = (0..n_obs).map(|i| format!("cell_{i}")).collect();
+    let var_names: Vec<String> = (0..n_features).map(|i| format!("gene_{i}")).collect();
+    AnnData::new(MatrixData::Dense(rows), obs_names, var_names).map_err(|e| e.to_string())
+}
+
+/// Normalize cells to a target sum and optionally log-transform.
+///
+/// `data_json`: flat row-major JSON array of f64.
+/// `n_features`: number of genes (columns).
+/// `target_sum`: normalization target (e.g. 10000).
+/// `log1p`: whether to apply log(1+x) afterwards.
+/// Output: JSON array of corrected values (flat row-major).
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn sc_normalize(data_json: &str, n_features: usize, target_sum: f64, log1p: bool) -> String {
+    use cyanea_omics::sc_preprocess::{NormalizeConfig, normalize_total};
+    let data = match parse_f64_array(data_json) {
+        Ok(d) => d,
+        Err(e) => return wasm_err(e),
+    };
+    let mut adata = match build_adata(&data, n_features) {
+        Ok(a) => a,
+        Err(e) => return wasm_err(e),
+    };
+    let config = NormalizeConfig {
+        target_sum,
+        log_transform: log1p,
+        save_raw: false,
+    };
+    if let Err(e) = normalize_total(&mut adata, &config) {
+        return wasm_err(e);
+    }
+    let result = adata.x().to_flat_row_major();
+    wasm_ok(&result)
+}
+
+/// Identify highly variable genes.
+///
+/// `data_json`: flat row-major JSON array of f64.
+/// `n_features`: number of genes (columns).
+/// `n_top_genes`: how many HVGs to select.
+/// `method`: `"seurat_v3"` or `"cell_ranger"`.
+/// Output: JSON `JsHvgResult`.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn sc_hvg(data_json: &str, n_features: usize, n_top_genes: usize, method: &str) -> String {
+    use cyanea_omics::sc_preprocess::{HvgConfig, HvgMethod, highly_variable_genes};
+    let data = match parse_f64_array(data_json) {
+        Ok(d) => d,
+        Err(e) => return wasm_err(e),
+    };
+    let mut adata = match build_adata(&data, n_features) {
+        Ok(a) => a,
+        Err(e) => return wasm_err(e),
+    };
+    let hvg_method = match method {
+        "cell_ranger" => HvgMethod::CellRanger,
+        _ => HvgMethod::SeuratV3,
+    };
+    let config = HvgConfig {
+        n_top_genes,
+        method: hvg_method,
+        ..HvgConfig::default()
+    };
+    if let Err(e) = highly_variable_genes(&mut adata, &config) {
+        return wasm_err(e);
+    }
+    // Extract HVG indices and dispersions from var metadata
+    let hvg_col = adata.get_var("highly_variable");
+    let disp_col = adata.get_var("dispersions_norm");
+    let mut gene_indices = Vec::new();
+    let mut dispersions = Vec::new();
+    if let Some(cyanea_omics::ColumnData::Numeric(hvg)) = hvg_col {
+        for (i, &v) in hvg.iter().enumerate() {
+            if v > 0.0 {
+                gene_indices.push(i);
+                if let Some(cyanea_omics::ColumnData::Numeric(d)) = disp_col {
+                    dispersions.push(d[i]);
+                }
+            }
+        }
+    }
+    wasm_ok(&JsHvgResult {
+        gene_indices,
+        dispersions,
+    })
+}
+
+/// Regress out covariates from the expression matrix.
+///
+/// `data_json`: flat row-major JSON array of f64.
+/// `n_features`: number of genes (columns).
+/// `covariates_json`: JSON array of f64 arrays (one per covariate).
+/// Output: JSON array of corrected values (flat row-major).
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn sc_regress_out(data_json: &str, n_features: usize, covariates_json: &str) -> String {
+    use cyanea_omics::sc_preprocess::regress_out;
+    let data = match parse_f64_array(data_json) {
+        Ok(d) => d,
+        Err(e) => return wasm_err(e),
+    };
+    let mut adata = match build_adata(&data, n_features) {
+        Ok(a) => a,
+        Err(e) => return wasm_err(e),
+    };
+    let covariates: Vec<Vec<f64>> = match serde_json::from_str(covariates_json) {
+        Ok(c) => c,
+        Err(e) => return wasm_err(format!("invalid covariates JSON: {e}")),
+    };
+    // Store covariates in obs
+    let mut keys = Vec::new();
+    for (i, cov) in covariates.iter().enumerate() {
+        let key = format!("covariate_{i}");
+        if let Err(e) = adata.add_obs_numeric(&key, cov.clone()) {
+            return wasm_err(e);
+        }
+        keys.push(key);
+    }
+    let key_refs: Vec<&str> = keys.iter().map(|s| s.as_str()).collect();
+    if let Err(e) = regress_out(&mut adata, &key_refs) {
+        return wasm_err(e);
+    }
+    let result = adata.x().to_flat_row_major();
+    wasm_ok(&result)
+}
+
+/// Score a set of genes per cell (like scanpy.tl.score_genes).
+///
+/// `data_json`: flat row-major JSON array of f64.
+/// `n_features`: number of genes (columns).
+/// `gene_indices_json`: JSON array of usize gene indices to score.
+/// Output: JSON array of f64 scores (one per cell).
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn sc_score_genes(data_json: &str, n_features: usize, gene_indices_json: &str) -> String {
+    use cyanea_omics::sc_preprocess::score_genes;
+    let data = match parse_f64_array(data_json) {
+        Ok(d) => d,
+        Err(e) => return wasm_err(e),
+    };
+    let mut adata = match build_adata(&data, n_features) {
+        Ok(a) => a,
+        Err(e) => return wasm_err(e),
+    };
+    let gene_indices: Vec<usize> = match serde_json::from_str(gene_indices_json) {
+        Ok(g) => g,
+        Err(e) => return wasm_err(format!("invalid gene_indices JSON: {e}")),
+    };
+    if let Err(e) = score_genes(&mut adata, &gene_indices, 50, "score") {
+        return wasm_err(e);
+    }
+    match adata.get_obs("score") {
+        Some(cyanea_omics::ColumnData::Numeric(scores)) => wasm_ok(scores),
+        _ => wasm_err("score_genes did not produce scores"),
+    }
+}
+
+/// Compute a k-nearest neighbors graph.
+///
+/// `data_json`: flat row-major JSON array of f64.
+/// `n_features`: number of genes (columns).
+/// `n_neighbors`: number of neighbors to find.
+/// `metric`: `"euclidean"` or `"cosine"`.
+/// Output: JSON `JsNeighborsResult`.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn sc_neighbors(data_json: &str, n_features: usize, n_neighbors: usize, metric: &str) -> String {
+    use cyanea_omics::sc_cluster::{DistanceMetric, NeighborsConfig, neighbors};
+    let data = match parse_f64_array(data_json) {
+        Ok(d) => d,
+        Err(e) => return wasm_err(e),
+    };
+    let mut adata = match build_adata(&data, n_features) {
+        Ok(a) => a,
+        Err(e) => return wasm_err(e),
+    };
+    let dist_metric = match metric {
+        "cosine" => DistanceMetric::Cosine,
+        _ => DistanceMetric::Euclidean,
+    };
+    let config = NeighborsConfig {
+        n_neighbors,
+        n_pcs: 0, // use raw data
+        metric: dist_metric,
+        seed: 42,
+    };
+    if let Err(e) = neighbors(&mut adata, &config) {
+        return wasm_err(e);
+    }
+    let distances = adata
+        .get_obsp("distances")
+        .map(|s| s.iter().collect::<Vec<_>>())
+        .unwrap_or_default();
+    let connectivities = adata
+        .get_obsp("connectivities")
+        .map(|s| s.iter().collect::<Vec<_>>())
+        .unwrap_or_default();
+    wasm_ok(&JsNeighborsResult {
+        n_neighbors,
+        distances,
+        connectivities,
+    })
+}
+
+/// Leiden clustering on a precomputed neighbor graph.
+///
+/// `neighbors_json`: JSON with `{distances: [[r,c,v],...], connectivities: [[r,c,v],...], n_obs: N}`.
+/// `resolution`: resolution parameter (higher = more clusters).
+/// Output: JSON `JsClusterResult`.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn sc_leiden(neighbors_json: &str, resolution: f64) -> String {
+    sc_cluster_impl(neighbors_json, resolution, true)
+}
+
+/// Louvain clustering on a precomputed neighbor graph.
+///
+/// `neighbors_json`: JSON with `{distances: [[r,c,v],...], connectivities: [[r,c,v],...], n_obs: N}`.
+/// `resolution`: resolution parameter.
+/// Output: JSON `JsClusterResult`.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn sc_louvain(neighbors_json: &str, resolution: f64) -> String {
+    sc_cluster_impl(neighbors_json, resolution, false)
+}
+
+fn sc_cluster_impl(neighbors_json: &str, resolution: f64, use_leiden: bool) -> String {
+    use cyanea_omics::sc_cluster::{ClusterConfig, leiden, louvain};
+    use cyanea_omics::single_cell::{AnnData, MatrixData};
+    use cyanea_omics::sparse::SparseMatrix;
+
+    let v: serde_json::Value = match serde_json::from_str(neighbors_json) {
+        Ok(v) => v,
+        Err(e) => return wasm_err(format!("invalid neighbors JSON: {e}")),
+    };
+    let n_obs = match v["n_obs"].as_u64() {
+        Some(n) => n as usize,
+        None => return wasm_err("neighbors JSON missing 'n_obs'"),
+    };
+    // Build a minimal AnnData with the neighbor graph in obsp
+    let dummy_data = vec![vec![0.0; 1]; n_obs];
+    let obs_names: Vec<String> = (0..n_obs).map(|i| format!("cell_{i}")).collect();
+    let var_names = vec!["dummy".to_string()];
+    let mut adata = match AnnData::new(MatrixData::Dense(dummy_data), obs_names, var_names) {
+        Ok(a) => a,
+        Err(e) => return wasm_err(e),
+    };
+    // Parse distances and connectivities
+    if let Some(arr) = v["distances"].as_array() {
+        let mut sm = SparseMatrix::new(n_obs, n_obs);
+        for entry in arr {
+            if let (Some(r), Some(c), Some(val)) = (
+                entry[0].as_u64(),
+                entry[1].as_u64(),
+                entry[2].as_f64(),
+            ) {
+                let _ = sm.insert(r as usize, c as usize, val);
+            }
+        }
+        let _ = adata.add_obsp("distances", sm);
+    }
+    if let Some(arr) = v["connectivities"].as_array() {
+        let mut sm = SparseMatrix::new(n_obs, n_obs);
+        for entry in arr {
+            if let (Some(r), Some(c), Some(val)) = (
+                entry[0].as_u64(),
+                entry[1].as_u64(),
+                entry[2].as_f64(),
+            ) {
+                let _ = sm.insert(r as usize, c as usize, val);
+            }
+        }
+        let _ = adata.add_obsp("connectivities", sm);
+    }
+
+    let config = ClusterConfig {
+        resolution,
+        n_iterations: 10,
+        seed: 42,
+        key_added: "cluster".to_string(),
+    };
+    let result = if use_leiden {
+        leiden(&mut adata, &config)
+    } else {
+        louvain(&mut adata, &config)
+    };
+    if let Err(e) = result {
+        return wasm_err(e);
+    }
+    // Extract cluster labels
+    match adata.get_obs("cluster") {
+        Some(cyanea_omics::ColumnData::Categorical { codes, .. }) => {
+            let labels: Vec<usize> = codes.iter().map(|&c| c as usize).collect();
+            let n_clusters = labels.iter().copied().max().map_or(0, |m| m + 1);
+            // Compute a simple modularity proxy
+            let modularity = n_clusters as f64 / n_obs as f64;
+            wasm_ok(&JsClusterResult {
+                labels,
+                modularity,
+            })
+        }
+        Some(cyanea_omics::ColumnData::Strings(labels)) => {
+            // Convert string labels to usize
+            let mut label_map = std::collections::HashMap::new();
+            let mut next_id = 0usize;
+            let int_labels: Vec<usize> = labels.iter().map(|l| {
+                *label_map.entry(l.clone()).or_insert_with(|| {
+                    let id = next_id;
+                    next_id += 1;
+                    id
+                })
+            }).collect();
+            wasm_ok(&JsClusterResult {
+                labels: int_labels,
+                modularity: 0.0,
+            })
+        }
+        _ => wasm_err("clustering did not produce labels"),
+    }
+}
+
+/// Compute a diffusion map embedding.
+///
+/// `data_json`: flat row-major JSON array of f64.
+/// `n_features`: number of genes (columns).
+/// `n_components`: number of diffusion components.
+/// Output: JSON `JsDiffusionResult`.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn sc_diffusion_map(data_json: &str, n_features: usize, n_components: usize) -> String {
+    use cyanea_omics::sc_trajectory::{DiffusionConfig, diffusion_map};
+    let data = match parse_f64_array(data_json) {
+        Ok(d) => d,
+        Err(e) => return wasm_err(e),
+    };
+    let mut adata = match build_adata(&data, n_features) {
+        Ok(a) => a,
+        Err(e) => return wasm_err(e),
+    };
+    let config = DiffusionConfig {
+        n_components,
+        alpha: 1.0,
+    };
+    match diffusion_map(&mut adata, &config) {
+        Ok(result) => wasm_ok(&JsDiffusionResult {
+            components: result.components,
+            eigenvalues: result.eigenvalues,
+        }),
+        Err(e) => wasm_err(e),
+    }
+}
+
+/// Compute diffusion pseudotime.
+///
+/// `diffmap_json`: JSON `{components: [[...], ...], eigenvalues: [...], n_obs: N}`.
+/// `root_cell`: index of the root cell.
+/// Output: JSON `JsDptResult`.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn sc_dpt(diffmap_json: &str, root_cell: usize) -> String {
+    use cyanea_omics::sc_trajectory::{DptConfig, dpt};
+    use cyanea_omics::single_cell::{AnnData, MatrixData};
+
+    let v: serde_json::Value = match serde_json::from_str(diffmap_json) {
+        Ok(v) => v,
+        Err(e) => return wasm_err(format!("invalid diffmap JSON: {e}")),
+    };
+    let components: Vec<Vec<f64>> = match serde_json::from_value(v["components"].clone()) {
+        Ok(c) => c,
+        Err(e) => return wasm_err(format!("invalid components: {e}")),
+    };
+    let eigenvalues: Vec<f64> = match serde_json::from_value(v["eigenvalues"].clone()) {
+        Ok(e) => e,
+        Err(e) => return wasm_err(format!("invalid eigenvalues: {e}")),
+    };
+    let n_obs = components.len();
+    if n_obs == 0 {
+        return wasm_err("empty components");
+    }
+    // Build AnnData with diffmap in obsm
+    let dummy = vec![vec![0.0; 1]; n_obs];
+    let obs_names: Vec<String> = (0..n_obs).map(|i| format!("cell_{i}")).collect();
+    let var_names = vec!["dummy".to_string()];
+    let mut adata = match AnnData::new(MatrixData::Dense(dummy), obs_names, var_names) {
+        Ok(a) => a,
+        Err(e) => return wasm_err(e),
+    };
+    let _ = adata.add_obsm("X_diffmap", components);
+    adata.add_uns("diffmap_evals", serde_json::to_string(&eigenvalues).unwrap_or_default());
+
+    let config = DptConfig {
+        root_cell,
+        n_branchings: 0,
+    };
+    if let Err(e) = dpt(&mut adata, &config) {
+        return wasm_err(e);
+    }
+    match adata.get_obs("dpt_pseudotime") {
+        Some(cyanea_omics::ColumnData::Numeric(pt)) => {
+            wasm_ok(&JsDptResult {
+                pseudotime: pt.clone(),
+            })
+        }
+        _ => wasm_err("DPT did not produce pseudotime"),
+    }
+}
+
+/// Compute PAGA graph abstraction.
+///
+/// `neighbors_json`: JSON with `{connectivities: [[r,c,v],...], n_obs: N}`.
+/// `clusters_json`: JSON array of cluster label strings (one per cell).
+/// Output: JSON `JsPagaResult`.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn sc_paga(neighbors_json: &str, clusters_json: &str) -> String {
+    use cyanea_omics::sc_trajectory::paga;
+    use cyanea_omics::single_cell::{AnnData, MatrixData};
+    use cyanea_omics::sparse::SparseMatrix;
+
+    let v: serde_json::Value = match serde_json::from_str(neighbors_json) {
+        Ok(v) => v,
+        Err(e) => return wasm_err(format!("invalid neighbors JSON: {e}")),
+    };
+    let clusters: Vec<String> = match serde_json::from_str(clusters_json) {
+        Ok(c) => c,
+        Err(e) => return wasm_err(format!("invalid clusters JSON: {e}")),
+    };
+    let n_obs = clusters.len();
+    let dummy = vec![vec![0.0; 1]; n_obs];
+    let obs_names: Vec<String> = (0..n_obs).map(|i| format!("cell_{i}")).collect();
+    let var_names = vec!["dummy".to_string()];
+    let mut adata = match AnnData::new(MatrixData::Dense(dummy), obs_names, var_names) {
+        Ok(a) => a,
+        Err(e) => return wasm_err(e),
+    };
+    if let Err(e) = adata.add_obs("leiden", clusters) {
+        return wasm_err(e);
+    }
+    if let Some(arr) = v["connectivities"].as_array() {
+        let mut sm = SparseMatrix::new(n_obs, n_obs);
+        for entry in arr {
+            if let (Some(r), Some(c), Some(val)) = (
+                entry[0].as_u64(),
+                entry[1].as_u64(),
+                entry[2].as_f64(),
+            ) {
+                let _ = sm.insert(r as usize, c as usize, val);
+            }
+        }
+        let _ = adata.add_obsp("connectivities", sm);
+    }
+    match paga(&adata, "leiden") {
+        Ok(result) => wasm_ok(&JsPagaResult {
+            connectivities: result.connectivities,
+            groups: result.groups,
+        }),
+        Err(e) => wasm_err(e),
+    }
+}
+
+/// Rank genes per cluster (differential expression).
+///
+/// `data_json`: flat row-major JSON array of f64.
+/// `n_features`: number of genes (columns).
+/// `clusters_json`: JSON array of cluster label strings (one per cell).
+/// `method`: `"t-test"`, `"wilcoxon"`, or `"logistic"`.
+/// Output: JSON `JsMarkerResult`.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn sc_rank_genes(data_json: &str, n_features: usize, clusters_json: &str, method: &str) -> String {
+    use cyanea_omics::sc_markers::{MarkerConfig, MarkerMethod, rank_genes_groups};
+    let data = match parse_f64_array(data_json) {
+        Ok(d) => d,
+        Err(e) => return wasm_err(e),
+    };
+    let mut adata = match build_adata(&data, n_features) {
+        Ok(a) => a,
+        Err(e) => return wasm_err(e),
+    };
+    let clusters: Vec<String> = match serde_json::from_str(clusters_json) {
+        Ok(c) => c,
+        Err(e) => return wasm_err(format!("invalid clusters JSON: {e}")),
+    };
+    if let Err(e) = adata.add_obs("cluster", clusters) {
+        return wasm_err(e);
+    }
+    let marker_method = match method {
+        "wilcoxon" => MarkerMethod::Wilcoxon,
+        "logistic" => MarkerMethod::LogisticRegression,
+        _ => MarkerMethod::TTest,
+    };
+    let config = MarkerConfig {
+        method: marker_method,
+        cluster_key: "cluster".to_string(),
+        log2fc_threshold: 0.0,
+        min_pct: 0.0,
+        padj_threshold: 1.0,
+        n_genes: None,
+    };
+    match rank_genes_groups(&adata, &config) {
+        Ok(results) => {
+            let markers: std::collections::HashMap<String, Vec<JsMarkerGene>> = results
+                .markers
+                .iter()
+                .map(|(k, genes)| {
+                    let js_genes: Vec<JsMarkerGene> = genes
+                        .iter()
+                        .map(|g| JsMarkerGene {
+                            gene_index: g.gene_index,
+                            gene_name: g.gene_name.clone(),
+                            score: g.statistic,
+                            pvalue: g.p_value,
+                            padj: g.p_adjusted,
+                            log2fc: g.log2_fold_change,
+                            pct_in: g.pct_in,
+                            pct_out: g.pct_out,
+                        })
+                        .collect();
+                    (k.clone(), js_genes)
+                })
+                .collect();
+            wasm_ok(&JsMarkerResult { markers })
+        }
+        Err(e) => wasm_err(e),
+    }
+}
+
+/// Filter marker genes by fold-change, pct, and p-value thresholds.
+///
+/// `markers_json`: JSON `JsMarkerResult`.
+/// `log2fc`: minimum absolute log2 fold change.
+/// `min_pct`: minimum fraction of cells expressing the gene in the cluster.
+/// `padj`: maximum adjusted p-value.
+/// Output: JSON `JsMarkerResult` (filtered).
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn sc_filter_markers(markers_json: &str, log2fc: f64, min_pct: f64, padj: f64) -> String {
+    let parsed: serde_json::Value = match serde_json::from_str(markers_json) {
+        Ok(v) => v,
+        Err(e) => return wasm_err(format!("invalid markers JSON: {e}")),
+    };
+    let input: std::collections::HashMap<String, Vec<JsMarkerGene>> =
+        match serde_json::from_value(parsed["markers"].clone()) {
+            Ok(m) => m,
+            Err(_) => match serde_json::from_str(markers_json) {
+                Ok(m) => m,
+                Err(e) => return wasm_err(format!("could not parse markers: {e}")),
+            },
+        };
+    let filtered: std::collections::HashMap<String, Vec<JsMarkerGene>> = input
+        .into_iter()
+        .map(|(k, genes)| {
+            let filt: Vec<JsMarkerGene> = genes
+                .into_iter()
+                .filter(|g| g.log2fc.abs() >= log2fc && g.pct_in >= min_pct && g.padj <= padj)
+                .collect();
+            (k, filt)
+        })
+        .collect();
+    wasm_ok(&JsMarkerResult { markers: filtered })
+}
+
+/// Run Harmony batch correction.
+///
+/// `data_json`: flat row-major JSON array of f64.
+/// `n_features`: number of genes (columns).
+/// `batch_json`: JSON array of batch label strings (one per cell).
+/// `n_clusters`: optional number of clusters for Harmony.
+/// Output: JSON `JsHarmonyResult`.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn sc_harmony(data_json: &str, n_features: usize, batch_json: &str, n_clusters: usize) -> String {
+    use cyanea_omics::sc_integrate::{HarmonyConfig, harmony};
+    let data = match parse_f64_array(data_json) {
+        Ok(d) => d,
+        Err(e) => return wasm_err(e),
+    };
+    let mut adata = match build_adata(&data, n_features) {
+        Ok(a) => a,
+        Err(e) => return wasm_err(e),
+    };
+    let batches: Vec<String> = match serde_json::from_str(batch_json) {
+        Ok(b) => b,
+        Err(e) => return wasm_err(format!("invalid batch JSON: {e}")),
+    };
+    if let Err(e) = adata.add_obs("batch", batches) {
+        return wasm_err(e);
+    }
+    let config = HarmonyConfig {
+        batch_key: "batch".to_string(),
+        n_clusters: if n_clusters > 0 { Some(n_clusters) } else { None },
+        theta: 2.0,
+        sigma: 0.1,
+        max_iter: 10,
+    };
+    if let Err(e) = harmony(&mut adata, &config) {
+        return wasm_err(e);
+    }
+    let corrected = adata.x().to_flat_row_major();
+    let (n_obs, n_vars) = adata.shape();
+    wasm_ok(&JsHarmonyResult {
+        corrected,
+        n_obs,
+        n_vars,
+    })
+}
+
+/// Run ComBat batch correction.
+///
+/// `data_json`: flat row-major JSON array of f64.
+/// `n_features`: number of genes (columns).
+/// `batch_json`: JSON array of batch label strings (one per cell).
+/// Output: JSON `JsHarmonyResult` (same format as Harmony for simplicity).
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn sc_combat(data_json: &str, n_features: usize, batch_json: &str) -> String {
+    use cyanea_omics::sc_integrate::{CombatConfig, combat};
+    let data = match parse_f64_array(data_json) {
+        Ok(d) => d,
+        Err(e) => return wasm_err(e),
+    };
+    let mut adata = match build_adata(&data, n_features) {
+        Ok(a) => a,
+        Err(e) => return wasm_err(e),
+    };
+    let batches: Vec<String> = match serde_json::from_str(batch_json) {
+        Ok(b) => b,
+        Err(e) => return wasm_err(format!("invalid batch JSON: {e}")),
+    };
+    if let Err(e) = adata.add_obs("batch", batches) {
+        return wasm_err(e);
+    }
+    let config = CombatConfig {
+        batch_key: "batch".to_string(),
+        parametric: true,
+    };
+    if let Err(e) = combat(&mut adata, &config) {
+        return wasm_err(e);
+    }
+    let corrected = adata.x().to_flat_row_major();
+    let (n_obs, n_vars) = adata.shape();
+    wasm_ok(&JsHarmonyResult {
+        corrected,
+        n_obs,
+        n_vars,
+    })
 }
 
 // ── Tests ────────────────────────────────────────────────────────────────

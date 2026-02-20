@@ -8,7 +8,7 @@ Last updated: 2026-02-19
 **T1–T8**: Complete (1800+ tests). See below for history.
 **T11–T14**: Complete (~430 new tests). Microbiome stats, cheminformatics depth, phylo maturity, variant annotation & ecosystem.
 **T15**: Complete (~88 new WASM tests). WASM & Python binding completeness for all T10–T14 APIs.
-**T9–T10**: Open — indexed BAM/VCF access, single-cell pipeline.
+**T9–T10**: Complete — indexed BAM/VCF access, single-cell pipeline (~123 domain + WASM/Python binding tests).
 
 ---
 
@@ -282,41 +282,41 @@ Last updated: 2026-02-19
 
 ---
 
-## T10 — Single-Cell Pipeline Completeness
+## T10 — Single-Cell Pipeline Completeness ✅
 
-> **Why**: Cyanea has AnnData/h5ad/Zarr infrastructure but lacks the algorithms to make it useful. Leiden clustering, HVG selection, and pseudotime are the standard scRNA-seq workflow (scanpy/Seurat). Without these, the container format is an empty shell.
+> Complete. 123 domain tests in cyanea-omics (single-cell feature), WASM + Python bindings.
 
-### Preprocessing (`cyanea-omics` or `cyanea-stats`)
-- [ ] Highly variable gene (HVG) selection — Seurat v3 method (variance-stabilizing transformation)
-- [ ] HVG selection — Cell Ranger method (mean/dispersion)
-- [ ] Library size normalization (normalize_total + log1p)
-- [ ] Regress out confounding variables (e.g., mitochondrial fraction, cell cycle scores)
-- [ ] Scrublet-style doublet detection
-- [ ] Gene signature scoring (score_genes)
+### Preprocessing (`cyanea-omics`)
+- [x] Highly variable gene (HVG) selection — Seurat v3 method (variance-stabilizing transformation)
+- [x] HVG selection — Cell Ranger method (mean/dispersion)
+- [x] Library size normalization (normalize_total + log1p)
+- [x] Regress out confounding variables (e.g., mitochondrial fraction, cell cycle scores)
+- [x] Scrublet-style doublet detection
+- [x] Gene signature scoring (score_genes)
 
-### Graph Construction & Clustering (`cyanea-ml` or `cyanea-omics`)
-- [ ] kNN graph construction from PCA embeddings (with UMAP connectivities)
-- [ ] Leiden community detection on kNN graphs
-- [ ] Louvain community detection on kNN graphs
-- [ ] Resolution parameter for cluster granularity control
-- [ ] Modularity optimization with quality metrics
+### Graph Construction & Clustering (`cyanea-omics`)
+- [x] kNN graph construction from PCA embeddings (with UMAP connectivities)
+- [x] Leiden community detection on kNN graphs
+- [x] Louvain community detection on kNN graphs
+- [x] Resolution parameter for cluster granularity control
+- [x] Modularity optimization with quality metrics
 
-### Trajectory & Pseudotime (`cyanea-ml` or `cyanea-omics`)
-- [ ] Diffusion maps (nonlinear dimensionality reduction)
-- [ ] Diffusion pseudotime (DPT) — ordering cells along trajectories
-- [ ] PAGA (Partition-based Graph Abstraction) — coarse-grained trajectory inference
-- [ ] RNA velocity (spliced/unspliced ratio-based future state prediction)
+### Trajectory & Pseudotime (`cyanea-omics`)
+- [x] Diffusion maps (nonlinear dimensionality reduction)
+- [x] Diffusion pseudotime (DPT) — ordering cells along trajectories
+- [x] PAGA (Partition-based Graph Abstraction) — coarse-grained trajectory inference
+- [x] RNA velocity (spliced/unspliced ratio-based future state prediction)
 
 ### Marker Genes & Differential Expression
-- [ ] Cluster-vs-rest marker gene detection (rank_genes_groups equivalent)
-- [ ] Multiple test methods: t-test, Wilcoxon, logistic regression
-- [ ] Marker gene filtering (log2FC threshold, pct expressed, adjusted p-value)
+- [x] Cluster-vs-rest marker gene detection (rank_genes_groups equivalent)
+- [x] Multiple test methods: t-test, Wilcoxon, logistic regression
+- [x] Marker gene filtering (log2FC threshold, pct expressed, adjusted p-value)
 
 ### Batch Correction & Integration
-- [ ] Harmony integration (iterative PCA correction)
-- [ ] ComBat batch correction (parametric empirical Bayes)
-- [ ] MNN (Mutual Nearest Neighbors) correction
-- [ ] Integration quality metrics (kBET, LISI)
+- [x] Harmony integration (iterative PCA correction)
+- [x] ComBat batch correction (parametric empirical Bayes)
+- [x] MNN (Mutual Nearest Neighbors) correction
+- [x] Integration quality metrics (kBET, LISI)
 
 ---
 

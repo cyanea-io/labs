@@ -30,4 +30,4 @@ cyanea-ml     = { path = "../cyanea-ml",     version = "0.1.0", features = ["std
 cyanea-chem   = { path = "../cyanea-chem",   version = "0.1.0", features = ["std"] }
 cyanea-struct = { path = "../cyanea-struct", version = "0.1.0", features = ["std"] }
 cyanea-phylo  = { path = "../cyanea-phylo", version = "0.1.0", features = ["std", "ml"] }
-cyanea-omics  = { path = "../cyanea-omics", version = "0.1.0", features = ["std"] }
+cyanea-omics  = { path = "../cyanea-omics", version = "0.1.0", features = ["std", "single-cell"] }

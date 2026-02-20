@@ -17,7 +17,7 @@ wasm = ["wasm-bindgen"]
 cyanea-core  = { path = "../cyanea-core",  version = "0.1.0", default-features = false, features = ["serde", "std"] }
 cyanea-seq   = { path = "../cyanea-seq",   version = "0.1.0", default-features = false, features = ["serde", "minhash"] }
 cyanea-io    = { path = "../cyanea-io",    version = "0.1.0", default-features = false, features = ["sam", "vcf", "bed", "gff", "blast-xml", "bedgraph", "gfa", "fetch"] }
-cyanea-omics = { path = "../cyanea-omics", version = "0.1.0", default-features = false, features = ["serde"] }
+cyanea-omics = { path = "../cyanea-omics", version = "0.1.0", default-features = false, features = ["serde", "single-cell"] }
 cyanea-align = { path = "../cyanea-align", version = "0.1.0", default-features = false, features = ["serde"] }
 cyanea-stats = { path = "../cyanea-stats", version = "0.1.0", default-features = false }
 cyanea-ml    = { path = "../cyanea-ml",    version = "0.1.0", default-features = false }
