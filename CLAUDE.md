@@ -1,6 +1,6 @@
 # Cyanea Labs
 
-Rust bioinformatics ecosystem — 13 crates, 2900+ tests, targeting native, WASM, Python, and Elixir NIFs.
+Rust bioinformatics ecosystem — 13 crates, 3000+ tests, targeting native, WASM, Python, and Elixir NIFs.
 
 ## Workspace
 
@@ -26,11 +26,11 @@ All crates are complete. Each has `docs/STATUS.md` with full API docs.
 | **cyanea-omics** | Genomic coords, intervals, matrices, variants, AnnData, h5ad, zarr, variant annotation/VEP, CNV/CBS, methylation, spatial transcriptomics, single-cell (HVG, normalize, clustering, trajectory, markers, integration) | 434 | cyanea-core, zarrs, cyanea-stats, cyanea-ml |
 | **cyanea-stats** | Descriptive, correlation, hypothesis tests, distributions, PCA, effect sizes, Bayesian conjugate priors, combinatorics, population genetics, enrichment analysis, survival analysis, null models | 384 | cyanea-core |
 | **cyanea-ml** | Clustering, distances, embeddings, KNN, PCA, t-SNE, UMAP, random forest, GBDT, feature selection, HMM, classification metrics, cross-validation | 269 | cyanea-core |
-| **cyanea-chem** | SMILES/SDF V2000/V3000, fingerprints, MACCS keys, properties, substructure, stereochemistry, canonical SMILES | 79 | cyanea-core, sha2 |
+| **cyanea-chem** | SMILES/SDF V2000/V3000, fingerprints, MACCS keys, properties, substructure, stereochemistry, canonical SMILES, 3D conformers (distance geometry/ETKDG), UFF/MMFF94 force fields, energy minimization, SMIRKS reactions, retrosynthesis, Gasteiger charges | 200 | cyanea-core, sha2 |
 | **cyanea-struct** | PDB, mmCIF, geometry, DSSP, Kabsch, contact maps, Ramachandran | 76 | cyanea-core, sha2 |
 | **cyanea-phylo** | Newick/NEXUS, distances, UPGMA/NJ, Fitch/Sankoff, ML likelihood, bootstrap, sequence evolution & coalescent simulation | 216 | cyanea-core, cyanea-ml (optional) |
 | **cyanea-gpu** | Backend trait, CPU/CUDA/Metal backends, buffers, ops, benchmarks | 61 | cyanea-core, metal-rs, cudarc, criterion (bench) |
-| **cyanea-wasm** | JSON-based WASM bindings (seq, io, align, stats, ml, chem, struct, phylo, omics) | 213 | serde_json, wasm-bindgen |
+| **cyanea-wasm** | JSON-based WASM bindings (seq, io, align, stats, ml, chem, struct, phylo, omics) | 223 | serde_json, wasm-bindgen |
 | **cyanea-py** | Python bindings via PyO3 (seq, align, stats, ml, chem, struct, phylo, io, omics) | — | pyo3 |
 
 ## Conventions

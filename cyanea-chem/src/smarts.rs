@@ -75,6 +75,8 @@ pub enum BondExpr {
 #[derive(Debug, Clone, PartialEq)]
 pub struct SmartsAtom {
     pub expr: AtomExpr,
+    /// SMIRKS atom-atom map number (`:n` in bracket atoms), if present.
+    pub atom_map: Option<u16>,
 }
 
 /// A bond between two atoms in a SMARTS pattern.
@@ -101,6 +103,15 @@ impl SmartsPattern {
             adjacency[bond.atom2].push((bond.atom1, bi));
         }
         SmartsPattern { atoms, bonds, adjacency }
+    }
+
+    /// Return all atoms that have an atom-atom map number, as (atom_index, map_number) pairs.
+    pub fn atom_maps(&self) -> Vec<(usize, u16)> {
+        self.atoms
+            .iter()
+            .enumerate()
+            .filter_map(|(i, a)| a.atom_map.map(|m| (i, m)))
+            .collect()
     }
 }
 
@@ -198,7 +209,7 @@ impl<'a> SmartsParser<'a> {
                 }
                 Some(b'*') => {
                     self.advance();
-                    let atom = SmartsAtom { expr: AtomExpr::Prim(AtomPrimitive::Wildcard) };
+                    let atom = SmartsAtom { expr: AtomExpr::Prim(AtomPrimitive::Wildcard), atom_map: None };
                     let idx = self.atoms.len();
                     self.atoms.push(atom);
                     self.add_bond_to_prev(idx);
@@ -288,7 +299,7 @@ impl<'a> SmartsParser<'a> {
             AtomExpr::Prim(AtomPrimitive::AtomicNum(atomic_num))
         };
 
-        let atom = SmartsAtom { expr };
+        let atom = SmartsAtom { expr, atom_map: None };
         let idx = self.atoms.len();
         self.atoms.push(atom);
         self.add_bond_to_prev(idx);
@@ -331,7 +342,7 @@ impl<'a> SmartsParser<'a> {
                 return Err(CyaneaError::Parse("expected ']' after recursive SMARTS".into()));
             }
 
-            let atom = SmartsAtom { expr: AtomExpr::Recursive(sub_pattern) };
+            let atom = SmartsAtom { expr: AtomExpr::Recursive(sub_pattern), atom_map: None };
             let idx = self.atoms.len();
             self.atoms.push(atom);
             self.add_bond_to_prev(idx);
@@ -342,11 +353,20 @@ impl<'a> SmartsParser<'a> {
         // Parse atom expression with logical operators
         let expr = self.parse_atom_or()?;
 
+        // Parse optional atom-atom map number `:n` (SMIRKS)
+        let atom_map = if self.peek() == Some(b':') {
+            self.advance(); // consume ':'
+            let n = self.parse_number()? as u16;
+            Some(n)
+        } else {
+            None
+        };
+
         if self.advance() != Some(b']') {
             return Err(CyaneaError::Parse("expected ']' in SMARTS bracket atom".into()));
         }
 
-        let atom = SmartsAtom { expr };
+        let atom = SmartsAtom { expr, atom_map };
         let idx = self.atoms.len();
         self.atoms.push(atom);
         self.add_bond_to_prev(idx);
@@ -1094,5 +1114,30 @@ mod tests {
         assert!(smarts_match(&mol, &pattern));
         let mol2 = parse_smiles("CCC").unwrap();
         assert!(!smarts_match(&mol2, &pattern));
+    }
+
+    #[test]
+    fn atom_map_parsing() {
+        let pattern = parse_smarts("[C:1][O:2]").unwrap();
+        let maps = pattern.atom_maps();
+        assert_eq!(maps.len(), 2);
+        assert_eq!(maps[0], (0, 1));
+        assert_eq!(maps[1], (1, 2));
+    }
+
+    #[test]
+    fn atom_map_no_map() {
+        let pattern = parse_smarts("[C][O]").unwrap();
+        let maps = pattern.atom_maps();
+        assert!(maps.is_empty());
+    }
+
+    #[test]
+    fn atom_map_partial() {
+        let pattern = parse_smarts("[C:1][N][O:3]").unwrap();
+        let maps = pattern.atom_maps();
+        assert_eq!(maps.len(), 2);
+        assert_eq!(maps[0], (0, 1));
+        assert_eq!(maps[1], (2, 3));
     }
 }

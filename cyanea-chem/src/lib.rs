@@ -29,13 +29,18 @@
 //! ```
 
 pub mod canon;
+pub mod conformer;
 pub mod descriptors;
 pub mod druglikeness;
 pub mod element;
+pub mod embed;
 pub mod fingerprint;
+pub mod forcefield;
+pub mod gasteiger;
 pub mod maccs;
 pub mod molecule;
 pub mod properties;
+pub mod reaction;
 pub mod scaffold;
 pub mod sdf;
 pub mod smarts;
@@ -75,6 +80,19 @@ pub use druglikeness::{
 pub use scaffold::{
     generic_scaffold, maximum_common_substructure, murcko_scaffold, r_group_decomposition,
     McsResult, MurckoResult, RGroupResult,
+};
+
+pub use conformer::{Conformer, ConformerSet};
+pub use embed::{embed_molecule, embed_multiple, EmbedConfig, ForceFieldType};
+pub use forcefield::{
+    assign_mmff94_types, assign_uff_types, mmff94_energy, mmff94_minimize, uff_energy,
+    uff_minimize, EnergyComponents, MinimizeConfig, MinimizeMethod, MinimizeResult,
+    Mmff94AtomType, UffAtomType,
+};
+pub use gasteiger::gasteiger_charges;
+pub use reaction::{
+    apply_reaction, atom_atom_map, enumerate_reactions, parse_reaction, retrosynthetic_disconnections,
+    AtomAtomMapping, Disconnection, Reaction, ReactionProduct,
 };
 
 #[cfg(feature = "std")]

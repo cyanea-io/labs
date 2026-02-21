@@ -351,9 +351,9 @@ Last updated: 2026-02-19
 
 ---
 
-## T12 — Cheminformatics Depth (Partial) ✅
+## T12 — Cheminformatics Depth ✅
 
-> 60 new tests. SMARTS, descriptors, drug-likeness, scaffolds, standardization done. 3D conformers and reaction chemistry deferred.
+> Complete. ~121 new tests. SMARTS, descriptors, drug-likeness, scaffolds, standardization, 3D conformers, force fields, and reaction chemistry.
 
 ### SMARTS & Advanced Matching (`cyanea-chem::smarts`) — Done
 - [x] SMARTS pattern language parser
@@ -374,13 +374,13 @@ Last updated: 2026-02-19
 - [x] Autocorrelation descriptors (Moreau-Broto, Moran, Geary)
 - [x] Descriptor batch computation (all descriptors at once for QSAR matrices)
 
-### 3D Coordinate Generation (`cyanea-chem`) — Deferred
-- [ ] Distance geometry embedding (initial 3D coords from connectivity)
-- [ ] ETKDG-style conformer generation (torsion angle preferences)
-- [ ] Multiple conformer enumeration (rotatable bond sampling)
-- [ ] MMFF94 energy calculation
-- [ ] UFF energy calculation
-- [ ] Basic energy minimization (steepest descent / conjugate gradient)
+### 3D Coordinate Generation (`cyanea-chem`) — Done
+- [x] Distance geometry embedding (initial 3D coords from connectivity)
+- [x] ETKDG-style conformer generation (torsion angle preferences)
+- [x] Multiple conformer enumeration (rotatable bond sampling)
+- [x] MMFF94 energy calculation
+- [x] UFF energy calculation
+- [x] Basic energy minimization (steepest descent / conjugate gradient)
 
 ### Molecule Standardization (`cyanea-chem::standardize`) — Done
 - [x] Salt/fragment stripping (remove counterions, solvents)
@@ -403,11 +403,11 @@ Last updated: 2026-02-19
 - [x] Maximum Common Substructure (MCS) between molecule pairs
 - [x] R-group decomposition (core + variable groups)
 
-### Chemical Reactions (`cyanea-chem`) — Deferred
-- [ ] Reaction SMILES (SMIRKS) application to molecules
-- [ ] Reaction enumeration (virtual library generation)
-- [ ] Atom-atom mapping in reactions
-- [ ] Retrosynthetic disconnection (single-step)
+### Chemical Reactions (`cyanea-chem`) — Done
+- [x] Reaction SMILES (SMIRKS) application to molecules
+- [x] Reaction enumeration (virtual library generation)
+- [x] Atom-atom mapping in reactions
+- [x] Retrosynthetic disconnection (single-step)
 
 ---
 

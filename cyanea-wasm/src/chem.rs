@@ -192,6 +192,321 @@ pub fn maccs_fingerprint(smiles: &str) -> String {
     wasm_ok(&js)
 }
 
+// ── 3D Coordinate Generation ─────────────────────────────────────────────
+
+/// Serializable conformer result.
+#[derive(Debug, Serialize)]
+pub struct JsConformer {
+    pub coords: Vec<[f64; 3]>,
+    pub n_atoms: usize,
+}
+
+/// Serializable conformer set result.
+#[derive(Debug, Serialize)]
+pub struct JsConformerSet {
+    pub conformers: Vec<JsConformer>,
+    pub energies: Vec<Option<f64>>,
+    pub n_conformers: usize,
+}
+
+/// Serializable energy result.
+#[derive(Debug, Serialize)]
+pub struct JsEnergyResult {
+    pub bond_stretch: f64,
+    pub angle_bend: f64,
+    pub torsion: f64,
+    pub van_der_waals: f64,
+    pub electrostatic: f64,
+    pub out_of_plane: f64,
+    pub total: f64,
+}
+
+/// Serializable minimize result.
+#[derive(Debug, Serialize)]
+pub struct JsMinimizeResult {
+    pub initial_energy: f64,
+    pub final_energy: f64,
+    pub n_steps: usize,
+    pub converged: bool,
+    pub coords: Vec<[f64; 3]>,
+}
+
+/// Serializable reaction product.
+#[derive(Debug, Serialize)]
+pub struct JsReactionProduct {
+    pub smiles: String,
+}
+
+/// Serializable disconnection.
+#[derive(Debug, Serialize)]
+pub struct JsDisconnection {
+    pub transform_name: String,
+    pub smirks: String,
+    pub precursors: Vec<String>,
+}
+
+/// Serializable atom-atom mapping.
+#[derive(Debug, Serialize)]
+pub struct JsAtomMapping {
+    pub mapping: Vec<[usize; 2]>,
+    pub unmapped_reactant: Vec<usize>,
+    pub unmapped_product: Vec<usize>,
+}
+
+/// Embed a single 3D conformer from SMILES.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn embed_conformer(smiles: &str, seed: u64, use_torsion_prefs: bool, max_minimize_steps: usize) -> String {
+    let mol = match parse_smiles(smiles) {
+        Ok(m) => m,
+        Err(e) => return wasm_err(e),
+    };
+    let config = cyanea_chem::EmbedConfig {
+        random_seed: seed,
+        use_torsion_prefs,
+        max_minimize_steps,
+        ..Default::default()
+    };
+    match cyanea_chem::embed_molecule(&mol, &config) {
+        Ok(conf) => {
+            let js = JsConformer {
+                n_atoms: conf.len(),
+                coords: conf.coords,
+            };
+            wasm_ok(&js)
+        }
+        Err(e) => wasm_err(e),
+    }
+}
+
+/// Embed multiple 3D conformers from SMILES with RMSD pruning.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn embed_conformers(smiles: &str, max_conformers: usize, rmsd_threshold: f64, seed: u64) -> String {
+    let mol = match parse_smiles(smiles) {
+        Ok(m) => m,
+        Err(e) => return wasm_err(e),
+    };
+    let config = cyanea_chem::EmbedConfig {
+        max_conformers,
+        rmsd_threshold,
+        random_seed: seed,
+        ..Default::default()
+    };
+    match cyanea_chem::embed_multiple(&mol, &config) {
+        Ok(cset) => {
+            let conformers: Vec<JsConformer> = cset.conformers.iter().map(|c| JsConformer {
+                n_atoms: c.len(),
+                coords: c.coords.clone(),
+            }).collect();
+            let js = JsConformerSet {
+                n_conformers: conformers.len(),
+                energies: cset.energies.clone(),
+                conformers,
+            };
+            wasm_ok(&js)
+        }
+        Err(e) => wasm_err(e),
+    }
+}
+
+/// Compute UFF energy for a SMILES string (auto-embeds 3D coordinates).
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn uff_energy_js(smiles: &str) -> String {
+    let mol = match parse_smiles(smiles) {
+        Ok(m) => m,
+        Err(e) => return wasm_err(e),
+    };
+    let config = cyanea_chem::EmbedConfig {
+        force_field: cyanea_chem::ForceFieldType::None,
+        max_minimize_steps: 0,
+        ..Default::default()
+    };
+    let conf = match cyanea_chem::embed_molecule(&mol, &config) {
+        Ok(c) => c,
+        Err(e) => return wasm_err(e),
+    };
+    match cyanea_chem::uff_energy(&mol, &conf) {
+        Ok(e) => wasm_ok(&JsEnergyResult {
+            bond_stretch: e.bond_stretch,
+            angle_bend: e.angle_bend,
+            torsion: e.torsion,
+            van_der_waals: e.van_der_waals,
+            electrostatic: e.electrostatic,
+            out_of_plane: e.out_of_plane,
+            total: e.total,
+        }),
+        Err(e) => wasm_err(e),
+    }
+}
+
+/// Compute MMFF94 energy for a SMILES string (auto-embeds 3D coordinates).
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn mmff94_energy_js(smiles: &str) -> String {
+    let mol = match parse_smiles(smiles) {
+        Ok(m) => m,
+        Err(e) => return wasm_err(e),
+    };
+    let config = cyanea_chem::EmbedConfig {
+        force_field: cyanea_chem::ForceFieldType::None,
+        max_minimize_steps: 0,
+        ..Default::default()
+    };
+    let conf = match cyanea_chem::embed_molecule(&mol, &config) {
+        Ok(c) => c,
+        Err(e) => return wasm_err(e),
+    };
+    match cyanea_chem::mmff94_energy(&mol, &conf) {
+        Ok(e) => wasm_ok(&JsEnergyResult {
+            bond_stretch: e.bond_stretch,
+            angle_bend: e.angle_bend,
+            torsion: e.torsion,
+            van_der_waals: e.van_der_waals,
+            electrostatic: e.electrostatic,
+            out_of_plane: e.out_of_plane,
+            total: e.total,
+        }),
+        Err(e) => wasm_err(e),
+    }
+}
+
+/// Minimize UFF energy for a SMILES string (auto-embeds, then minimizes).
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn minimize_uff(smiles: &str, max_steps: usize, gradient_threshold: f64) -> String {
+    let mol = match parse_smiles(smiles) {
+        Ok(m) => m,
+        Err(e) => return wasm_err(e),
+    };
+    let embed_config = cyanea_chem::EmbedConfig {
+        force_field: cyanea_chem::ForceFieldType::None,
+        max_minimize_steps: 0,
+        ..Default::default()
+    };
+    let conf = match cyanea_chem::embed_molecule(&mol, &embed_config) {
+        Ok(c) => c,
+        Err(e) => return wasm_err(e),
+    };
+    let min_config = cyanea_chem::MinimizeConfig {
+        max_steps,
+        gradient_threshold,
+        method: cyanea_chem::MinimizeMethod::SteepestDescent,
+    };
+    match cyanea_chem::uff_minimize(&mol, &conf, &min_config) {
+        Ok(r) => wasm_ok(&JsMinimizeResult {
+            initial_energy: r.initial_energy,
+            final_energy: r.final_energy,
+            n_steps: r.n_steps,
+            converged: r.converged,
+            coords: r.conformer.coords,
+        }),
+        Err(e) => wasm_err(e),
+    }
+}
+
+/// Minimize MMFF94 energy for a SMILES string.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn minimize_mmff94(smiles: &str, max_steps: usize, gradient_threshold: f64) -> String {
+    let mol = match parse_smiles(smiles) {
+        Ok(m) => m,
+        Err(e) => return wasm_err(e),
+    };
+    let embed_config = cyanea_chem::EmbedConfig {
+        force_field: cyanea_chem::ForceFieldType::None,
+        max_minimize_steps: 0,
+        ..Default::default()
+    };
+    let conf = match cyanea_chem::embed_molecule(&mol, &embed_config) {
+        Ok(c) => c,
+        Err(e) => return wasm_err(e),
+    };
+    let min_config = cyanea_chem::MinimizeConfig {
+        max_steps,
+        gradient_threshold,
+        method: cyanea_chem::MinimizeMethod::SteepestDescent,
+    };
+    match cyanea_chem::mmff94_minimize(&mol, &conf, &min_config) {
+        Ok(r) => wasm_ok(&JsMinimizeResult {
+            initial_energy: r.initial_energy,
+            final_energy: r.final_energy,
+            n_steps: r.n_steps,
+            converged: r.converged,
+            coords: r.conformer.coords,
+        }),
+        Err(e) => wasm_err(e),
+    }
+}
+
+// ── Chemical Reactions ──────────────────────────────────────────────────
+
+/// Apply a SMIRKS reaction to a molecule.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn apply_reaction_js(smiles: &str, smirks: &str) -> String {
+    let mol = match parse_smiles(smiles) {
+        Ok(m) => m,
+        Err(e) => return wasm_err(e),
+    };
+    let rxn = match cyanea_chem::parse_reaction(smirks) {
+        Ok(r) => r,
+        Err(e) => return wasm_err(e),
+    };
+    match cyanea_chem::apply_reaction(&mol, &rxn) {
+        Ok(products) => {
+            let js: Vec<JsReactionProduct> = products.iter().map(|p| JsReactionProduct {
+                smiles: p.smiles.clone(),
+            }).collect();
+            wasm_ok(&js)
+        }
+        Err(e) => wasm_err(e),
+    }
+}
+
+/// Find retrosynthetic disconnections for a target SMILES.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn retrosynthetic_disconnect(smiles: &str) -> String {
+    let mol = match parse_smiles(smiles) {
+        Ok(m) => m,
+        Err(e) => return wasm_err(e),
+    };
+    let disconnections = cyanea_chem::retrosynthetic_disconnections(&mol);
+    let js: Vec<JsDisconnection> = disconnections.iter().map(|d| JsDisconnection {
+        transform_name: d.transform_name.clone(),
+        smirks: d.smirks.clone(),
+        precursors: d.precursors.clone(),
+    }).collect();
+    wasm_ok(&js)
+}
+
+/// Compute atom-atom mapping between two SMILES strings.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn atom_atom_mapping(smiles1: &str, smiles2: &str) -> String {
+    let mol1 = match parse_smiles(smiles1) {
+        Ok(m) => m,
+        Err(e) => return wasm_err(e),
+    };
+    let mol2 = match parse_smiles(smiles2) {
+        Ok(m) => m,
+        Err(e) => return wasm_err(e),
+    };
+    let mapping = cyanea_chem::atom_atom_map(&mol1, &mol2);
+    let js = JsAtomMapping {
+        mapping: mapping.mapping.iter().map(|&(a, b)| [a, b]).collect(),
+        unmapped_reactant: mapping.unmapped_reactant,
+        unmapped_product: mapping.unmapped_product,
+    };
+    wasm_ok(&js)
+}
+
+/// Compute Gasteiger-Marsili partial charges from SMILES.
+#[cfg_attr(feature = "wasm", wasm_bindgen)]
+pub fn gasteiger_charges_js(smiles: &str) -> String {
+    let mol = match parse_smiles(smiles) {
+        Ok(m) => m,
+        Err(e) => return wasm_err(e),
+    };
+    match cyanea_chem::gasteiger_charges(&mol) {
+        Ok(charges) => wasm_ok(&charges),
+        Err(e) => wasm_err(e),
+    }
+}
+
 /// Compute Tanimoto similarity between two SMILES strings using MACCS fingerprints.
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub fn tanimoto_maccs(smiles1: &str, smiles2: &str) -> String {
@@ -349,5 +664,97 @@ $$$$
         let json = tanimoto_maccs("CCO", "CCO");
         let v: serde_json::Value = serde_json::from_str(&json).unwrap();
         assert!((v["ok"].as_f64().unwrap() - 1.0).abs() < 1e-10);
+    }
+
+    // ── 3D embedding tests ──────────────────────────────────────────────
+
+    #[test]
+    fn embed_conformer_basic() {
+        let json = embed_conformer("CCO", 42, true, 100);
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let conf = &v["ok"];
+        assert_eq!(conf["n_atoms"], 3);
+        assert!(!conf["coords"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn embed_conformers_multiple() {
+        let json = embed_conformers("CCCC", 3, 0.1, 42);
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let set = &v["ok"];
+        assert!(set["n_conformers"].as_u64().unwrap() >= 1);
+    }
+
+    // ── Energy tests ────────────────────────────────────────────────────
+
+    #[test]
+    fn uff_energy_basic() {
+        let json = uff_energy_js("CC");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let e = &v["ok"];
+        assert!(e["total"].as_f64().unwrap().is_finite());
+    }
+
+    #[test]
+    fn mmff94_energy_basic() {
+        let json = mmff94_energy_js("CC");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let e = &v["ok"];
+        assert!(e["total"].as_f64().unwrap().is_finite());
+    }
+
+    // ── Minimization tests ──────────────────────────────────────────────
+
+    #[test]
+    fn minimize_uff_basic() {
+        let json = minimize_uff("CC", 50, 1.0);
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let r = &v["ok"];
+        assert!(r["final_energy"].as_f64().is_some());
+        assert!(r["n_steps"].as_u64().is_some());
+    }
+
+    #[test]
+    fn minimize_mmff94_basic() {
+        let json = minimize_mmff94("CC", 50, 1.0);
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let r = &v["ok"];
+        assert!(r["final_energy"].as_f64().is_some());
+    }
+
+    // ── Reaction tests ──────────────────────────────────────────────────
+
+    #[test]
+    fn apply_reaction_basic() {
+        let json = apply_reaction_js("CCO", "[C:1][OH:2]>>[C:1]=[O:2]");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let products = v["ok"].as_array().unwrap();
+        assert!(!products.is_empty());
+    }
+
+    #[test]
+    fn retrosynthetic_basic() {
+        let json = retrosynthetic_disconnect("CC(=O)NC");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let disconnections = v["ok"].as_array().unwrap();
+        assert!(!disconnections.is_empty());
+    }
+
+    #[test]
+    fn atom_mapping_basic() {
+        let json = atom_atom_mapping("CCO", "CC=O");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let m = &v["ok"];
+        assert!(!m["mapping"].as_array().unwrap().is_empty());
+    }
+
+    // ── Gasteiger charges test ──────────────────────────────────────────
+
+    #[test]
+    fn gasteiger_charges_basic() {
+        let json = gasteiger_charges_js("CCO");
+        let v: serde_json::Value = serde_json::from_str(&json).unwrap();
+        let charges = v["ok"].as_array().unwrap();
+        assert_eq!(charges.len(), 3);
     }
 }
