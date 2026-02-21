@@ -1,10 +1,6 @@
-# cyanea-struct
+# API Reference -- cyanea-struct
 
 Protein and nucleic acid 3D structure analysis: PDB parsing, mmCIF parsing, geometric calculations, secondary structure assignment, structural superposition, contact maps, Ramachandran validation, and B-factor analysis.
-
-## Status: Complete
-
-All planned functionality is implemented including PDB parsing, mmCIF parsing, distance/angle/dihedral calculation, RMSD, simplified and full DSSP, Kabsch superposition, contact map computation, Ramachandran validation, and B-factor analysis.
 
 ## Public API
 
@@ -51,7 +47,10 @@ All planned functionality is implemented including PDB parsing, mmCIF parsing, d
 |---------------|-------------|
 | `SecondaryStructure` | Enum: `Helix`, `Sheet`, `Coil` |
 | `SecondaryStructureAssignment` | Per-residue SS assignments |
+| `DsspAssignment` | Full DSSP per-residue result (SS state, hydrogen bonds, accessibility) |
+| `DsspState` | Enum: `H` (alpha-helix), `B` (beta-bridge), `E` (strand), `G` (3-10 helix), `I` (pi-helix), `T` (turn), `S` (bend), `C` (coil) |
 | `assign_secondary_structure(chain) -> Result<SecondaryStructureAssignment>` | Simplified DSSP based on phi/psi angles |
+| `dssp(chain) -> Result<Vec<DsspAssignment>>` | Full DSSP secondary structure assignment |
 | `backbone_dihedrals(chain) -> Result<Vec<(f64, f64)>>` | Phi/psi Ramachandran angles |
 
 ### Superposition (`superposition.rs`)
@@ -97,6 +96,7 @@ All planned functionality is implemented including PDB parsing, mmCIF parsing, d
 | `std` | Yes | Standard library support (file I/O) |
 | `wasm` | No | WASM target |
 | `serde` | No | Serialization support |
+| `parallel` | No | Rayon parallelism |
 
 Note: Uses `#![no_std]` with `alloc` -- core algorithms work without std.
 
@@ -107,7 +107,7 @@ Note: Uses `#![no_std]` with `alloc` -- core algorithms work without std.
 
 ## Tests
 
-76 tests across 11 source files.
+76 unit tests + 2 doc tests across 11 source files.
 
 ## Source Files
 

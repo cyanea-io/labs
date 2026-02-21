@@ -1,10 +1,6 @@
-# cyanea-core
+# cyanea-core API Reference
 
 Shared foundation for the Cyanea bioinformatics ecosystem. Defines common traits, error types, content-addressed hashing, compression, memory-mapped file access, log-space probability types, rank/select bitvectors with wavelet matrix, and Fenwick tree.
-
-## Status: Complete
-
-All planned functionality is implemented and tested.
 
 ## Public API
 
@@ -59,7 +55,7 @@ Log-space probability newtypes for numerically stable computation.
 | Type | Description |
 |------|-------------|
 | `LogProb(f64)` | Probability as natural logarithm `ln(p)` |
-| `PhredProb(f64)` | Probability as Phred quality score `-10 · log₁₀(p)` |
+| `PhredProb(f64)` | Probability as Phred quality score `-10 * log10(p)` |
 
 **LogProb methods:**
 
@@ -70,13 +66,13 @@ Log-space probability newtypes for numerically stable computation.
 | `ln_add(other) -> Self` | Log-sum-exp (log-space addition) |
 | `ln_mul(other) -> Self` | Log-space multiplication |
 | `certain() -> Self` | Certain event: ln(1) = 0 |
-| `impossible() -> Self` | Impossible event: ln(0) = -∞ |
+| `impossible() -> Self` | Impossible event: ln(0) = -inf |
 
 **PhredProb methods:**
 
 | Method | Description |
 |--------|-------------|
-| `from_phred(q) -> Result<Self>` | Create from Phred score (≥ 0) |
+| `from_phred(q) -> Result<Self>` | Create from Phred score (>= 0) |
 | `from_prob(p) -> Result<Self>` | Create from raw probability in (0, 1] |
 | `to_phred() -> f64` | The Phred quality score |
 | `to_prob() -> f64` | Convert to raw probability |
@@ -88,7 +84,7 @@ Bidirectional `From` conversions between `PhredProb` and `LogProb`.
 | Type | Description |
 |------|-------------|
 | `RankSelectBitVec` | Bitvector with O(1) rank and O(log n) select via u64 blocks + superblock index |
-| `WaveletMatrix` | Wavelet matrix over integer alphabet [0, σ) with O(log σ) access/rank/select |
+| `WaveletMatrix` | Wavelet matrix over integer alphabet [0, sigma) with O(log sigma) access/rank/select |
 
 **RankSelectBitVec methods:**
 

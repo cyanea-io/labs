@@ -2,6 +2,8 @@
 
 > Machine learning primitives for bioinformatics: clustering, classification, dimensionality reduction, and sequence encoding.
 
+269 unit tests + 4 doc tests.
+
 ## What's Inside
 
 - **Clustering** -- K-means, DBSCAN, hierarchical (single/complete/average/Ward linkage)
@@ -78,6 +80,6 @@ println!("Labels: {:?}", result.labels);
 
 ## See Also
 
-- [API Reference (STATUS.md)](docs/STATUS.md)
-- [Architecture](../ARCHITECTURE.md)
-- [Build Guide](../docs/BUILDING.md)
+- [API Reference](docs/API.md)
+- [Usage Guide](docs/GUIDE.md)
+- [Architecture](docs/ARCHITECTURE.md)

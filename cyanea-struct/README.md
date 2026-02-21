@@ -55,6 +55,7 @@ println!("{} residues, {} chains", chain.residues.len(), structure.chains.len())
 
 ## See Also
 
-- [API Reference (STATUS.md)](docs/STATUS.md)
-- [Architecture](../ARCHITECTURE.md)
+- [API Reference](docs/API.md)
+- [Usage Guide](docs/GUIDE.md)
+- [Architecture](docs/ARCHITECTURE.md)
 - [Build Guide](../docs/BUILDING.md)

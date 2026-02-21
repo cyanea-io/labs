@@ -69,7 +69,7 @@ cargo fmt --all -- --check
 
 ## WASM
 
-The `cyanea-wasm` crate wraps 8 domain crates into a JSON-based WebAssembly API.
+The `cyanea-wasm` crate wraps 10 domain modules into a JSON-based WebAssembly API.
 
 ### Check
 
@@ -104,7 +104,7 @@ const stats = describe([1.0, 2.0, 3.0, 4.0]);
 
 ## Python (PyO3 / maturin)
 
-The `cyanea-py` crate provides Python bindings for 9 modules via PyO3.
+The `cyanea-py` crate provides Python bindings for 11 submodules via PyO3.
 
 ### Check
 
@@ -259,12 +259,16 @@ Common `--features` flags for specific use cases:
 | IO + CRAM | `cargo test -p cyanea-io --features sam,bam,cram` |
 | IO + Parquet | `cargo test -p cyanea-io --features parquet` |
 | IO + variant calling | `cargo test -p cyanea-io --features variant-calling` |
+| IO + Stockholm/Clustal/Phylip | `cargo test -p cyanea-io --features stockholm,clustal,phylip` |
+| IO + indexed BAM | `cargo test -p cyanea-io --features indexed-bam` |
+| IO + indexed VCF | `cargo test -p cyanea-io --features indexed-vcf` |
 | Alignment + SIMD | `cargo test -p cyanea-align --features simd` |
 | Alignment + WFA | `cargo test -p cyanea-align --features wfa` |
 | Alignment + GPU (macOS) | `cargo test -p cyanea-align --features metal` |
 | Alignment + GPU (NVIDIA) | `cargo test -p cyanea-align --features cuda` |
 | Omics + h5ad | `HDF5_DIR="$(brew --prefix hdf5@1.10)" cargo test -p cyanea-omics --features h5ad` |
 | Omics + Zarr | `cargo test -p cyanea-omics --features zarr` |
+| Omics + single-cell | `cargo test -p cyanea-omics --features single-cell` |
 | Phylo + tree construction | `cargo test -p cyanea-phylo --features ml` |
 | Stats + BLAS PCA | `cargo test -p cyanea-stats --features blas` |
 | ML + BLAS PCA | `cargo test -p cyanea-ml --features blas` |

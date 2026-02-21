@@ -54,6 +54,8 @@ let combined = p.ln_add(q); // log-sum-exp
 
 ## See Also
 
-- [API Reference (STATUS.md)](docs/STATUS.md)
-- [Architecture](../ARCHITECTURE.md)
+- [API Reference](docs/API.md)
+- [Usage Guide](docs/GUIDE.md)
+- [Internal Architecture](docs/ARCHITECTURE.md)
+- [Workspace Architecture](../docs/ARCHITECTURE.md)
 - [Build Guide](../docs/BUILDING.md)

@@ -1,10 +1,10 @@
 # cyanea-ml
 
-Machine learning primitives for bioinformatics: clustering, distance metrics, sequence encoding, normalization, evaluation, classification metrics, cross-validation, decision trees, random forests, gradient boosted decision trees, feature selection, and hidden Markov models.
+Machine learning primitives for bioinformatics: clustering, distance metrics, sequence encoding, normalization, evaluation, classification metrics, cross-validation, decision trees, random forests, gradient boosted decision trees, feature selection, hidden Markov models, dimensionality reduction (PCA, t-SNE, UMAP).
 
 ## Status: Complete
 
-All ML primitives are implemented including clustering, distance metrics, sequence encoding, evaluation, normalization, k-mer counting, sequence embeddings, KNN/linear regression, dimensionality reduction (PCA, t-SNE, UMAP), decision tree and random forest classifiers, gradient boosted decision trees (regression, binary/multiclass classification, early stopping, feature importance), feature selection (variance threshold, mutual information, recursive feature elimination, Lasso L1), hidden Markov models (forward, backward, Viterbi, Baum-Welch), classification metrics (confusion matrix, ROC/PR curves, F1, MCC), and cross-validation (k-fold, stratified k-fold, leave-one-out).
+All ML primitives are implemented across 17 modules covering clustering, distance metrics, sequence encoding, evaluation, normalization, k-mer counting, sequence embeddings, KNN/linear regression, dimensionality reduction (PCA, t-SNE, UMAP), decision tree and random forest classifiers, gradient boosted decision trees (regression, binary/multiclass classification, early stopping, feature importance), feature selection (variance threshold, mutual information, recursive feature elimination, Lasso L1), hidden Markov models (forward, backward, Viterbi, Baum-Welch), classification metrics (confusion matrix, ROC/PR curves, F1, MCC), and cross-validation (k-fold, stratified k-fold, leave-one-out).
 
 ## Public API
 
@@ -313,7 +313,7 @@ When the `blas` feature is enabled, PCA automatically dispatches to an ndarray-b
 
 ## Tests
 
-269 tests across 19 source files.
+269 unit tests + 4 doc tests across 19 source files.
 
 ## Source Files
 

@@ -4,16 +4,18 @@
 
 ## What's Inside
 
-Python classes and functions wrapping 9 domain crates:
+Python classes and functions wrapping 11 submodules across all domain crates:
 
-- **seq** -- `DnaSequence`, `RnaSequence`, `ProteinSequence` classes with FASTA/FASTQ parsing
+- **seq** -- `DnaSequence`, `RnaSequence`, `ProteinSequence` classes, FASTA/FASTQ, RNA folding, protein properties, read simulation, codon usage, assembly stats
 - **align** -- `align_dna()`, `align_protein()`, `align_batch()` with keyword-only scoring parameters
-- **stats** -- `describe()`, `pearson()`, `spearman()`, t-tests, Mann-Whitney U, p-value correction
-- **ml** -- PCA, t-SNE, UMAP, K-means, distance metrics, pairwise distances (with NumPy variants)
+- **stats** -- descriptive stats, correlation, hypothesis tests, survival (Kaplan-Meier, Cox PH), population genetics (Fst, Tajima's D), enrichment (GSEA, ORA), diversity, null models
+- **ml** -- PCA, t-SNE, UMAP, K-means, random forest, GBDT, distance metrics, HMM, confusion matrix, ROC/PR curves, cross-validation, feature selection (with NumPy variants)
 - **chem** -- `Molecule` class from SMILES, properties, fingerprints, Tanimoto similarity
 - **struct_bio** -- `Structure` class from PDB, secondary structure, RMSD, Kabsch alignment
-- **phylo** -- `PhyloTree` from Newick, evolutionary distances, UPGMA/NJ, Robinson-Foulds
-- **io** -- CSV, VCF, BED, GFF3, SAM, BAM file parsing with summary statistics
+- **phylo** -- `PhyloTree` from Newick, evolutionary distances, UPGMA/NJ, Robinson-Foulds, simulation
+- **io** -- CSV, VCF, BED, GFF3, SAM, BAM, BLAST XML, bedGraph, GFA, NCBI/UniProt URL builders
+- **omics** -- interval operations, coordinate liftover, variant annotation, bisulfite conversion, spatial autocorrelation
+- **sc** -- single-cell pipeline: normalize, HVG, neighbors, Leiden/Louvain, diffusion map, DPT, PAGA, markers, Harmony/ComBat/MNN
 - **core** -- SHA-256, zstd compression/decompression
 
 ## Quick Start
@@ -72,18 +74,23 @@ print(f"Formula: {mol.molecular_formula()}, MW: {mol.molecular_weight():.1f}")
 
 | Module | Description |
 |--------|-------------|
-| `cyanea.seq` | Sequence types, FASTA/FASTQ parsing |
-| `cyanea.align` | DNA/protein alignment |
-| `cyanea.stats` | Descriptive stats, hypothesis tests, correlation |
-| `cyanea.ml` | PCA, t-SNE, UMAP, K-means, distances |
+| `cyanea.seq` | Sequence types, FASTA/FASTQ, RNA folding, protein properties, simulation |
+| `cyanea.align` | DNA/protein alignment, batch alignment |
+| `cyanea.stats` | Statistics, hypothesis tests, survival, popgen, enrichment, diversity |
+| `cyanea.ml` | PCA, t-SNE, UMAP, K-means, forests, GBDT, HMM, metrics, CV |
 | `cyanea.chem` | SMILES, molecular properties, fingerprints |
-| `cyanea.struct_bio` | PDB parsing, secondary structure, RMSD |
-| `cyanea.phylo` | Newick trees, distances, tree construction |
-| `cyanea.io` | CSV, VCF, BED, GFF3, SAM, BAM parsing |
+| `cyanea.struct_bio` | PDB parsing, secondary structure, RMSD, Kabsch |
+| `cyanea.phylo` | Newick trees, distances, construction, simulation |
+| `cyanea.io` | CSV, VCF, BED, GFF3, SAM, BAM, BLAST XML, bedGraph, GFA |
+| `cyanea.omics` | Interval operations, liftover, variant annotation, methylation, spatial |
+| `cyanea.sc` | Single-cell: normalize, HVG, clustering, trajectory, markers, integration |
 | `cyanea.core` | SHA-256, zstd compression |
 
 ## See Also
 
-- [API Reference (STATUS.md)](docs/STATUS.md)
-- [Architecture](../ARCHITECTURE.md)
+- [API Reference](docs/API.md)
+- [Usage Guide](docs/GUIDE.md)
+- [Internal Architecture](docs/ARCHITECTURE.md)
+- [Workspace Architecture](../docs/ARCHITECTURE.md)
 - [Build Guide](../docs/BUILDING.md)
+- [Bindings Guide](../docs/BINDINGS.md)

@@ -56,23 +56,31 @@ println!("Identity: {:.1}%", result.identity() * 100.0);
 
 | Module | Description |
 |--------|-------------|
-| `types` | `AlignmentMode`, `CigarOp`, `AlignmentResult` |
-| `scoring` | `ScoringMatrix`, `SubstitutionMatrix` (BLOSUM/PAM) |
+| `types` | `AlignmentMode`, `CigarOp` (full SAM alphabet), `AlignmentResult` |
+| `cigar` | CIGAR parsing, validation, coordinate queries, arithmetic, MD tags |
+| `scoring` | `ScoringMatrix`, `SubstitutionMatrix` (BLOSUM30/45/62/80/90, PAM40/120/200/250) |
 | `needleman_wunsch` | Global alignment (Gotoh 3-matrix) |
 | `smith_waterman` | Local alignment (Gotoh 3-matrix) |
 | `semi_global` | Semi-global alignment |
 | `batch` | Batch pairwise alignment |
-| `simd` | Banded alignment (all modes) |
+| `simd` | Banded alignment with traceback (all modes) |
+| `simd_sw` | SIMD score-only SW (Farrar striped, NEON/AVX2/SSE4.1) |
 | `msa` | Progressive multiple sequence alignment |
-| `gpu` | GPU batch alignment dispatch (Metal/CUDA/CPU) |
-| `lcsk` | LCSk++ sparse alignment |
-| `poa` | Partial Order Alignment (DAG) |
-| `pair_hmm` | Pair HMM forward/Viterbi |
-| `profile_hmm` | Profile HMM (Plan 7) |
-| `cigar` | CIGAR string utilities |
+| `poa` | Partial Order Alignment (Lee 2002 DAG) |
+| `minimizers` | (w,k)-minimizer extraction |
+| `seed_extend` | Seed chaining and banded extension |
+| `wfa` | Wavefront alignment (O(ns), `wfa` feature) |
+| `xdrop` | X-drop/Z-drop seed extension |
+| `spliced` | Intron-aware spliced alignment (GT-AG/GC-AG/AT-AC) |
+| `lcsk` | LCSk++ sparse alignment with Fenwick tree |
+| `pair_hmm` | Pair HMM forward/Viterbi (3-state, log-space) |
+| `profile_hmm` | Profile HMM (Plan 7, Viterbi/Forward/Backward, E-value) |
+| `gpu` | GPU batch alignment dispatch (Metal/CUDA/CPU fallback) |
 
 ## See Also
 
-- [API Reference (STATUS.md)](docs/STATUS.md)
-- [Architecture](../ARCHITECTURE.md)
+- [API Reference](docs/API.md)
+- [Usage Guide](docs/GUIDE.md)
+- [Internal Architecture](docs/ARCHITECTURE.md)
+- [Workspace Architecture](../docs/ARCHITECTURE.md)
 - [Build Guide](../docs/BUILDING.md)

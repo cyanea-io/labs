@@ -1,10 +1,6 @@
-# cyanea-gpu
+# API Reference -- cyanea-gpu
 
 GPU compute abstraction layer with a trait-based backend system. Provides a uniform API for compute operations across CPU, CUDA, Metal, and WebGPU backends, plus domain-specific GPU-accelerated bioinformatics operations.
-
-## Status: Complete
-
-All four backends (CPU, CUDA, Metal, WebGPU) are fully implemented and tested. The CPU backend serves as the always-available fallback and reference implementation. GPU backends are feature-gated and provide GPU-accelerated reductions, pairwise distance matrices, and matrix multiplication. Domain-specific GPU modules provide k-mer counting, Smith-Waterman protein alignment, and MinHash sketching with auto-dispatch across available backends.
 
 ## Public API
 
@@ -39,7 +35,7 @@ All four backends (CPU, CUDA, Metal, WebGPU) are fully implemented and tested. T
 
 | Type | Description |
 |------|-------------|
-| `Buffer` | Typed compute buffer — host-side `Vec<f64>` for CPU, Metal `Buffer` (f32) for Metal, `CudaSlice<f64>` for CUDA, `wgpu::Buffer` (f32) for WebGPU |
+| `Buffer` | Typed compute buffer -- host-side `Vec<f64>` for CPU, Metal `Buffer` (f32) for Metal, `CudaSlice<f64>` for CUDA, `wgpu::Buffer` (f32) for WebGPU |
 
 ### Operations (`ops.rs`)
 
@@ -65,7 +61,7 @@ All four backends (CPU, CUDA, Metal, WebGPU) are fully implemented and tested. T
 | `gpu_kmer_count_cpu(sequences, k) -> Result<KmerCountResult>` | CPU-only k-mer counting |
 
 - 2-bit encoding (A=0, C=1, G=2, T=3), N positions skipped
-- GPU limited to k ≤ 14 (4^14 = 268M entries)
+- GPU limited to k <= 14 (4^14 = 268M entries)
 - Metal shader: parallel per-position with atomic count increments
 - CUDA kernel: same approach with `atomicAdd`
 
@@ -76,11 +72,11 @@ All four backends (CPU, CUDA, Metal, WebGPU) are fully implemented and tested. T
 | `SwResult` | Struct with `score: i32`, `query_end: usize`, `target_end: usize` |
 | `gpu_smith_waterman_batch(pairs, submat, gap_open, gap_extend) -> Result<Vec<SwResult>>` | Auto-dispatch batch SW (Metal > CUDA > CPU) |
 | `gpu_sw_cpu(pairs, submat, gap_open, gap_extend) -> Result<Vec<SwResult>>` | CPU-only batch SW |
-| `BLOSUM62_24` | Standard BLOSUM62 matrix extended to 24×24 |
+| `BLOSUM62_24` | Standard BLOSUM62 matrix extended to 24x24 |
 
 - 24 amino acid alphabet (A..V + B, Z, X, *)
 - Affine gap penalties (gap_open + gap_extend for opening)
-- Substitution matrix passed as 24×24 flat array
+- Substitution matrix passed as 24x24 flat array
 - One GPU thread per sequence pair
 
 ### GPU MinHash Sketch (`minhash_gpu.rs`)
@@ -119,7 +115,7 @@ All four backends (CPU, CUDA, Metal, WebGPU) are fully implemented and tested. T
 
 - Compiles CUDA C kernels to PTX at construction via NVRTC
 - Uses `cudarc` for safe CUDA driver API access (dynamically loads libcuda, no compile-time SDK dependency)
-- All operations use `double` (f64) — NVIDIA GPUs have native f64 support
+- All operations use `double` (f64) -- NVIDIA GPUs have native f64 support
 - Tiled 16x16 shared memory matrix multiplication
 - 256-thread block tree reductions
 - `elementwise_map` and `batch_pairwise` use CPU fallback (closures can't be sent to GPU)
@@ -130,11 +126,19 @@ All four backends (CPU, CUDA, Metal, WebGPU) are fully implemented and tested. T
 
 - Uses WGSL compute shaders equivalent to MSL and CUDA kernels
 - Creates device/queue via pollster for synchronous initialization
-- Uses `f32` on GPU (WebGPU has no native f64), with f64↔f32 conversion at host-device boundary
+- Uses `f32` on GPU (WebGPU has no native f64), with f64<->f32 conversion at host-device boundary
 - Same two-phase reduction and tiled matmul patterns as Metal/CUDA
 - Works on native platforms (Vulkan, Metal, DX12) and in browser (WebGPU)
 - `elementwise_map` and `batch_pairwise` use CPU fallback
 - Feature-gated behind `wgpu` with `wgpu`, `bytemuck`, and `pollster` dependencies
+
+### Shaders (`shaders/`)
+
+| File | Description |
+|------|-------------|
+| `shaders/mod.rs` | Shader source constants via `include_str!` for MSL and WGSL |
+| `shaders/*.metal` | MSL compute shaders (reduce, distance, matmul, kmer, sw, minhash) |
+| `shaders/*.wgsl` | WGSL compute shaders (reduce, distance, matmul) |
 
 ### Auto-selection
 
@@ -184,9 +188,9 @@ Note: No default features -- the crate is lightweight by default with only the C
 | `smith_waterman.rs` | ~350 | GPU SW protein alignment with Metal/CUDA/CPU dispatch |
 | `minhash_gpu.rs` | ~300 | GPU MinHash sketch computation with Metal/CUDA/CPU dispatch |
 | `wgpu_backend.rs` | ~500 | Full WebGPU backend implementation |
-| `metal.rs` | ~637 | Full Metal backend — MSL shaders, buffer management, all ops |
-| `cuda/mod.rs` | ~485 | Full CUDA backend — cudarc integration, NVRTC compilation |
-| `cuda/kernels.rs` | ~340 | CUDA C kernel source — reduce, distance, matmul, kmer, sw, minhash |
-| `shaders/mod.rs` | — | Shader source constants (`include_str!`) for MSL and WGSL |
-| `shaders/*.metal` | — | MSL shaders (reduce, distance, matmul, kmer, sw, minhash) |
-| `shaders/*.wgsl` | — | WGSL shaders (reduce, distance, matmul) |
+| `metal.rs` | ~637 | Full Metal backend -- MSL shaders, buffer management, all ops |
+| `cuda/mod.rs` | ~485 | Full CUDA backend -- cudarc integration, NVRTC compilation |
+| `cuda/kernels.rs` | ~340 | CUDA C kernel source -- reduce, distance, matmul, kmer, sw, minhash |
+| `shaders/mod.rs` | -- | Shader source constants (`include_str!`) for MSL and WGSL |
+| `shaders/*.metal` | -- | MSL shaders (reduce, distance, matmul, kmer, sw, minhash) |
+| `shaders/*.wgsl` | -- | WGSL shaders (reduce, distance, matmul) |

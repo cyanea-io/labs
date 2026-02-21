@@ -1,10 +1,10 @@
 # cyanea-omics
 
-Data structures for genomics, transcriptomics, and variant analysis. Provides the core types used across the Cyanea ecosystem for representing biological coordinates, expression data, variants, and gene annotations.
+Data structures for genomics, transcriptomics, and variant analysis. Provides the core types used across the Cyanea ecosystem for representing biological coordinates, expression data, variants, gene annotations, single-cell analysis, spatial transcriptomics, copy number variation, methylation, and genome arithmetic.
 
 ## Status: Complete
 
-All omics data structures are implemented including genomic coordinates, interval operations, expression matrices, sparse matrices, variant types, gene annotations, an AnnData-like single-cell container, and HDF5-backed `.h5ad` file I/O.
+All omics data structures are implemented including genomic coordinates, interval operations, interval trees, coverage vectors, expression matrices, sparse matrices, variant types, variant annotation, gene annotations, an AnnData-like single-cell container, genome arithmetic, liftover, copy number analysis, methylation analysis, spatial transcriptomics, HDF5-backed `.h5ad` file I/O, Zarr I/O, and a full single-cell pipeline (preprocessing, clustering, trajectory, markers, integration).
 
 ## Public API
 
@@ -12,7 +12,7 @@ All omics data structures are implemented including genomic coordinates, interva
 
 | Type | Description |
 |------|-------------|
-| `Strand` | Enum: `Plus`, `Minus`, `Unstranded` |
+| `Strand` | Enum: `Forward`, `Reverse`, `Unstranded` |
 | `GenomicPosition` | `chrom`, `position`, `strand` |
 | `GenomicInterval` | `chrom`, `start`, `end`, `strand` (0-based half-open) |
 
@@ -21,6 +21,45 @@ All omics data structures are implemented including genomic coordinates, interva
 | Type | Description |
 |------|-------------|
 | `IntervalSet` | Collection of `GenomicInterval` with overlap queries, merging, and coverage computation |
+
+### Interval tree (`interval_tree.rs`)
+
+| Type | Description |
+|------|-------------|
+| `Interval<T>` | Generic interval with `start`, `end`, `data` payload |
+| `IntervalTree<T>` | Static augmented BST for fast overlap queries |
+
+**IntervalTree methods:**
+
+| Method | Description |
+|--------|-------------|
+| `from_unsorted(intervals) -> Self` | Build from unsorted intervals, O(n log n) |
+| `from_sorted(intervals) -> Self` | Build from pre-sorted intervals, O(n) |
+| `query(start, end) -> Vec<&Interval<T>>` | All intervals overlapping `[start, end)`, O(log n + k) |
+| `count(start, end) -> usize` | Count overlapping intervals without allocation |
+| `nearest(point) -> Option<&Interval<T>>` | Nearest interval to a point |
+| `preceding(point) -> Option<&Interval<T>>` | Nearest interval ending before point |
+| `following(point) -> Option<&Interval<T>>` | Nearest interval starting after point |
+| `len() / is_empty()` | Tree size |
+
+### Coverage vectors (`coverage.rs`)
+
+| Type | Description |
+|------|-------------|
+| `RleCoverage` | Run-length encoded coverage vector for memory-efficient genome-wide depth |
+
+**RleCoverage methods:**
+
+| Method | Description |
+|--------|-------------|
+| `from_intervals(intervals, chrom_length) -> Self` | Build RLE coverage from genomic intervals via sweep-line |
+| `from_depths(depths) -> Self` | Build from a dense depth array |
+| `depth_at(pos) -> u32` | Query depth at a single position |
+| `mean_depth() -> f64` | Mean depth across the vector |
+| `max_depth() -> u32` | Maximum depth |
+| `covered_bases(min_depth) -> u64` | Number of positions with depth >= threshold |
+| `total_length() -> u64` | Total number of positions |
+| `runs() -> &[(u32, u64)]` | Access raw (depth, run_length) pairs |
 
 ### Expression matrices (`expr.rs`)
 
@@ -81,6 +120,121 @@ All omics data structures are implemented including genomic coordinates, interva
 | `Exon` | `start`, `end`, `phase` |
 | `Transcript` | `id`, `exons`, `biotype` |
 | `Gene` | `id`, `symbol`, `transcripts`, `gene_type`, `chrom`, `start`, `end`, `strand` |
+
+### Variant annotation (`variant_annotation.rs`)
+
+Variant effect prediction: maps genomic variants to their functional consequences on gene transcripts.
+
+| Type | Description |
+|------|-------------|
+| `Consequence` | Enum: `Missense`, `Nonsense`, `Synonymous`, `FrameshiftInsertion`, `FrameshiftDeletion`, `InframeDeletion`, `InframeInsertion`, `SpliceDonor`, `SpliceAcceptor`, `SpliceRegion`, `FivePrimeUtr`, `ThreePrimeUtr`, `Intronic`, `Intergenic`, `StartLost`, `StopLost` |
+| `AnnotatedVariant` | Full annotation result: `variant`, `gene`, `transcript`, `consequence`, `codon_change`, `amino_acid_change`, `hgvs_c`, `hgvs_p`, `sift_score` |
+| `TranscriptModel` | Indexed transcript model built from genes for fast annotation |
+
+**Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `TranscriptModel::from_genes(genes) -> Self` | Build indexed model from gene list (uses IntervalTree) |
+| `annotate_variant(variant, model) -> Vec<AnnotatedVariant>` | Annotate a variant against all overlapping transcripts |
+| `annotate_variants(variants, model) -> Vec<Vec<AnnotatedVariant>>` | Batch annotate multiple variants |
+| `splice_disruption_score(variant, transcript) -> f64` | SIFT-style splice disruption score (0.0-1.0) |
+
+### Copy number analysis (`cnv.rs`)
+
+| Type | Description |
+|------|-------------|
+| `CnvSegment` | CBS segment: `chrom`, `start`, `end`, `log2_ratio`, `n_probes`, `copy_number` |
+| `BafSegment` | BAF segment: `chrom`, `start`, `end`, `mean_baf`, `n_snps` |
+| `SvType` | Enum: `Deletion`, `Duplication`, `Inversion`, `Translocation`, `Insertion` |
+| `SvBreakpoint` | SV breakpoint with `sv_type`, coordinates, and supporting read counts |
+
+**Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `cbs_segment(log2_ratios, positions, chrom, config) -> Result<Vec<CnvSegment>>` | Circular Binary Segmentation (Olshen et al. 2004) |
+| `baf_segment(bafs, positions, chrom, config) -> Result<Vec<BafSegment>>` | Segment B-allele frequency profiles for LOH detection |
+| `detect_sv_breakpoints(discordant, split_reads, config) -> Result<Vec<SvBreakpoint>>` | Cluster discordant reads to identify SVs |
+| `merge_segments(segments, max_gap, min_diff) -> Vec<CnvSegment>` | Merge adjacent segments with similar copy number |
+
+### Methylation analysis (`methylation.rs`)
+
+| Type | Description |
+|------|-------------|
+| `CpgSite` | Single CpG dinucleotide: `chrom`, `position`, `strand`, `methylated_reads`, `total_reads`, with `beta()` method |
+| `DmRegion` | Differentially methylated region: `chrom`, `start`, `end`, `mean_delta_beta`, `n_cpgs`, `p_value` |
+| `CpgIsland` | CpG island: `chrom`, `start`, `end`, `cpg_count`, `obs_exp_ratio`, `gc_content` |
+
+**Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `call_methylation(reads, chrom, min_coverage) -> Result<Vec<CpgSite>>` | Identify CpG sites from bisulfite-seq read counts |
+| `find_dmrs(group1, group2, config) -> Result<Vec<DmRegion>>` | Detect differentially methylated regions between groups |
+| `find_cpg_islands(sequence, chrom, config) -> Result<Vec<CpgIsland>>` | Locate CpG islands in a reference sequence |
+| `bisulfite_convert(sequence) -> Vec<u8>` | Simulate in-silico bisulfite conversion |
+
+### Spatial transcriptomics (`spatial.rs`)
+
+| Type | Description |
+|------|-------------|
+| `SpatialPoint` | 2D point with `x`, `y`, `index` |
+| `SpatialGraph` | Spatial neighbor graph: `n_nodes`, `neighbors` (per-node list of `(neighbor_index, distance)`) |
+| `SpatialAutocorrelation` | Moran's I result: `morans_i`, `expected_i`, `variance_i`, `z_score`, `p_value` |
+| `GearysC` | Geary's C result: `c`, `expected_c`, `z_score`, `p_value` |
+| `CooccurrenceResult` | Feature co-occurrence: `feature_a`, `feature_b`, `observed`, `expected`, `log_odds`, `p_value` |
+| `LrInteraction` | Ligand-receptor interaction: `ligand_name`, `receptor_name`, `interaction_score`, `p_value` |
+
+**Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `delaunay_graph(points) -> Result<SpatialGraph>` | Build spatial neighbor graph via Delaunay triangulation |
+| `knn_graph(points, k) -> Result<SpatialGraph>` | Build k-nearest-neighbor spatial graph |
+| `morans_i(values, graph) -> Result<SpatialAutocorrelation>` | Moran's I spatial autocorrelation with analytic p-value |
+| `gearys_c(values, graph) -> Result<GearysC>` | Geary's C spatial autocorrelation |
+| `cooccurrence(features_a, features_b, graph, n_permutations) -> Result<Vec<CooccurrenceResult>>` | Feature co-occurrence analysis with permutation p-values |
+| `ligand_receptor(expression, graph, pairs, n_permutations) -> Result<Vec<LrInteraction>>` | Ligand-receptor interaction scoring |
+
+### Genome arithmetic (`genome_arithmetic.rs`)
+
+BEDTools-style operations on genomic intervals.
+
+| Type | Description |
+|------|-------------|
+| `GenomeInfo` | Chromosome name to size mapping (`BTreeMap<String, u64>`) |
+| `StrandMode` | Enum: `Ignore`, `Same`, `Opposite` |
+| `ClosestResult` | Query interval with closest match and distance |
+| `JaccardStats` | Jaccard similarity: `intersection_bp`, `union_bp`, `jaccard`, `n_intersections` |
+
+**Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `intersect(a, b, strand_mode) -> Vec<GenomicInterval>` | Intersect two interval sets |
+| `union(intervals) -> Vec<GenomicInterval>` | Merge overlapping intervals |
+| `subtract(a, b, strand_mode) -> Vec<GenomicInterval>` | Subtract intervals in b from a |
+| `complement(intervals, genome) -> Vec<GenomicInterval>` | Complement against genome |
+| `closest(queries, targets, strand_mode) -> Vec<ClosestResult>` | Find closest target for each query |
+| `window(intervals, size) -> Vec<GenomicInterval>` | Extend intervals by window size |
+| `jaccard(a, b) -> Result<JaccardStats>` | Jaccard similarity between interval sets |
+| `genome_info(chroms) -> GenomeInfo` | Convenience constructor |
+
+### Liftover (`liftover.rs`)
+
+| Type | Description |
+|------|-------------|
+| `ChainFile` | Parsed UCSC chain file, indexed by source chromosome |
+| `LiftoverResult` | Enum: `Mapped(GenomicInterval)`, `Partial { mapped, fraction_mapped }`, `Unmapped` |
+
+**Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `parse_chain_file(input) -> Result<ChainFile>` | Parse a UCSC chain file from string |
+| `liftover(interval, chain_file) -> LiftoverResult` | Remap a single interval between assemblies |
+| `liftover_batch(intervals, chain_file) -> Vec<LiftoverResult>` | Batch liftover |
 
 ### Metadata columns (`single_cell.rs`)
 
@@ -146,7 +300,7 @@ OTU/ASV abundance table operations for metagenomics.
 
 | Type | Description |
 |------|-------------|
-| `OtuTable` | Samples × OTUs abundance table |
+| `OtuTable` | Samples x OTUs abundance table |
 
 **OtuTable methods:**
 
@@ -156,8 +310,8 @@ OTU/ASV abundance table operations for metagenomics.
 | `n_samples() / n_otus()` | Dimension accessors |
 | `total_counts() -> Vec<usize>` | Per-sample totals |
 | `relative_abundance() -> Vec<Vec<f64>>` | Normalized per sample |
-| `filter_min_count(min_count) -> Self` | Keep OTUs with total ≥ threshold |
-| `filter_min_prevalence(min_fraction) -> Self` | Keep OTUs present in ≥ fraction of samples |
+| `filter_min_count(min_count) -> Self` | Keep OTUs with total >= threshold |
+| `filter_min_prevalence(min_fraction) -> Self` | Keep OTUs present in >= fraction of samples |
 | `rarefy(depth) -> Result<Self>` | Subsample to fixed depth |
 | `collapse_taxonomy(level, taxonomy) -> Result<Self>` | Collapse by taxonomy prefix |
 | `merge(other) -> Result<Self>` | Merge two tables with same OTUs |
@@ -189,7 +343,7 @@ Weighted graphs, centrality metrics, and community detection.
 | `louvain() -> Community` | Louvain community detection |
 | `louvain_with_resolution(resolution) -> Community` | Louvain with resolution parameter (Phase 1+2) |
 | `modularity(assignments) -> f64` | Compute modularity Q |
-| `modularity_with_resolution(assignments, resolution) -> f64` | Modularity Q with resolution γ |
+| `modularity_with_resolution(assignments, resolution) -> f64` | Modularity Q with resolution gamma |
 
 ### Haplotype analysis (`haplotype.rs`)
 
@@ -216,11 +370,11 @@ EM phasing, haplotype block detection, and diversity statistics.
 
 **Supported `.h5ad` components:**
 
-- `X` — dense arrays and CSR sparse matrices
-- `obs` / `var` — string, numeric, and categorical metadata columns
-- `obs_names` / `var_names` — observation and variable index names
-- `obsm` / `varm` — 2D embedding matrices (e.g. PCA, UMAP)
-- `layers` — alternative dense or sparse matrices
+- `X` -- dense arrays and CSR sparse matrices
+- `obs` / `var` -- string, numeric, and categorical metadata columns
+- `obs_names` / `var_names` -- observation and variable index names
+- `obsm` / `varm` -- 2D embedding matrices (e.g. PCA, UMAP)
+- `layers` -- alternative dense or sparse matrices
 
 **System requirement:** HDF5 1.10.x library (`brew install hdf5@1.10` on macOS, `apt install libhdf5-dev` on Linux). Build with `HDF5_DIR="$(brew --prefix hdf5@1.10)"`. Note: hdf5-sys 0.8 does not support HDF5 2.0.
 
@@ -233,13 +387,13 @@ EM phasing, haplotype block detection, and diversity statistics.
 
 **Supported Zarr components** (mirrors h5ad):
 
-- `X` — dense arrays and CSR sparse matrices
-- `obs` / `var` — string, numeric, and categorical metadata columns
-- `obs_names` / `var_names` — observation and variable index names
-- `obsm` / `varm` — 2D embedding matrices (e.g. PCA, UMAP)
-- `layers` — alternative dense or sparse matrices
+- `X` -- dense arrays and CSR sparse matrices
+- `obs` / `var` -- string, numeric, and categorical metadata columns
+- `obs_names` / `var_names` -- observation and variable index names
+- `obsm` / `varm` -- 2D embedding matrices (e.g. PCA, UMAP)
+- `layers` -- alternative dense or sparse matrices
 
-Pure Rust implementation using zarrs 0.18 (Zarr v3) — no system library requirements.
+Pure Rust implementation using zarrs 0.18 (Zarr v3) -- no system library requirements.
 
 ### Single-cell preprocessing (`sc_preprocess.rs`, feature: `single-cell`)
 
@@ -279,7 +433,7 @@ Pure Rust implementation using zarrs 0.18 (Zarr v3) — no system library requir
 | `diffusion_map(adata, config) -> DiffusionResult` | Anisotropic diffusion map via power iteration |
 | `dpt(adata, config)` | Diffusion pseudotime from root cell |
 | `paga(adata, cluster_key) -> PagaResult` | Partition-based graph abstraction |
-| `rna_velocity(adata, config)` | Steady-state RNA velocity (γ by regression) |
+| `rna_velocity(adata, config)` | Steady-state RNA velocity (gamma by regression) |
 
 | Config/Result type | Key fields |
 |---------------------|------------|
@@ -332,17 +486,17 @@ Pure Rust implementation using zarrs 0.18 (Zarr v3) — no system library requir
 
 ## Dependencies
 
-- `cyanea-core` — error types, traits
-- `cyanea-stats` (optional, `single-cell` feature) — statistical tests, BH correction
-- `cyanea-ml` (optional, `single-cell` feature) — PCA, k-means, distance metrics
-- `hdf5` 0.8 (optional, `h5ad` feature) — HDF5 bindings
-- `ndarray` 0.15 (optional, `h5ad` feature) — array types for HDF5 interop
-- `zarrs` 0.18 (optional, `zarr` feature) — Zarr v3 storage
-- `serde_json` (optional, `zarr` feature) — metadata serialization
+- `cyanea-core` -- error types, traits
+- `cyanea-stats` (optional, `single-cell` feature) -- statistical tests, BH correction
+- `cyanea-ml` (optional, `single-cell` feature) -- PCA, k-means, distance metrics
+- `hdf5` 0.8 (optional, `h5ad` feature) -- HDF5 bindings
+- `ndarray` 0.15 (optional, `h5ad` feature) -- array types for HDF5 interop
+- `zarrs` 0.18 (optional, `zarr` feature) -- Zarr v3 storage
+- `serde_json` (optional, `zarr` feature) -- metadata serialization
 
 ## Tests
 
-311 unit tests + 2 doc tests (base); 434 + 2 with `single-cell` feature.
+434 unit tests + 2 doc tests.
 
 ## Source Files
 
@@ -351,12 +505,22 @@ Pure Rust implementation using zarrs 0.18 (Zarr v3) — no system library requir
 | `lib.rs` | Module declarations, re-exports |
 | `genomic.rs` | Coordinates, strand, position, interval |
 | `interval.rs` | IntervalSet with overlap/merge/coverage |
+| `interval_tree.rs` | Augmented BST interval tree with O(log n + k) queries |
+| `coverage.rs` | RLE coverage vectors |
 | `expr.rs` | Dense expression matrix |
 | `sparse.rs` | COO sparse matrix with CSR conversion, column/row ops |
 | `variant.rs` | Variant types and filtering |
 | `annotation.rs` | Gene/Transcript/Exon hierarchy |
+| `variant_annotation.rs` | Variant effect prediction and consequence annotation |
 | `single_cell.rs` | AnnData container with typed metadata, obsp, uns |
 | `network.rs` | Graphs, centrality, Louvain with resolution |
+| `otu.rs` | OTU/ASV abundance tables |
+| `haplotype.rs` | EM phasing, haplotype blocks |
+| `cnv.rs` | CBS segmentation, BAF, SV breakpoints |
+| `methylation.rs` | CpG sites, DMRs, CpG islands, bisulfite conversion |
+| `spatial.rs` | Spatial neighbors, Moran's I, Geary's C, co-occurrence, ligand-receptor |
+| `genome_arithmetic.rs` | Intersect, union, subtract, complement, closest, window, Jaccard |
+| `liftover.rs` | UCSC chain file parsing, coordinate liftover |
 | `h5ad.rs` | HDF5 `.h5ad` reader/writer |
 | `zarr.rs` | Zarr v3 directory reader/writer |
 | `sc_preprocess.rs` | HVG, normalize, regress, scrublet, score_genes |

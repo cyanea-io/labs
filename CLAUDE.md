@@ -15,21 +15,21 @@ cargo check -p cyanea-wasm --features wasm # Check with wasm-bindgen
 
 ## Crate Map
 
-All crates are complete. Each has `docs/STATUS.md` with full API docs.
+All crates are complete. Each has `docs/API.md` (full API reference), `docs/GUIDE.md` (usage guide), and `docs/ARCHITECTURE.md` (internal design).
 
 | Crate | Purpose | Tests | Key deps |
 |-------|---------|------:|----------|
 | **cyanea-core** | Traits, errors, SHA-256, zstd, mmap, log-space probability types, rank/select bitvectors, wavelet matrix, Fenwick tree | 58 | thiserror, sha2, zstd, flate2, memmap2 |
 | **cyanea-seq** | DNA/RNA/protein, FASTA/FASTQ, k-mers, 2-bit encoding, suffix array, FM-index, BWT, MinHash, pattern matching, PSSM/motif scanning, ORF finder, FASTA indexed reader (.fai), FMD-Index, quality trimming/filtering, codon tables (7 NCBI), codon usage/CAI, DUST/SEG/tandem repeat masking, paired-end FASTQ, RNA secondary structure prediction, protein sequence properties, read simulation | 474 | cyanea-core, needletail |
 | **cyanea-io** | CSV, VCF, BED, BEDPE, GFF3, GTF, SAM, BAM, CRAM, BCF, Parquet, BLAST, BLAST XML, MAF, GenBank, bigWig, Stockholm, Clustal, Phylip, EMBL, PIR, ABI, bedGraph, GFA, fetch helpers (feature-gated) | 357 | cyanea-core, cyanea-omics, csv, flate2, noodles, arrow/parquet |
-| **cyanea-align** | NW, SW, semi-global, MSA, banded, seed-and-extend, minimizers, WFA, GPU dispatch, POA, LCSk++ sparse alignment, pair HMM, PAM40/120/200, BLOSUM30, CIGAR utilities, X-drop/Z-drop extension, spliced alignment | 290 | cyanea-core |
+| **cyanea-align** | NW, SW, semi-global, MSA, banded, seed-and-extend, minimizers, WFA, GPU dispatch, POA, LCSk++ sparse alignment, pair HMM, profile HMM, PAM40/120/200, BLOSUM30, CIGAR utilities, X-drop/Z-drop extension, spliced alignment, SIMD (NEON/SSE4.1/AVX2) | 321 | cyanea-core |
 | **cyanea-omics** | Genomic coords, intervals, matrices, variants, AnnData, h5ad, zarr, variant annotation/VEP, CNV/CBS, methylation, spatial transcriptomics, single-cell (HVG, normalize, clustering, trajectory, markers, integration) | 434 | cyanea-core, zarrs, cyanea-stats, cyanea-ml |
-| **cyanea-stats** | Descriptive, correlation, hypothesis tests, distributions, PCA, effect sizes, Bayesian conjugate priors, combinatorics, population genetics, enrichment analysis, survival analysis, null models | 384 | cyanea-core |
+| **cyanea-stats** | Descriptive, correlation, hypothesis tests, distributions, PCA, effect sizes, Bayesian conjugate priors, combinatorics, population genetics, enrichment analysis (GSEA/ORA), survival analysis, null models, ordination (PCoA/NMDS/CCA/RDA), multivariate (PERMANOVA/ANOSIM/Mantel), diversity, differential expression, normalization | 384 | cyanea-core |
 | **cyanea-ml** | Clustering, distances, embeddings, KNN, PCA, t-SNE, UMAP, random forest, GBDT, feature selection, HMM, classification metrics, cross-validation | 269 | cyanea-core |
 | **cyanea-chem** | SMILES/SDF V2000/V3000, fingerprints, MACCS keys, properties, substructure, stereochemistry, canonical SMILES, 3D conformers (distance geometry/ETKDG), UFF/MMFF94 force fields, energy minimization, SMIRKS reactions, retrosynthesis, Gasteiger charges | 200 | cyanea-core, sha2 |
 | **cyanea-struct** | PDB, mmCIF, geometry, DSSP, Kabsch, contact maps, Ramachandran | 76 | cyanea-core, sha2 |
-| **cyanea-phylo** | Newick/NEXUS, distances, UPGMA/NJ, Fitch/Sankoff, ML likelihood, bootstrap, sequence evolution & coalescent simulation | 216 | cyanea-core, cyanea-ml (optional) |
-| **cyanea-gpu** | Backend trait, CPU/CUDA/Metal backends, buffers, ops, benchmarks | 61 | cyanea-core, metal-rs, cudarc, criterion (bench) |
+| **cyanea-phylo** | Newick/NEXUS, distances, UPGMA/NJ, Fitch/Sankoff, ML likelihood (GTR+G), bootstrap, tree search (NNI/SPR/TBR), model selection (AIC/BIC), protein models (LG/WAG/JTT), Bayesian MCMC, species tree, UniFrac, simulation, consensus, dating, drawing | 225 | cyanea-core, cyanea-ml (optional) |
+| **cyanea-gpu** | Backend trait, CPU/CUDA/Metal/WebGPU backends, buffers, ops, k-mer counting, Smith-Waterman, MinHash, benchmarks | 62 | cyanea-core, metal-rs, cudarc, wgpu, criterion (bench) |
 | **cyanea-wasm** | JSON-based WASM bindings (seq, io, align, stats, ml, chem, struct, phylo, omics) | 223 | serde_json, wasm-bindgen |
 | **cyanea-py** | Python bindings via PyO3 (seq, align, stats, ml, chem, struct, phylo, io, omics) | — | pyo3 |
 
@@ -45,7 +45,7 @@ All crates are complete. Each has `docs/STATUS.md` with full API docs.
 - `std` gates: `memmap2`, `zstd`, `flate2`, file I/O
 - `wasm` — WASM-specific code (wasm-bindgen annotations in cyanea-wasm)
 - `serde` — serialization support
-- `cuda` / `metal` — GPU backends in cyanea-gpu and cyanea-align
+- `cuda` / `metal` / `wgpu` — GPU backends in cyanea-gpu and cyanea-align
 - `ml` — optional cyanea-ml dependency in cyanea-phylo
 - `sam` — SAM format support in cyanea-io
 - `bam` — BAM format support in cyanea-io (implies `sam`, depends on `flate2`)
@@ -133,4 +133,3 @@ cargo check -p cyanea-native   # Check only (can't link without BEAM)
 ## What's Not Done
 
 - **Publishing**: Not yet on crates.io, PyPI, or npm (metadata ready, workflows pending)
-- **Competitive benchmarks**: Head-to-head vs rust-bio not yet published

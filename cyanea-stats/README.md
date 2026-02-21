@@ -2,6 +2,8 @@
 
 > Statistical methods for life sciences: descriptive statistics, hypothesis testing, distributions, and domain-specific analysis.
 
+384 unit tests + 12 doc tests.
+
 ## What's Inside
 
 - **Descriptive statistics** -- mean, median, variance, std dev, quantiles, IQR, MAD, skewness, kurtosis
@@ -17,8 +19,11 @@
 - **Expression normalization** -- TPM, FPKM, CPM, DESeq2 size factors
 - **Differential expression** -- negative binomial Wald test, Wilcoxon, volcano plot data
 - **Enrichment analysis** -- ORA (hypergeometric), GSEA (preranked with permutations), GO enrichment
-- **Ecological diversity** -- Shannon, Simpson, Chao1, Bray-Curtis, rarefaction curves
+- **Ecological diversity** -- Shannon, Simpson, Chao1, Bray-Curtis, Hill numbers, rarefaction curves
+- **Ordination** -- PCoA, NMDS, RDA, CCA, Procrustes
+- **Multivariate tests** -- PERMANOVA, ANOSIM, Mantel test, AMOVA, BIOENV
 - **Survival analysis** -- Kaplan-Meier, log-rank test, Cox proportional hazards
+- **Null models** -- Wright-Fisher simulation, permutation null, bootstrap null
 
 ## Quick Start
 
@@ -68,11 +73,14 @@ println!("p = {}", test.p_value);
 | `normalization` | TPM, FPKM, CPM, DESeq2 size factors |
 | `diffexpr` | Differential expression testing |
 | `enrichment` | ORA, GSEA, GO enrichment |
-| `diversity` | Alpha/beta diversity, rarefaction |
+| `diversity` | Alpha/beta diversity, Hill numbers, rarefaction |
+| `ordination` | PCoA, NMDS, RDA, CCA, Procrustes |
+| `multivariate` | PERMANOVA, ANOSIM, Mantel test, AMOVA, BIOENV |
 | `survival` | Kaplan-Meier, log-rank, Cox PH |
+| `null_model` | Wright-Fisher simulation, permutation/bootstrap null models |
 
 ## See Also
 
-- [API Reference (STATUS.md)](docs/STATUS.md)
-- [Architecture](../ARCHITECTURE.md)
-- [Build Guide](../docs/BUILDING.md)
+- [API Reference](docs/API.md)
+- [Usage Guide](docs/GUIDE.md)
+- [Architecture](docs/ARCHITECTURE.md)

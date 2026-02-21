@@ -54,11 +54,11 @@ let sketch = MinHash::from_sequence(b"ACGTACGT", 4, 100).unwrap();
 |--------|-------------|
 | `alphabet` | `DnaAlphabet`, `RnaAlphabet`, `ProteinAlphabet` |
 | `types` / `seq` | `DnaSequence`, `RnaSequence`, `ProteinSequence` |
-| `codon` | Codon translation tables |
+| `codon` | 7 NCBI codon tables, codon usage, CAI |
 | `kmer` | K-mer iterator |
 | `quality` | Phred quality scores |
 | `fasta` / `fastq` | FASTA/FASTQ parsing and statistics |
-| `paired` | Paired-end FASTQ support |
+| `paired` | Paired-end FASTQ support (`std`) |
 | `trim` | Quality trimming, adapter removal, `TrimPipeline` |
 | `twobit` | 2-bit packed DNA encoding |
 | `suffix` | Suffix array (SA-IS algorithm) |
@@ -68,18 +68,23 @@ let sketch = MinHash::from_sequence(b"ACGTACGT", 4, 100).unwrap();
 | `pattern` | 7 exact/approximate string matching algorithms |
 | `pssm` | Position-Specific Scoring Matrix |
 | `motif` | DNA motif PWM, scanning, EM discovery |
+| `motif_io` | MEME/TRANSFAC/JASPAR format I/O, motif comparison |
 | `orf` | Open reading frame finder |
-| `minhash` | MinHash/FracMinHash sketching (feature-gated) |
-| `rna_structure` | RNA secondary structure prediction |
-| `protein_properties` | Protein physicochemical analysis |
+| `minhash` | MinHash/FracMinHash sketching (`minhash` feature) |
+| `rna_structure` | RNA secondary structure (Nussinov, Zuker, McCaskill) |
+| `protein_properties` | Composition, hydrophobicity, pI, extinction, 2ary structure, disorder |
 | `debruijn` | De Bruijn graph and unitig extraction |
-| `assembly` | Assembly QC metrics |
-| `taxonomy` | Taxonomic trees and k-mer classification |
-| `restriction` | Restriction enzyme digestion |
-| `fasta_index` | FASTA indexed reader (.fai) |
+| `assembly` | Assembly QC metrics (N50/L50/N90/L90/auN) |
+| `taxonomy` | Taxonomic trees, LCA, k-mer classification |
+| `restriction` | 20 restriction enzymes, cut-site finding, digestion |
+| `masking` | DUST/SEG/tandem repeat masking |
+| `read_sim` | Illumina-style read simulator |
+| `fasta_index` | FASTA indexed reader (.fai, `std`) |
 
 ## See Also
 
-- [API Reference (STATUS.md)](docs/STATUS.md)
-- [Architecture](../ARCHITECTURE.md)
+- [API Reference](docs/API.md)
+- [Usage Guide](docs/GUIDE.md)
+- [Internal Architecture](docs/ARCHITECTURE.md)
+- [Workspace Architecture](../docs/ARCHITECTURE.md)
 - [Build Guide](../docs/BUILDING.md)

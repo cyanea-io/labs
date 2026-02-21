@@ -57,6 +57,7 @@ No default features -- the crate is lightweight with only the CPU backend.
 | `metal` | Metal backend (feature-gated) |
 | `cuda` | CUDA backend (feature-gated) |
 | `wgpu_backend` | WebGPU backend (feature-gated) |
+| `shaders` | MSL and WGSL shader source constants (feature-gated) |
 | `ops` | High-level operations (reduce, distance, matmul, z-score) |
 | `kmer` | GPU k-mer counting |
 | `smith_waterman` | GPU batch protein Smith-Waterman |
@@ -64,6 +65,7 @@ No default features -- the crate is lightweight with only the CPU backend.
 
 ## See Also
 
-- [API Reference (STATUS.md)](docs/STATUS.md)
-- [Architecture](../ARCHITECTURE.md)
+- [API Reference](docs/API.md)
+- [Usage Guide](docs/GUIDE.md)
+- [Architecture](docs/ARCHITECTURE.md)
 - [Build Guide](../docs/BUILDING.md)

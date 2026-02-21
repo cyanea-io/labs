@@ -1,10 +1,10 @@
 # cyanea-stats
 
-Statistical methods for life sciences: descriptive statistics, correlation, hypothesis testing, probability distributions, multiple testing correction, and effect sizes.
+Statistical methods for life sciences: descriptive statistics, correlation, hypothesis testing, probability distributions, multiple testing correction, effect sizes, Bayesian conjugate priors, combinatorics, population genetics, expression normalization, differential expression, enrichment analysis, ecological diversity, ordination, multivariate testing, survival analysis, and null model generators.
 
 ## Status: Complete
 
-All statistical functionality is implemented including descriptive statistics, correlation, hypothesis testing, distributions, multiple testing correction, effect sizes, and PCA dimensionality reduction.
+All statistical functionality is implemented across 19 modules covering classical statistics, Bayesian inference, population genetics, ecology, survival analysis, and bioinformatics-specific methods.
 
 ## Public API
 
@@ -45,6 +45,9 @@ All statistical functionality is implemented including descriptive statistics, c
 | `t_test_one_sample(data, mu) -> Result<TestResult>` | One-sample t-test |
 | `t_test_two_sample(x, y, equal_var) -> Result<TestResult>` | Student's (equal_var=true) or Welch's (equal_var=false) |
 | `mann_whitney_u(x, y) -> Result<TestResult>` | Non-parametric rank-sum test |
+| `fisher_exact(table) -> Result<TestResult>` | Fisher's exact test on 2x2 table |
+| `chi_squared(observed, expected) -> Result<TestResult>` | Chi-squared goodness of fit |
+| `anova(groups) -> Result<TestResult>` | One-way ANOVA F-test |
 
 ### Distributions (`distribution.rs`)
 
@@ -56,6 +59,7 @@ All statistical functionality is implemented including descriptive statistics, c
 | `Binomial` | Binomial distribution (n, p) |
 | `ChiSquared` | Chi-squared distribution (df) |
 | `FDistribution` | F distribution (df1, df2) |
+| `NegativeBinomial` | Negative binomial distribution |
 | `erf(x) -> f64` | Error function |
 | `ln_gamma(x) -> f64` | Log gamma function (Lanczos approximation) |
 | `betai(a, b, x) -> Result<f64>` | Regularized incomplete beta function |
@@ -73,10 +77,10 @@ All statistical functionality is implemented including descriptive statistics, c
 
 | Function | Description |
 |----------|-------------|
-| `cohens_d(group1, group2) -> Result<f64>` | Cohen's d: standardized mean difference (pooled SD). Each group needs >= 2 observations |
-| `eta_squared(groups) -> Result<f64>` | Eta-squared: proportion of variance explained by group membership (ANOVA). Returns value in [0, 1] |
-| `odds_ratio(table) -> Result<f64>` | Odds ratio for a 2x2 contingency table `[[a, b], [c, d]]`. OR = (a*d) / (b*c) |
-| `relative_risk(table) -> Result<f64>` | Relative risk (risk ratio) for a 2x2 contingency table. RR = [a/(a+b)] / [c/(c+d)] |
+| `cohens_d(group1, group2) -> Result<f64>` | Cohen's d: standardized mean difference (pooled SD) |
+| `eta_squared(groups) -> Result<f64>` | Eta-squared: proportion of variance explained by group membership |
+| `odds_ratio(table) -> Result<f64>` | Odds ratio for a 2x2 contingency table |
+| `relative_risk(table) -> Result<f64>` | Relative risk for a 2x2 contingency table |
 
 ### Dimensionality reduction (`reduction.rs`)
 
@@ -158,22 +162,6 @@ Exact and log-space combinatorial functions with overflow protection.
 |------|-------------|
 | `Combinations` | Iterator yielding `Vec<usize>` subsets in lexicographic order |
 
-## Feature Flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `std` | Yes | Standard library support |
-| `wasm` | No | WASM target |
-| `serde` | No | Serialization support |
-| `parallel` | No | Rayon parallelism |
-| `blas` | No | BLAS-accelerated PCA via ndarray |
-
-## Dependencies
-
-- `cyanea-core` -- error types
-- `ndarray` (optional, `blas` feature) -- matrix operations for BLAS-accelerated PCA
-- `rayon` (optional, `parallel` feature) -- data parallelism
-
 ### Population genetics (`popgen.rs`)
 
 | Type/Function | Description |
@@ -189,7 +177,7 @@ Exact and log-space combinatorial functions with overflow protection.
 | `nucleotide_diversity(genotypes, n_samples, seq_length) -> Result<DiversityStats>` | Pi, theta, S |
 | `TajimaD` | Tajima's D statistic with variance components |
 | `tajimas_d(genotypes, n_samples, seq_length) -> Result<TajimaD>` | Tajima's D neutrality test |
-| `LdResult` | Linkage disequilibrium: r², D, D' |
+| `LdResult` | Linkage disequilibrium: r-squared, D, D' |
 | `ld(genotypes, n_samples, locus_a, locus_b) -> Result<LdResult>` | Pairwise LD via EM haplotype estimation |
 | `genotype_pca(genotypes, n_samples, n_components) -> Result<PcaResult>` | PCA on centered genotype matrix |
 
@@ -209,7 +197,7 @@ Exact and log-space combinatorial functions with overflow protection.
 | `DeMethod` | Enum: `NegBinomialWald`, `Wilcoxon` |
 | `DeGeneResult` | Per-gene result: log2FC, p-value, adjusted p-value, base mean, test statistic |
 | `DeResults` | Collection of `DeGeneResult` with metadata |
-| `VolcanoPoint` | Data point for volcano plots (log2FC, −log10 p-value, significance flag) |
+| `VolcanoPoint` | Data point for volcano plots (log2FC, -log10 p-value, significance flag) |
 | `de_test(matrix, n_genes, n_samples, group, method) -> Result<DeResults>` | Run differential expression analysis |
 | `volcano_data(results, fc_threshold, p_threshold) -> Vec<VolcanoPoint>` | Generate volcano plot data |
 
@@ -227,7 +215,7 @@ Exact and log-space combinatorial functions with overflow protection.
 | `GoAnnotation` | Collection of GO term annotations with `new()`, `from_entries()`, `n_terms()`, `n_genes()`, `terms_for_gene()`, `filter_namespace()` |
 | `GoEnrichmentConfig` | Config: `min_genes` (default 5), `max_genes` (default 500), `namespace` (optional filter) |
 | `GoEnrichmentResult` | Per-term result: `term_id`, `term_name`, `namespace`, `overlap`, `expected`, `gene_set_size`, `p_value`, `p_adjusted` |
-| `go_enrichment(significant, annotation, n_total, config) -> Result<Vec<GoEnrichmentResult>>` | GO enrichment via ORA — filters by namespace/size, delegates to `ora()`, returns BH-corrected results |
+| `go_enrichment(significant, annotation, n_total, config) -> Result<Vec<GoEnrichmentResult>>` | GO enrichment via ORA -- filters by namespace/size, delegates to `ora()`, returns BH-corrected results |
 
 ### Ecological diversity (`diversity.rs`)
 
@@ -237,12 +225,61 @@ Alpha and beta diversity metrics for microbial ecology.
 |---------------|-------------|
 | `AlphaDiversity` | Shannon, Simpson, inverse Simpson, Chao1, observed species |
 | `alpha_diversity(counts) -> Result<AlphaDiversity>` | Compute all alpha diversity metrics |
-| `shannon_index(counts) -> Result<f64>` | Shannon entropy H = -Σ p_i ln(p_i) |
-| `simpson_index(counts) -> Result<f64>` | Simpson's index D = Σ n_i(n_i-1) / N(N-1) |
+| `shannon_index(counts) -> Result<f64>` | Shannon entropy H = -sum(p_i ln(p_i)) |
+| `simpson_index(counts) -> Result<f64>` | Simpson's index |
 | `chao1(counts) -> Result<f64>` | Chao1 richness estimator |
 | `bray_curtis(a, b) -> Result<f64>` | Bray-Curtis dissimilarity between two samples |
 | `bray_curtis_matrix(samples) -> Result<Vec<Vec<f64>>>` | Pairwise Bray-Curtis distance matrix |
 | `rarefaction_curve(counts, steps) -> Result<Vec<(usize, f64)>>` | Expected species richness at subsampled depths |
+| `hill_number(counts, q) -> Result<f64>` | Hill number of order q (generalized diversity) |
+| `jaccard_distance(a, b) -> Result<f64>` | Jaccard distance (presence/absence) |
+| `weighted_jaccard(a, b) -> Result<f64>` | Weighted Jaccard distance (abundance-weighted) |
+
+### Ordination (`ordination.rs`)
+
+Multivariate ordination methods for ecological analysis.
+
+| Type/Function | Description |
+|---------------|-------------|
+| `PcoaResult` | `coordinates`, `eigenvalues`, `proportion_explained`, `n_negative_eigenvalues` |
+| `pcoa(distances, n_components) -> Result<PcoaResult>` | Principal Coordinates Analysis (classical MDS) |
+| `NmdsResult` | `coordinates`, `stress`, `n_iterations`, `converged` |
+| `nmds(distances, n_components, config) -> Result<NmdsResult>` | Non-metric Multidimensional Scaling (Kruskal's stress-1) |
+| `RdaResult` | `constrained_coords`, `unconstrained_coords`, `eigenvalues`, `proportion_explained` |
+| `rda(response, predictors, n_components) -> Result<RdaResult>` | Redundancy Analysis (constrained PCA) |
+| `CcaResult` | `site_scores`, `species_scores`, `eigenvalues`, `proportion_explained` |
+| `cca(species, environment, n_components) -> Result<CcaResult>` | Canonical Correspondence Analysis |
+| `ProcrustesResult` | `m_squared`, `p_value`, `rotation`, `scale`, `translation` |
+| `procrustes(target, rotated, n_permutations) -> Result<ProcrustesResult>` | Procrustes rotation with significance test |
+
+### Multivariate tests (`multivariate.rs`)
+
+Multivariate statistical tests for community ecology.
+
+| Type/Function | Description |
+|---------------|-------------|
+| `PermanovaResult` | `f_statistic`, `p_value`, `n_permutations`, `r_squared`, `n_groups` |
+| `permanova(distances, groups, n_permutations, seed) -> Result<PermanovaResult>` | PERMANOVA: permutational MANOVA on distance matrices |
+| `AnosimResult` | `r_statistic`, `p_value`, `n_permutations` |
+| `anosim(distances, groups, n_permutations, seed) -> Result<AnosimResult>` | ANOSIM: analysis of similarities |
+| `MantelResult` | `r_statistic`, `p_value`, `n_permutations`, `method` |
+| `mantel(dist_a, dist_b, n_permutations, seed) -> Result<MantelResult>` | Mantel test: correlation between distance matrices |
+| `AmovaResult` | `among_groups`, `within_groups`, `phi_st`, `p_value` |
+| `amova(distances, groups, n_permutations, seed) -> Result<AmovaResult>` | AMOVA: analysis of molecular variance |
+| `BioenvResult` | `best_subset`, `best_correlation`, `all_results` |
+| `bioenv(community_dist, env_data, n_vars) -> Result<BioenvResult>` | BIOENV: best environmental variable subset |
+
+### Null models (`null_model.rs`)
+
+Resampling and simulation-based null model generators.
+
+| Type/Function | Description |
+|---------------|-------------|
+| `WrightFisherResult` | `trajectories`, `fixation_time`, `final_frequencies` |
+| `wright_fisher(pop_size, initial_freq, n_generations, n_loci, seed) -> Result<WrightFisherResult>` | Wright-Fisher drift simulation with binomial sampling |
+| `NullDistribution` | `values`, `observed`, `p_value`, `n_permutations` |
+| `permutation_null(data, groups, statistic_fn, n_permutations, seed) -> Result<NullDistribution>` | Permutation-based null distribution for group statistics |
+| `bootstrap_null(data, statistic_fn, n_bootstrap, seed) -> Result<NullDistribution>` | Bootstrap resampling null distribution |
 
 ### Survival analysis (`survival.rs`)
 
@@ -255,6 +292,22 @@ Alpha and beta diversity metrics for microbial ecology.
 | `log_rank_test(times, status, groups) -> Result<LogRankResult>` | Log-rank test comparing survival between groups |
 | `CoxPhResult` | Coefficients, SE, z-values, p-values, hazard ratios with 95% CI, convergence info |
 | `cox_ph(times, status, covariates, n_covariates) -> Result<CoxPhResult>` | Cox proportional hazards via Breslow partial likelihood (Newton-Raphson) |
+
+## Feature Flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `std` | Yes | Standard library support |
+| `wasm` | No | WASM target |
+| `serde` | No | Serialization support |
+| `parallel` | No | Rayon parallelism |
+| `blas` | No | BLAS-accelerated PCA via ndarray |
+
+## Dependencies
+
+- `cyanea-core` -- error types
+- `ndarray` (optional, `blas` feature) -- matrix operations for BLAS-accelerated PCA
+- `rayon` (optional, `parallel` feature) -- data parallelism
 
 ## Tests
 
@@ -280,4 +333,8 @@ Alpha and beta diversity metrics for microbial ecology.
 | `normalization.rs` | 357 | Expression normalization (TPM, FPKM, CPM, DESeq2 size factors) |
 | `diffexpr.rs` | 546 | Differential expression (NB Wald test, Wilcoxon, volcano plot) |
 | `enrichment.rs` | ~760 | Gene set enrichment (ORA, GSEA preranked, GO enrichment) |
+| `diversity.rs` | -- | Alpha/beta diversity, Hill numbers, rarefaction |
+| `ordination.rs` | -- | PCoA, NMDS, RDA, CCA, Procrustes |
+| `multivariate.rs` | -- | PERMANOVA, ANOSIM, Mantel, AMOVA, BIOENV |
+| `null_model.rs` | -- | Wright-Fisher simulation, permutation/bootstrap null models |
 | `survival.rs` | 1164 | Survival analysis (Kaplan-Meier, log-rank test, Cox PH) |

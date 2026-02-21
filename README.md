@@ -20,8 +20,10 @@
 
 <p align="center">
   <a href="docs/">Docs</a> &bull;
-  <a href="ARCHITECTURE.md">Architecture</a> &bull;
+  <a href="docs/ARCHITECTURE.md">Architecture</a> &bull;
   <a href="docs/BUILDING.md">Build Guide</a> &bull;
+  <a href="docs/BINDINGS.md">Bindings</a> &bull;
+  <a href="docs/GUIDE.md">Usage Guide</a> &bull;
   <a href="https://github.com/cyanea-io/labs/issues">Issues</a> &bull;
   <a href="https://github.com/cyanea-io/labs/discussions">Discussions</a>
 </p>
@@ -32,7 +34,7 @@
 
 Cyanea Labs is a Cargo workspace of 13 crates covering the core primitives of computational biology — sequence analysis, alignment, genomic intervals, statistics, machine learning, cheminformatics, structural biology, and phylogenetics. Everything compiles to native, WebAssembly, and Python (via PyO3), with an Elixir NIF bridge for the Cyanea platform.
 
-1570+ tests. Zero `unsafe`. No heavyweight C/C++ dependencies in the core path.
+3,000+ tests. Zero `unsafe`. No heavyweight C/C++ dependencies in the core path.
 
 ## Quick Start
 
@@ -101,22 +103,22 @@ const desc = stats.describe([1, 2, 3, 4, 5]);
 | Crate | What it does | Tests |
 |-------|-------------|------:|
 | **[cyanea-core](cyanea-core/)** | Error types, traits, SHA-256, zstd/gzip, mmap, log-space probability, rank/select bitvectors, wavelet matrix, Fenwick tree | 58 |
-| **[cyanea-seq](cyanea-seq/)** | DNA/RNA/protein sequences, FASTA/FASTQ, k-mers, 2-bit encoding, suffix array, FM-index, BWT, FMD-index, MinHash, pattern matching (KMP, Boyer-Moore, Myers bit-parallel), PSSM/motif scanning, ORF finder, codon tables, sequence masking | 300 |
-| **[cyanea-align](cyanea-align/)** | Needleman-Wunsch, Smith-Waterman, semi-global, banded, MSA, seed-and-extend, minimizers, WFA, POA, LCSk++, pair HMM, X-drop/Z-drop, spliced alignment, CIGAR utilities, substitution matrices | 290 |
-| **[cyanea-omics](cyanea-omics/)** | Genomic coordinates, interval sets, genome arithmetic (intersect/subtract/complement/closest/Jaccard), expression matrices, sparse matrices, variants, gene annotations, coordinate liftover, AnnData/h5ad/zarr | 158 |
-| **[cyanea-io](cyanea-io/)** | CSV, VCF, BED, BEDPE, GFF3, SAM, BAM, CRAM, Parquet | 81 |
-| **[cyanea-stats](cyanea-stats/)** | Descriptive stats, correlation, hypothesis tests (t, chi-squared, Mann-Whitney, Fisher, KS), distributions, PCA, effect sizes, Bayesian conjugate priors, combinatorics | 167 |
-| **[cyanea-ml](cyanea-ml/)** | K-means, DBSCAN, hierarchical clustering, pairwise distances, KNN, PCA, t-SNE, UMAP, random forest, HMM | 161 |
-| **[cyanea-chem](cyanea-chem/)** | SMILES/SDF parsing, molecular fingerprints (Morgan, MACCS), substructure search, stereochemistry, canonical SMILES, physicochemical properties | 79 |
+| **[cyanea-seq](cyanea-seq/)** | DNA/RNA/protein sequences, FASTA/FASTQ, k-mers, 2-bit encoding, suffix array, FM-index, BWT, FMD-index, MinHash, pattern matching (KMP, Boyer-Moore, Myers bit-parallel), PSSM/motif scanning, ORF finder, codon tables, sequence masking, RNA secondary structure, protein properties, read simulation, de Bruijn graphs, assembly QC | 474 |
+| **[cyanea-align](cyanea-align/)** | Needleman-Wunsch, Smith-Waterman, semi-global, banded, MSA, seed-and-extend, minimizers, WFA, POA, LCSk++, pair HMM, profile HMM, X-drop/Z-drop, spliced alignment, CIGAR utilities, substitution matrices (BLOSUM/PAM), SIMD (NEON/SSE4.1/AVX2), GPU dispatch | 321 |
+| **[cyanea-omics](cyanea-omics/)** | Genomic coordinates, interval sets/trees, genome arithmetic, expression matrices, sparse matrices, variants, gene annotations, coordinate liftover, AnnData/h5ad/zarr, variant annotation/VEP, CNV/CBS, methylation, spatial transcriptomics, single-cell (HVG, normalize, Leiden/Louvain, diffusion map, DPT, PAGA, markers, Harmony/ComBat/MNN) | 434 |
+| **[cyanea-io](cyanea-io/)** | CSV, VCF, BED, BEDPE, GFF3, GTF, SAM, BAM, CRAM, BCF, Parquet, BLAST, BLAST XML, MAF, GenBank, bigWig, Stockholm, Clustal, Phylip, EMBL, PIR, ABI, bedGraph, GFA, indexed BAM/VCF, BAM ops, VCF ops, variant calling, fetch clients | 357 |
+| **[cyanea-stats](cyanea-stats/)** | Descriptive stats, correlation, hypothesis tests (t, chi-squared, Mann-Whitney, Fisher, KS), distributions, PCA, effect sizes, Bayesian conjugate priors, combinatorics, population genetics (Fst, Tajima's D, LD), differential expression, enrichment (GSEA, ORA), ordination (PCoA, NMDS), multivariate tests (PERMANOVA, ANOSIM), survival analysis, ecological diversity | 384 |
+| **[cyanea-ml](cyanea-ml/)** | K-means, DBSCAN, hierarchical clustering, pairwise distances, KNN, PCA, t-SNE, UMAP, random forest, GBDT, feature selection, HMM, classification metrics, cross-validation | 269 |
+| **[cyanea-chem](cyanea-chem/)** | SMILES/SDF V2000/V3000, SMARTS, molecular fingerprints (Morgan, MACCS), substructure search, stereochemistry, canonical SMILES, 200+ descriptors, drug-likeness (Lipinski, QED, PAINS), scaffolds (Murcko, MCS), 3D conformers (ETKDG), force fields (UFF, MMFF94), Gasteiger charges, chemical reactions (SMIRKS), standardization | 200 |
 | **[cyanea-struct](cyanea-struct/)** | PDB/mmCIF parsing, 3D geometry, DSSP secondary structure, Kabsch superposition, contact maps, Ramachandran analysis | 76 |
-| **[cyanea-phylo](cyanea-phylo/)** | Newick/NEXUS parsing, distance matrices, UPGMA/NJ tree building, Fitch/Sankoff parsimony, ML likelihood, bootstrap | 110 |
-| **[cyanea-gpu](cyanea-gpu/)** | Backend trait with CPU, CUDA, and Metal implementations, GPU buffer management, benchmarks | 61 |
-| **[cyanea-wasm](cyanea-wasm/)** | WebAssembly bindings via wasm-bindgen (seq, io, align, stats, ml, chem, struct, phylo) | 96 |
-| **[cyanea-py](cyanea-py/)** | Python bindings via PyO3 (seq, align, stats, ml, chem, struct, phylo, io) with optional NumPy support | &mdash; |
+| **[cyanea-phylo](cyanea-phylo/)** | Newick/NEXUS parsing, distance matrices, UPGMA/NJ, Fitch/Sankoff parsimony, ML likelihood (GTR+G), bootstrap, tree search (NNI/SPR/TBR), model selection (AIC/BIC), protein models (LG/WAG/JTT), Bayesian MCMC, species tree (ASTRAL), UniFrac, simulation, consensus, dating, drawing | 225 |
+| **[cyanea-gpu](cyanea-gpu/)** | Backend trait with CPU, CUDA, Metal, and WebGPU implementations, GPU buffer management, k-mer counting, Smith-Waterman, MinHash, benchmarks | 62 |
+| **[cyanea-wasm](cyanea-wasm/)** | WebAssembly bindings via wasm-bindgen (seq, io, align, stats, ml, chem, struct_bio, phylo, omics, core) | 223 |
+| **[cyanea-py](cyanea-py/)** | Python bindings via PyO3 (seq, align, stats, ml, chem, struct_bio, phylo, io, omics, sc) with optional NumPy support | &mdash; |
 
 ## Architecture
 
-> See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the full architecture guide with ASCII diagrams, feature flag details, data flow pipelines, and platform support matrix.
+> See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full architecture guide with ASCII diagrams, feature flag details, data flow pipelines, and platform support matrix.
 
 ```
 cyanea-core (foundation)
@@ -146,6 +148,7 @@ All domain crates default to `std`. Opt into additional capabilities:
 | `simd` | align | SIMD-accelerated alignment |
 | `cuda` | gpu, align | CUDA GPU backend (requires CUDA toolkit) |
 | `metal` | gpu, align | Metal GPU backend (macOS) |
+| `wgpu` | gpu | WebGPU backend (cross-platform) |
 | `blas` | ml, stats | BLAS-backed PCA |
 | `wfa` | align | Wavefront alignment |
 | `minhash` | seq | MinHash / FracMinHash sketching |
@@ -155,6 +158,7 @@ All domain crates default to `std`. Opt into additional capabilities:
 | `parquet` | io | Apache Parquet columnar format |
 | `h5ad` | omics | HDF5-backed AnnData I/O |
 | `zarr` | omics | Zarr v3 I/O |
+| `single-cell` | omics | Single-cell analysis pipeline (Leiden, HVG, pseudotime, integration) |
 | `serde` | all | Serialization support |
 | `wasm` | wasm | wasm-bindgen annotations |
 | `numpy` | py | NumPy array interop |
@@ -185,6 +189,10 @@ cd cyanea-py && PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin develop --release
 cargo check -p cyanea-native   # Check only (linking requires BEAM)
 cd ../cyanea && mix compile     # Full build via Rustler
 ```
+
+## Cross-Crate Pipelines
+
+> See [`docs/GUIDE.md`](docs/GUIDE.md) for complete cross-crate workflow examples: FASTQ→alignment→variants, single-cell analysis, cheminformatics, phylogenetics, population genetics, and microbiome analysis.
 
 ## Contributing
 

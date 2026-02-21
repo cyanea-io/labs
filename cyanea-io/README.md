@@ -65,22 +65,43 @@ let alignments = parse_sam("reads.sam").unwrap();
 |--------|---------|-------------|
 | `csv` | `csv` | CSV metadata and preview |
 | `vcf` | `vcf` | VCF parsing and statistics |
-| `bed` | `bed` | BED record parsing |
+| `vcf_header` | `vcf` | Structured VCF 4.3 header construction/parsing |
+| `vcf_ops` | `vcf` | Normalization, multi-allelic split/join, filtering, set ops |
+| `indexed_vcf` | `vcf` | Random-access VCF via tabix index (noodles) |
+| `bed` | `bed` | BED3-BED6 record parsing |
 | `bedpe` | `bed` | BEDPE paired-end intervals |
+| `bedgraph` | `bed` | bedGraph/Wiggle signal tracks |
 | `gff` | `gff` | GFF3 hierarchical parsing |
 | `gtf` | `gtf` | GTF (GFF2) parsing |
-| `sam` | `sam` | SAM records, flags, paired stats, pileup |
-| `bam` | `bam` | BAM binary parsing |
+| `sam` | `sam` | SAM records, flags, paired stats |
+| `pileup` | `sam` | Pileup generation, mpileup output |
+| `bgzf` | `bam` | BGZF block decompression, virtual offsets |
+| `bam` | `bam` | BAM binary alignment parsing |
+| `bam_ops` | `bam` | Sort, merge, mark duplicates, flagstat, depth |
+| `indexed_bam` | `bam` | Random-access BAM via BAI/CSI index (noodles) |
 | `cram` | `cram` | CRAM format via noodles |
-| `bcf` | `bcf` | BCF2.1 binary VCF |
-| `blast` | `blast` | BLAST tabular output |
+| `bcf` | `bcf` | BCF2.1 binary VCF reader |
+| `bcf_write` | `bcf` | BCF2 binary VCF writer |
+| `variant_call` | `variant-calling` | Bayesian genotype caller from pileup |
+| `blast` | `blast` | BLAST tabular output (-outfmt 6/7) |
+| `blast_xml` | `blast` | BLAST XML output (-outfmt 5) |
 | `maf` | `maf` | Multiple Alignment Format |
-| `genbank` | `genbank` | GenBank flat file |
-| `bigwig` | `bigwig` | bigWig/bigBed binary |
-| `parquet` | `parquet` | Parquet columnar format |
+| `genbank` | `genbank` | GenBank flat file parsing |
+| `embl` | `genbank` | EMBL/ENA format parsing |
+| `stockholm` | `genbank` | Stockholm MSA format (Pfam/Rfam/HMMER) |
+| `clustal` | `genbank` | ClustalW/Omega format |
+| `phylip` | `genbank` | PHYLIP interleaved/sequential format |
+| `pir` | `genbank` | PIR/NBRF protein format |
+| `abi` | `genbank` | ABI Sanger chromatogram binary |
+| `gfa` | `genbank` | GFA v1 sequence graph format |
+| `bigwig` | `bigwig` | bigWig/bigBed Kent binary format |
+| `parquet` | `parquet` | Apache Parquet columnar format |
+| `fetch` | `fetch` | URL builders for NCBI/UniProt/KEGG/htsget/refget |
 
 ## See Also
 
-- [API Reference (STATUS.md)](docs/STATUS.md)
-- [Architecture](../ARCHITECTURE.md)
+- [API Reference](docs/API.md)
+- [Usage Guide](docs/GUIDE.md)
+- [Internal Architecture](docs/ARCHITECTURE.md)
+- [Workspace Architecture](../docs/ARCHITECTURE.md)
 - [Build Guide](../docs/BUILDING.md)
