@@ -5,6 +5,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
+homepage.workspace = true
 rust-version.workspace = true
 keywords = ["bioinformatics", "gpu", "cuda", "metal", "compute"]
 categories = ["science"]
@@ -23,9 +24,9 @@ serde = { workspace = true, optional = true }
 rayon = { workspace = true, optional = true }
 metal-rs = { workspace = true, optional = true }
 cudarc = { workspace = true, optional = true }
-wgpu = { version = "24", optional = true }
-bytemuck = { version = "1", features = ["derive"], optional = true }
-pollster = { version = "0.4", optional = true }
+wgpu = { workspace = true, optional = true }
+bytemuck = { workspace = true, features = ["derive"], optional = true }
+pollster = { workspace = true, optional = true }
 
 [dev-dependencies]
 criterion = { workspace = true }

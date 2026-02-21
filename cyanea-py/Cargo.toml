@@ -8,6 +8,7 @@ repository.workspace = true
 rust-version.workspace = true
 keywords = ["bioinformatics", "python", "pyo3", "bindings", "genomics"]
 categories = ["api-bindings", "science"]
+publish = false
 
 [lib]
 name = "cyanea"

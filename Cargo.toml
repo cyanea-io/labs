@@ -21,7 +21,8 @@ resolver = "2"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
-repository = "https://github.com/cyanea-io/cyanea"
+repository = "https://github.com/cyanea-io/labs"
+homepage = "https://github.com/cyanea-io/labs"
 rust-version = "1.93"
 
 [workspace.dependencies]
@@ -58,6 +59,9 @@ ndarray = "0.16"
 # GPU
 metal-rs = { package = "metal", version = "0.33" }
 cudarc = { version = "0.19", default-features = false, features = ["std", "driver", "nvrtc", "fallback-dynamic-loading", "cuda-12060"] }
+wgpu = "24"
+bytemuck = "1"
+pollster = "0.4"
 
 # Benchmarking
 criterion = { version = "0.5", features = ["html_reports"] }
