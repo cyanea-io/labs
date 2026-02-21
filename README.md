@@ -14,7 +14,7 @@
     <img alt="Rust" src="https://img.shields.io/badge/Rust-1.93+-000000?logo=rust&logoColor=white&style=for-the-badge">
   </a>
   <a href="Cargo.toml">
-    <img alt="License" src="https://img.shields.io/badge/License-MIT%2FApache--2.0-c6a0f6?style=for-the-badge">
+    <img alt="License" src="https://img.shields.io/badge/License-Apache--2.0-c6a0f6?style=for-the-badge">
   </a>
 </p>
 
@@ -207,4 +207,4 @@ cargo test --workspace --exclude cyanea-py
 
 ## License
 
-MIT OR Apache-2.0
+Apache-2.0

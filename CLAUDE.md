@@ -4,7 +4,7 @@ Rust bioinformatics ecosystem — 13 crates, 3000+ tests, targeting native, WASM
 
 ## Workspace
 
-Cargo workspace at `Cargo.toml`. Rust 1.93+, edition 2021, MIT/Apache-2.0.
+Cargo workspace at `Cargo.toml`. Rust 1.93+, edition 2021, Apache-2.0.
 
 ```
 cargo check --workspace                    # Check all crates
