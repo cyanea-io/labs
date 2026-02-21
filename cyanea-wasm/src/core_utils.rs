@@ -1,6 +1,8 @@
 //! Core utility wrappers: SHA-256 hashing and zstd compression.
 
-use crate::error::{wasm_err, wasm_ok};
+use crate::error::wasm_ok;
+#[cfg(feature = "compress")]
+use crate::error::wasm_err;
 
 #[cfg(feature = "wasm")]
 use wasm_bindgen::prelude::*;
@@ -12,6 +14,7 @@ pub fn sha256(data: &str) -> String {
 }
 
 /// Compress a string with zstd at the given level, return JSON byte array.
+#[cfg(feature = "compress")]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub fn zstd_compress(data: &str, level: i32) -> String {
     match cyanea_core::compress::zstd_compress(data.as_bytes(), level) {
@@ -21,6 +24,7 @@ pub fn zstd_compress(data: &str, level: i32) -> String {
 }
 
 /// Decompress zstd data from a JSON byte array, return JSON string.
+#[cfg(feature = "compress")]
 #[cfg_attr(feature = "wasm", wasm_bindgen)]
 pub fn zstd_decompress(data_json: &str) -> String {
     let bytes: Vec<u8> = match serde_json::from_str(data_json) {
@@ -51,6 +55,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "compress")]
     #[test]
     fn zstd_roundtrip() {
         let compressed_json = zstd_compress("hello world", 3);

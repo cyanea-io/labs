@@ -94,7 +94,9 @@ pub use ml::{
 };
 
 // core
-pub use core_utils::{sha256, zstd_compress, zstd_decompress};
+pub use core_utils::sha256;
+#[cfg(feature = "compress")]
+pub use core_utils::{zstd_compress, zstd_decompress};
 
 // chem
 pub use chem::{

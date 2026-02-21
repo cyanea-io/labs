@@ -10,12 +10,16 @@ keywords = ["bioinformatics", "wasm", "webassembly", "browser", "bindings"]
 categories = ["wasm", "science"]
 publish = false
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [features]
 default = []
 wasm = ["wasm-bindgen"]
+compress = ["cyanea-core/std"]
 
 [dependencies]
-cyanea-core  = { path = "../cyanea-core",  version = "0.1.0", default-features = false, features = ["serde", "std"] }
+cyanea-core  = { path = "../cyanea-core",  version = "0.1.0", default-features = false, features = ["serde"] }
 cyanea-seq   = { path = "../cyanea-seq",   version = "0.1.0", default-features = false, features = ["serde", "minhash"] }
 cyanea-io    = { path = "../cyanea-io",    version = "0.1.0", default-features = false, features = ["sam", "vcf", "bed", "gff", "blast-xml", "bedgraph", "gfa", "fetch"] }
 cyanea-omics = { path = "../cyanea-omics", version = "0.1.0", default-features = false, features = ["serde", "single-cell"] }
