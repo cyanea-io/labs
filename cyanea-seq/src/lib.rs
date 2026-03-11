@@ -62,6 +62,9 @@ pub mod quality;
 pub mod read_sim;
 pub mod seq;
 pub mod suffix;
+pub mod longread;
+pub mod nanopore;
+pub mod sv;
 pub mod taxonomy;
 pub mod trim;
 pub mod twobit;
@@ -178,4 +181,23 @@ pub use read_sim::{simulate_reads, ReadSimConfig, SimulatedRead};
 pub use motif_io::{
     motif_similarity, parse_jaspar, parse_meme, parse_transfac, write_jaspar, write_meme,
     write_transfac, Motif, MotifAlphabet,
+};
+
+// Re-export long-read sequencing types
+pub use longread::{
+    common_adapters as longread_adapters, longread_stats, self_correct, simple_consensus,
+    simulate_long_reads, trim_adapters, CorrectedRead, LongRead, LongReadAdapter,
+    LongReadPlatform, LongReadSimConfig, LongReadStats,
+};
+
+// Re-export structural variant types
+pub use sv::{
+    call_svs, cluster_svs, sv_summary, svs_from_cigar, SplitAlignment, StructuralVariant,
+    SvCallConfig, SvSummary, SvType,
+};
+
+// Re-export Nanopore analysis types
+pub use nanopore::{
+    aggregate_methylation, nanopore_qc, parse_methylation_calls, parse_signal_metadata,
+    MethylationCall, MethylationSite, ModificationType, NanoporeQC, SignalMetadata,
 };

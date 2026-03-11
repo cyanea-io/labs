@@ -255,7 +255,7 @@ CyaneaError
 | Crate | Unit Tests | Doc Tests | Total |
 |-------|------:|------:|------:|
 | cyanea-core | 58 | -- | 58 |
-| cyanea-seq | 474 | 26 | 500 |
+| cyanea-seq | 515 | 26 | 541 |
 | cyanea-align | 321 | 8 | 329 |
 | cyanea-io | 357 | 7 | 364 |
 | cyanea-omics | 463 | 3 | 466 |
@@ -269,7 +269,7 @@ CyaneaError
 | cyanea-epi | 73 | 1 | 74 |
 | cyanea-proteomics | 86 | -- | 86 |
 | cyanea-wasm | 223 | 1 | 224 |
-| **Total** | | | **3,800+** |
+| **Total** | | | **3,840+** |
 
 Test data is always inline (strings, vecs) -- no external fixture files. Tests needing the filesystem use the `tempfile` crate.
 
@@ -297,7 +297,7 @@ Test data is always inline (strings, vecs) -- no external fixture files. Tests n
 | Crate | Role | Key Abstractions |
 |-------|------|-----------------|
 | **cyanea-core** | Foundation | `CyaneaError`, traits, SHA-256, compression, `LogProb`/`PhredProb`, bitvectors, Fenwick tree |
-| **cyanea-seq** | Sequence analysis | `DnaSequence`/`RnaSequence`/`ProteinSequence`, FASTA/FASTQ, FM-index, FMD-index, MinHash, pattern matching, trimming, codon tables, masking, RNA structure, protein properties, read simulation |
+| **cyanea-seq** | Sequence analysis | `DnaSequence`/`RnaSequence`/`ProteinSequence`, FASTA/FASTQ, FM-index, FMD-index, MinHash, pattern matching, trimming, codon tables, masking, RNA structure, protein properties, read simulation, long-read analysis (PacBio/Nanopore), structural variant calling, nanopore QC/methylation |
 | **cyanea-align** | Alignment | NW/SW/semi-global, banded, MSA, POA, pair/profile HMM, LCSk++, WFA, X-drop/Z-drop, spliced alignment, GPU dispatch, CIGAR |
 | **cyanea-io** | File formats | 30+ format parsers (CSV, VCF, BED, BEDPE, GFF3, GTF, SAM, BAM, CRAM, BCF, Parquet, BLAST, BLAST XML, MAF, GenBank, bigWig, Stockholm, Clustal, Phylip, EMBL, PIR, ABI, bedGraph, GFA), indexed BAM/VCF, feature-gated, streaming |
 | **cyanea-omics** | Genomic data | Intervals, interval trees, coverage, variants, variant annotation/VEP, CNV/CBS, methylation, spatial transcriptomics, single-cell (HVG, normalize, clustering, trajectory, markers, integration), AnnData, h5ad/zarr, OTU tables, networks, haplotypes, genome arithmetic, liftover |

@@ -34,7 +34,7 @@
 
 Cyanea Labs is a Cargo workspace of 16 crates covering the core primitives of computational biology — sequence analysis, alignment, genomic intervals, statistics, machine learning, cheminformatics, structural biology, phylogenetics, metagenomics, epigenomics, and proteomics. Everything compiles to native, WebAssembly, and Python (via PyO3), with an Elixir NIF bridge for the Cyanea platform.
 
-3,800+ tests. Zero `unsafe`. No heavyweight C/C++ dependencies in the core path.
+3,840+ tests. Zero `unsafe`. No heavyweight C/C++ dependencies in the core path.
 
 ## Quick Start
 
@@ -103,7 +103,7 @@ const desc = stats.describe([1, 2, 3, 4, 5]);
 | Crate | What it does | Tests |
 |-------|-------------|------:|
 | **[cyanea-core](cyanea-core/)** | Error types, traits, SHA-256, zstd/gzip, mmap, log-space probability, rank/select bitvectors, wavelet matrix, Fenwick tree | 58 |
-| **[cyanea-seq](cyanea-seq/)** | DNA/RNA/protein sequences, FASTA/FASTQ, k-mers, 2-bit encoding, suffix array, FM-index, BWT, FMD-index, MinHash, pattern matching (KMP, Boyer-Moore, Myers bit-parallel), PSSM/motif scanning, ORF finder, codon tables, sequence masking, RNA secondary structure, protein properties, read simulation, de Bruijn graphs, assembly QC | 474 |
+| **[cyanea-seq](cyanea-seq/)** | DNA/RNA/protein sequences, FASTA/FASTQ, k-mers, 2-bit encoding, suffix array, FM-index, BWT, FMD-index, MinHash, pattern matching (KMP, Boyer-Moore, Myers bit-parallel), PSSM/motif scanning, ORF finder, codon tables, sequence masking, RNA secondary structure, protein properties, read simulation, de Bruijn graphs, assembly QC, long-read analysis (PacBio/Nanopore), structural variant calling, nanopore QC/methylation | 515 |
 | **[cyanea-align](cyanea-align/)** | Needleman-Wunsch, Smith-Waterman, semi-global, banded, MSA, seed-and-extend, minimizers, WFA, POA, LCSk++, pair HMM, profile HMM, X-drop/Z-drop, spliced alignment, CIGAR utilities, substitution matrices (BLOSUM/PAM), SIMD (NEON/SSE4.1/AVX2), GPU dispatch | 321 |
 | **[cyanea-omics](cyanea-omics/)** | Genomic coordinates, interval sets/trees, genome arithmetic, expression matrices, sparse matrices, variants, gene annotations, coordinate liftover, AnnData/h5ad/zarr, variant annotation/VEP, CNV/CBS, methylation, spatial transcriptomics, single-cell (HVG, normalize, Leiden/Louvain, diffusion map, DPT, PAGA, markers, Harmony/ComBat/MNN, MTX/CSC, RNA velocity, batch correction metrics) | 463 |
 | **[cyanea-io](cyanea-io/)** | CSV, VCF, BED, BEDPE, GFF3, GTF, SAM, BAM, CRAM, BCF, Parquet, BLAST, BLAST XML, MAF, GenBank, bigWig, Stockholm, Clustal, Phylip, EMBL, PIR, ABI, bedGraph, GFA, indexed BAM/VCF, BAM ops, VCF ops, variant calling, fetch clients | 357 |

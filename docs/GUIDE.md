@@ -547,3 +547,109 @@ fn main() {
     println!("{}", mztab);
 }
 ```
+
+## 10. Long-Read Sequencing Analysis
+
+Analyze PacBio HiFi and Oxford Nanopore long reads: compute read statistics, self-correct reads, call structural variants from split alignments, run nanopore-specific QC, and detect CpG methylation.
+
+**Crates**: cyanea-seq
+
+```toml
+[dependencies]
+cyanea-seq = "0.1"
+```
+
+```rust
+use cyanea_seq::longread::{
+    LongRead, LongReadPlatform, longread_stats, self_correct,
+    simple_consensus, LongReadSimConfig, simulate_long_reads,
+    trim_adapters, common_adapters,
+};
+use cyanea_seq::sv::{
+    SplitAlignment, SvCallConfig, call_svs, cluster_svs,
+    svs_from_cigar, sv_summary,
+};
+use cyanea_seq::nanopore::{
+    parse_signal_metadata, parse_methylation_calls,
+    aggregate_methylation, nanopore_qc,
+};
+
+fn longread_pipeline(
+    reads: &[LongRead],
+    split_alignments: &[SplitAlignment],
+    nanopore_metadata_lines: &[&str],
+    methylation_text: &str,
+) {
+    // 1. Long-read statistics (N50, mean/median length, quality)
+    let stats = longread_stats(reads).unwrap();
+    println!("N50: {} bp, mean length: {} bp, mean quality: {:.1}",
+        stats.n50, stats.mean_length as u64, stats.mean_quality);
+
+    // 2. Self-correct a read using k-mer consensus
+    let corrected = self_correct(&reads[0], 9).unwrap();
+    println!("Corrected {} -> {} bases, {:.1}% identity",
+        reads[0].len(), corrected.sequence.len(),
+        corrected.identity * 100.0);
+
+    // 3. Consensus from overlapping reads
+    let seqs: Vec<&[u8]> = reads.iter().map(|r| r.sequence.as_slice()).collect();
+    let consensus = simple_consensus(&seqs).unwrap();
+    println!("Consensus: {} bp", consensus.len());
+
+    // 4. Trim platform-specific adapters
+    let adapters = common_adapters();
+    for read in reads {
+        let trimmed = trim_adapters(read, &adapters, 0.8).unwrap();
+        println!("{}: {} -> {} bp after adapter trimming",
+            read.id, read.len(), trimmed.len());
+    }
+
+    // 5. Simulate long reads from a reference (for benchmarking)
+    let reference = b"ATCGATCGATCG";
+    let sim_config = LongReadSimConfig {
+        platform: LongReadPlatform::PacBioHiFi,
+        num_reads: 100,
+        mean_length: 15000,
+        ..Default::default()
+    };
+    let simulated = simulate_long_reads(reference, &sim_config).unwrap();
+    println!("Simulated {} reads", simulated.len());
+
+    // 6. Call structural variants from split alignments
+    let sv_config = SvCallConfig::default();
+    let mut svs = call_svs(split_alignments, &sv_config).unwrap();
+    println!("Called {} raw SVs", svs.len());
+
+    // 7. Cluster nearby SVs and summarize
+    let merged = cluster_svs(&mut svs, &sv_config);
+    let summary = sv_summary(&merged);
+    println!("{} INS, {} DEL, {} INV, {} DUP, {} BND",
+        summary.insertions, summary.deletions, summary.inversions,
+        summary.duplications, summary.breakends);
+
+    // 8. Extract SVs from CIGAR strings (large indels)
+    let cigar_svs = svs_from_cigar("chr1", 1000, "50M500D30M2000I20M", 50).unwrap();
+    println!("{} SVs from CIGAR", cigar_svs.len());
+
+    // 9. Nanopore-specific QC
+    let qc = nanopore_qc(reads).unwrap();
+    println!("Nanopore QC: {} reads, N50={}, median Q={:.1}",
+        qc.total_reads, qc.n50, qc.median_quality);
+
+    // 10. Parse signal metadata from POD5/FAST5
+    for line in nanopore_metadata_lines {
+        let meta = parse_signal_metadata(line).unwrap();
+        println!("Read {} on channel {}, duration {:.1}s",
+            meta.read_id, meta.channel, meta.duration);
+    }
+
+    // 11. CpG methylation from modified base calls
+    let meth_calls = parse_methylation_calls(methylation_text).unwrap();
+    let sites = aggregate_methylation(&meth_calls).unwrap();
+    for site in &sites {
+        println!("{}:{} methylation: {:.1}% ({} reads)",
+            site.chrom, site.position,
+            site.methylation_frequency * 100.0, site.coverage);
+    }
+}
+```

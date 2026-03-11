@@ -505,6 +505,79 @@ Bottom-k MinHash and scaled FracMinHash sketching for rapid genome comparison.
 |----------|-------------|
 | `simulate_reads(reference, config) -> Result<Vec<SimulatedRead>>` | Generate synthetic Illumina-style reads |
 
+### Long-read analysis (`longread.rs`)
+
+Long-read sequencing types, quality metrics, error correction, consensus, simulation, and adapter trimming for PacBio and Oxford Nanopore platforms.
+
+| Type | Description |
+|------|-------------|
+| `LongRead` | Long read with id, sequence, quality, platform, optional passes/accuracy/read_group |
+| `LongReadPlatform` | Enum: `PacBioCLR`, `PacBioHiFi`, `NanoporeSimplex`, `NanoporeDuplex` |
+| `LongReadStats` | Collection statistics: num_reads, total_bases, mean/median length, N50, quality, GC, Q20/Q30 counts, mean passes |
+| `CorrectedRead` | Error-corrected read with correction count and original length |
+| `LongReadSimConfig` | Simulation config: platform, mean_length, length_std, coverage, num_passes, seed |
+| `LongReadAdapter` | Adapter with name, sequence, and associated platform |
+
+**LongRead methods:**
+
+| Method | Description |
+|--------|-------------|
+| `new(id, sequence, quality, platform) -> Result<Self>` | Create a validated long read |
+| `len() -> usize` | Read length in bases |
+| `is_empty() -> bool` | Whether the read is empty |
+| `mean_quality() -> f64` | Mean Phred quality score |
+| `error_rate() -> f64` | Estimated per-base error rate (from quality or platform default) |
+| `gc_content() -> f64` | GC fraction |
+
+**Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `longread_stats(reads) -> Result<LongReadStats>` | Compute statistics for a collection of long reads |
+| `self_correct(read, k) -> Result<CorrectedRead>` | Self-correction using internal k-mer frequency consensus |
+| `simple_consensus(reads) -> Result<Vec<u8>>` | Majority-vote consensus from overlapping reads |
+| `simulate_long_reads(reference, config) -> Result<Vec<LongRead>>` | Simulate reads with platform-appropriate error profiles |
+| `common_adapters() -> Vec<LongReadAdapter>` | Common PacBio SMRTbell and ONT ligation/rapid adapters |
+| `trim_adapters(read, adapters, max_mismatches) -> LongRead` | Trim adapter sequences from read start/end |
+
+### Structural variant detection (`sv.rs`)
+
+Structural variant calling from split/supplementary alignments and CIGAR-level indels.
+
+| Type | Description |
+|------|-------------|
+| `SvType` | Enum: `Insertion`, `Deletion`, `Inversion`, `Duplication`, `Breakend` |
+| `StructuralVariant` | Detected SV with chrom, start, end, type, length, support, quality, genotype, optional inserted sequence |
+| `SplitAlignment` | Split alignment segment: read_name, chrom, ref/query coordinates, strand, mapq |
+| `SvCallConfig` | Calling config: min/max SV length, min support, cluster distance, min mapq |
+| `SvSummary` | Summary counts by type with mean/median length |
+
+| Function | Description |
+|----------|-------------|
+| `call_svs(alignments, config) -> Result<Vec<StructuralVariant>>` | Detect SVs from split alignments (DEL, INS, INV, DUP, BND) |
+| `svs_from_cigar(chrom, ref_start, cigar_ops, min_length) -> Vec<StructuralVariant>` | Extract large indels from CIGAR strings |
+| `sv_summary(svs) -> SvSummary` | Summarize a set of SV calls |
+| `cluster_svs(svs, config) -> Vec<StructuralVariant>` | Cluster nearby SVs of the same type, merging support counts |
+
+### Nanopore analysis (`nanopore.rs`)
+
+Oxford Nanopore-specific analysis: signal metadata parsing, methylation calling, and run-level QC.
+
+| Type | Description |
+|------|-------------|
+| `SignalMetadata` | Read-level metadata: read/run/flow_cell IDs, channel, timing, sampling rate, signal stats, basecaller info |
+| `MethylationCall` | Per-read modification call: chrom, position, strand, mod_type, probability |
+| `ModificationType` | Enum: `FiveMC` (5mC), `FiveHMC` (5hmC), `SixMA` (6mA), `FourMC` (4mC) |
+| `MethylationSite` | Per-site methylation summary: coverage, modified count, mean probability, frequency |
+| `NanoporeQC` | Run QC metrics: read/base counts, N50, pass/fail reads, pore occupancy, translocation speed |
+
+| Function | Description |
+|----------|-------------|
+| `parse_signal_metadata(line) -> Result<SignalMetadata>` | Parse FAST5/POD5/BLOW5 metadata from key=value format |
+| `parse_methylation_calls(text) -> Result<Vec<MethylationCall>>` | Parse modBAM-style tab-separated methylation calls |
+| `aggregate_methylation(calls, threshold) -> Vec<MethylationSite>` | Aggregate per-read calls into per-site summaries |
+| `nanopore_qc(metadata, read_lengths, read_qualities, total_channels, quality_threshold) -> Result<NanoporeQC>` | Compute Nanopore-specific run QC metrics |
+
 ## Feature Flags
 
 | Flag | Default | Description |
@@ -521,7 +594,7 @@ Bottom-k MinHash and scaled FracMinHash sketching for rapid genome comparison.
 
 ## Tests
 
-474 unit + 26 doc tests across 31 source files.
+515 unit + 26 doc tests across 34 source files.
 
 ## Source Files
 
@@ -558,3 +631,6 @@ Bottom-k MinHash and scaled FracMinHash sketching for rapid genome comparison.
 | `restriction.rs` | ~350 | Restriction enzyme digestion |
 | `masking.rs` | ~400 | DUST/SEG/tandem repeat masking |
 | `read_sim.rs` | ~300 | Illumina-style read simulator |
+| `longread.rs` | ~810 | Long-read types, stats, error correction, simulation, adapter trimming |
+| `sv.rs` | ~565 | Structural variant detection from split alignments and CIGAR |
+| `nanopore.rs` | ~460 | Nanopore signal metadata, methylation calling, run QC |

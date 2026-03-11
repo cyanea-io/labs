@@ -219,3 +219,129 @@ let aa = translate_codon(b"ATG"); // Some(b'M')
 let protein = translate_sequence(b"ATGAAATTTCCCGGGTAA");
 // Returns amino acid bytes, stops at first stop codon
 ```
+
+## Long-Read Analysis
+
+```rust
+use cyanea_seq::longread::{
+    LongRead, LongReadPlatform, longread_stats,
+    self_correct, simple_consensus, simulate_long_reads,
+    common_adapters, trim_adapters, LongReadSimConfig,
+};
+
+// Create a long read
+let read = LongRead::new(
+    "read_001",
+    b"ACGTACGTACGTACGT".to_vec(),
+    vec![30u8; 16],
+    LongReadPlatform::PacBioHiFi,
+).unwrap();
+
+println!("Length: {} bp", read.len());
+println!("Mean Q: {:.1}", read.mean_quality());
+println!("Error rate: {:.4}", read.error_rate());
+println!("GC: {:.1}%", read.gc_content() * 100.0);
+
+// Compute stats for a collection of reads
+let reads = vec![read];
+let stats = longread_stats(&reads).unwrap();
+println!("N50: {} bp, {} total reads", stats.n50, stats.num_reads);
+
+// Self-correction using k-mer consensus
+let corrected = self_correct(&reads[0], 11).unwrap();
+println!("{} bases corrected", corrected.corrections);
+
+// Majority-vote consensus from overlapping reads
+let overlapping: Vec<&[u8]> = vec![b"ACGTACGT", b"ACGTACGT", b"ACGTTCGT"];
+let consensus = simple_consensus(&overlapping).unwrap();
+
+// Simulate PacBio HiFi reads from a reference
+let config = LongReadSimConfig {
+    platform: LongReadPlatform::PacBioHiFi,
+    mean_length: 15000,
+    length_std: 3000,
+    coverage: 30.0,
+    num_passes: 10,
+    seed: 42,
+};
+let sim_reads = simulate_long_reads(b"ACGT...", &config).unwrap();
+
+// Trim platform-specific adapters
+let adapters = common_adapters();
+let trimmed = trim_adapters(&reads[0], &adapters, 1);
+```
+
+## Structural Variant Detection
+
+```rust
+use cyanea_seq::sv::{
+    call_svs, svs_from_cigar, sv_summary,
+    SplitAlignment, SvCallConfig, SvType,
+};
+
+// Detect SVs from split alignments
+let alignments = vec![
+    SplitAlignment {
+        read_name: "read_1".into(),
+        chrom: "chr1".into(),
+        ref_start: 1000, ref_end: 2000,
+        query_start: 0, query_end: 1000,
+        is_reverse: false, mapq: 60,
+    },
+    SplitAlignment {
+        read_name: "read_1".into(),
+        chrom: "chr1".into(),
+        ref_start: 5000, ref_end: 6000,
+        query_start: 1000, query_end: 2000,
+        is_reverse: false, mapq: 60,
+    },
+];
+
+let config = SvCallConfig { min_support: 1, ..Default::default() };
+let svs = call_svs(&alignments, &config).unwrap();
+for sv in &svs {
+    println!("{} {}:{}-{} len={}", sv.sv_type.as_str(), sv.chrom, sv.start, sv.end, sv.length);
+}
+
+// Extract large indels from CIGAR strings
+let cigar = vec![('M', 1000), ('D', 500), ('M', 500), ('I', 200), ('M', 1000)];
+let cigar_svs = svs_from_cigar("chr1", 10000, &cigar, 50);
+
+// Summarize SV calls
+let summary = sv_summary(&svs);
+println!("{} total SVs: {} DEL, {} INS", summary.total, summary.deletions, summary.insertions);
+```
+
+## Nanopore Analysis
+
+```rust
+use cyanea_seq::nanopore::{
+    parse_signal_metadata, parse_methylation_calls,
+    aggregate_methylation, nanopore_qc,
+};
+
+// Parse signal metadata from pod5/slow5 output
+let line = "read_id=abc123 run_id=run1 flow_cell_id=FC001 channel=42 start_time=100.5 duration=5.2 sampling_rate=4000 num_samples=20800 median_signal=85.3";
+let meta = parse_signal_metadata(line).unwrap();
+println!("Read {} on channel {}, {:.1}s duration", meta.read_id, meta.channel, meta.duration);
+
+// Parse methylation calls (modBAM-style tab-separated)
+let calls_text = "read1\tchr1\t1000\t+\t5mC\t0.95\nread2\tchr1\t1000\t+\t5mC\t0.85\n";
+let calls = parse_methylation_calls(calls_text).unwrap();
+
+// Aggregate per-read calls into per-site summaries
+let sites = aggregate_methylation(&calls, 0.5); // threshold = 0.5
+for site in &sites {
+    println!("{}:{} {} coverage={} freq={:.2}",
+        site.chrom, site.position, site.mod_type.as_str(),
+        site.coverage, site.frequency);
+}
+
+// Nanopore run QC
+let metadata = vec![meta];
+let lengths = vec![5000usize];
+let qualities = vec![15.0f64];
+let qc = nanopore_qc(&metadata, &lengths, &qualities, 512, 10.0).unwrap();
+println!("N50: {}, pore occupancy: {:.1}%, speed: {:.0} bp/s",
+    qc.n50, qc.pore_occupancy * 100.0, qc.translocation_speed);
+```
