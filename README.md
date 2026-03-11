@@ -34,7 +34,7 @@
 
 Cyanea Labs is a Cargo workspace of 17 crates covering the core primitives of computational biology — sequence analysis, alignment, genomic intervals, statistics, machine learning, cheminformatics, structural biology, phylogenetics, metagenomics, epigenomics, proteomics, and network/pathway biology. Everything compiles to native, WebAssembly, and Python (via PyO3), with an Elixir NIF bridge for the Cyanea platform.
 
-3,929+ tests. Zero `unsafe`. No heavyweight C/C++ dependencies in the core path.
+3,970+ tests. Zero `unsafe`. No heavyweight C/C++ dependencies in the core path.
 
 ## Quick Start
 
@@ -105,7 +105,7 @@ const desc = stats.describe([1, 2, 3, 4, 5]);
 | **[cyanea-core](cyanea-core/)** | Error types, traits, SHA-256, zstd/gzip, mmap, log-space probability, rank/select bitvectors, wavelet matrix, Fenwick tree | 58 |
 | **[cyanea-seq](cyanea-seq/)** | DNA/RNA/protein sequences, FASTA/FASTQ, k-mers, 2-bit encoding, suffix array, FM-index, BWT, FMD-index, MinHash, pattern matching (KMP, Boyer-Moore, Myers bit-parallel), PSSM/motif scanning, ORF finder, codon tables, sequence masking, RNA secondary structure, protein properties, read simulation, de Bruijn graphs, assembly QC, long-read analysis (PacBio/Nanopore), structural variant calling, nanopore QC/methylation | 515 |
 | **[cyanea-align](cyanea-align/)** | Needleman-Wunsch, Smith-Waterman, semi-global, banded, MSA, seed-and-extend, minimizers, WFA, POA, LCSk++, pair HMM, profile HMM, X-drop/Z-drop, spliced alignment, CIGAR utilities, substitution matrices (BLOSUM/PAM), SIMD (NEON/SSE4.1/AVX2), GPU dispatch | 321 |
-| **[cyanea-omics](cyanea-omics/)** | Genomic coordinates, interval sets/trees, genome arithmetic, expression matrices, sparse matrices, variants, gene annotations, coordinate liftover, AnnData/h5ad/zarr, variant annotation/VEP, CNV/CBS, methylation, spatial transcriptomics, single-cell (HVG, normalize, Leiden/Louvain, diffusion map, DPT, PAGA, markers, Harmony/ComBat/MNN, MTX/CSC, RNA velocity, batch correction metrics) | 463 |
+| **[cyanea-omics](cyanea-omics/)** | Genomic coordinates, interval sets/trees, genome arithmetic, expression matrices, sparse matrices, variants, gene annotations, coordinate liftover, AnnData/h5ad/zarr, variant annotation/VEP, CNV/CBS, methylation, spatial transcriptomics, single-cell (HVG, normalize, Leiden/Louvain, diffusion map, DPT, PAGA, markers, Harmony/ComBat/MNN, MTX/CSC, RNA velocity, batch correction metrics), clinical genomics (ACMG/AMP classification, ClinVar matching, pharmacogenomics, HLA typing, TMB, MSI) | 504 |
 | **[cyanea-io](cyanea-io/)** | CSV, VCF, BED, BEDPE, GFF3, GTF, SAM, BAM, CRAM, BCF, Parquet, BLAST, BLAST XML, MAF, GenBank, bigWig, Stockholm, Clustal, Phylip, EMBL, PIR, ABI, bedGraph, GFA, indexed BAM/VCF, BAM ops, VCF ops, variant calling, fetch clients | 357 |
 | **[cyanea-stats](cyanea-stats/)** | Descriptive stats, correlation, hypothesis tests (t, chi-squared, Mann-Whitney, Fisher, KS), distributions, PCA, effect sizes, Bayesian conjugate priors, combinatorics, population genetics (Fst, Tajima's D, LD), differential expression, enrichment (GSEA, ORA), ordination (PCoA, NMDS), multivariate tests (PERMANOVA, ANOSIM), survival analysis, ecological diversity | 384 |
 | **[cyanea-ml](cyanea-ml/)** | K-means, DBSCAN, hierarchical clustering, pairwise distances, KNN, PCA, t-SNE, UMAP, random forest, GBDT, feature selection, HMM, classification metrics, cross-validation | 269 |
@@ -128,7 +128,7 @@ const desc = stats.describe([1, 2, 3, 4, 5]);
 cyanea-core (foundation)
 ├── cyanea-seq          Sequences, indexing, k-mers
 ├── cyanea-align        Pairwise & multiple alignment
-├── cyanea-omics        Genomic intervals, matrices, variants, single-cell
+├── cyanea-omics        Genomic intervals, matrices, variants, single-cell, clinical genomics
 ├── cyanea-io           File format I/O
 ├── cyanea-stats        Statistics & distributions
 ├── cyanea-ml           Machine learning & clustering

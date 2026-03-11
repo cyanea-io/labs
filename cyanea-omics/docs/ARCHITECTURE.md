@@ -90,3 +90,37 @@ Each module reads and writes standard AnnData slots, so steps can be composed in
 - **Neighbor graphs**: Delaunay triangulation uses divide-and-conquer on the 2D point set. k-nearest neighbor graphs compute all pairwise distances and select the k closest per point.
 - **Moran's I**: Computed as a weighted covariance of deviations from the mean, normalized by the variance, with analytic p-value from the normal approximation.
 - **Ligand-receptor**: For each ligand-receptor pair, compute the mean product of ligand expression in sending cells and receptor expression in receiving neighbors. Significance by permuting cell labels.
+
+## ACMG/AMP Variant Classification
+
+Implements the Richards et al. 2015 combining rules for the 5-tier ACMG/AMP classification system. The `AcmgEvidence` builder collects criteria with their pathogenic/benign direction and evidence strength. On `classify()`, criteria are counted by category (PVS, PS, PM, PP for pathogenic; BA, BS, BP for benign) and the combining rules are applied in priority order: benign rules first (BA1 is stand-alone), then pathogenic, then likely pathogenic, defaulting to VUS.
+
+- **Auto-evidence** (`auto_evidence`): A simplified auto-classifier that inspects variant properties to assign basic criteria: PVS1 for null variants (frameshift indels) in known LOF genes, PM2 for absent/rare population frequency (<0.0001), PP3/BP4 from in silico predictions, BA1 for common variants (>5% AF), and BS1 for moderately common variants (>1% AF). Not sufficient for clinical use without manual review.
+- **ClinVar matching**: Exact-match lookup by (chrom, position, ref_allele, alt_allele) against a vector of annotations. `parse_clinvar_tsv` reads a simple 9-column tab-separated format for building annotation databases.
+
+## Pharmacogenomics
+
+Star allele calling follows the CPIC (Clinical Pharmacogenetics Implementation Consortium) model:
+
+1. **Allele definition**: Each `StarAllele` carries a set of defining variants (chrom, position, ref, alt) and an activity score (0.0 = no function through 2.0 = increased function).
+2. **Calling**: `call_star_alleles` builds a set of observed variant keys, then scores each allele definition by the fraction of its defining variants that are present. Alleles with >50% match fraction are candidates, sorted by match quality. The top two are selected as the diplotype; if fewer than two match, the reference allele (*1, activity 1.0) fills in.
+3. **Phenotype**: The combined activity score (sum of both alleles) maps to a metabolizer phenotype via CPIC thresholds: >2.25 ultrarapid, >2.0 rapid, 1.25-2.0 normal, 0.25-1.0 intermediate, <0.25 poor.
+4. **Drug interactions**: `lookup_drug_interactions` filters the `PgxDatabase` interaction list by gene name and phenotype to retrieve clinical recommendations with evidence levels and source guidelines.
+
+The `PgxDatabase` stores allele definitions keyed by gene name (HashMap) and a flat list of drug-gene interactions, designed for extensibility with custom gene panels.
+
+## Clinical Genomics
+
+Three clinical assays commonly used in oncology and transplant medicine:
+
+### HLA Typing
+
+`HlaAllele` stores a gene locus (e.g., "A", "B", "DRB1") and an allele designation at arbitrary resolution (e.g., "02:01:01:01"). Resolution accessors (`two_digit`, `four_digit`, `full_name`) parse the colon-delimited fields. `HlaTypingResult` maps each typed gene to a diplotype. Compatibility scoring (`hla_compatibility`) sums shared alleles across specified loci between donor and recipient, with a maximum of 2 matches per locus. Allele matching is by exact string comparison at the stored resolution. `parse_hla_typing` reads a simple tab-delimited format (one locus per line: GENE, ALLELE1, ALLELE2).
+
+### Tumor Mutational Burden
+
+`compute_tmb` counts somatic mutations in a variant set, divides by the assessed coding region size in megabases, and classifies the result using standard clinical thresholds: <6 mut/Mb (Low), 6-19 (Intermediate), >=20 (High, the FDA-approved threshold for pembrolizumab). The `count_indels` flag controls whether insertions and deletions are included (some targeted panels count only SNVs). Variants are classified by their `VariantType`: SNVs and MNVs always count; insertions, deletions, and complex variants are conditional.
+
+### Microsatellite Instability
+
+MSI analysis compares observed repeat counts at microsatellite loci against reference values. `bethesda_markers()` provides the standard 5 mononucleotide markers (BAT25, BAT26, NR21, NR24, MONO27) with their genomic coordinates and reference repeat counts. `call_msi` determines instability at each locus by checking whether the observed count differs from reference by more than a configurable shift threshold (typically 2-3 repeats). The final status follows standard criteria: MSS (0 unstable), MSI-Low (1 unstable), MSI-High (>=2 unstable or >=30% unstable fraction).

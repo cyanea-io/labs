@@ -4,7 +4,7 @@ Data structures for genomics, transcriptomics, and variant analysis. Provides th
 
 ## Status: Complete
 
-All omics data structures are implemented including genomic coordinates, interval operations, interval trees, coverage vectors, expression matrices, sparse matrices, variant types, variant annotation, gene annotations, an AnnData-like single-cell container, genome arithmetic, liftover, copy number analysis, methylation analysis, spatial transcriptomics, HDF5-backed `.h5ad` file I/O, Zarr I/O, and a full single-cell pipeline (preprocessing, clustering, trajectory, markers, integration).
+All omics data structures are implemented including genomic coordinates, interval operations, interval trees, coverage vectors, expression matrices, sparse matrices, variant types, variant annotation, gene annotations, an AnnData-like single-cell container, genome arithmetic, liftover, copy number analysis, methylation analysis, spatial transcriptomics, HDF5-backed `.h5ad` file I/O, Zarr I/O, a full single-cell pipeline (preprocessing, clustering, trajectory, markers, integration), ACMG/AMP variant classification with ClinVar annotation, pharmacogenomics (star allele calling, drug-gene interactions), and clinical genomics (HLA typing, TMB, MSI).
 
 ## Public API
 
@@ -473,6 +473,118 @@ Pure Rust implementation using zarrs 0.18 (Zarr v3) -- no system library require
 | `IntegrationMetrics` | `kbet_accept_rate`, `mean_ilisi`, `mean_clisi` |
 | `MetricsConfig` | `batch_key`, `label_key`, `n_neighbors`, `alpha` |
 
+### ACMG/AMP variant classification (`acmg.rs`)
+
+Implements the ACMG/AMP 2015 guidelines (Richards et al.) for sequence variant interpretation, plus ClinVar annotation matching.
+
+| Type | Description |
+|------|-------------|
+| `AcmgClass` | 5-tier classification: `Benign`, `LikelyBenign`, `Vus`, `LikelyPathogenic`, `Pathogenic` (ordered) |
+| `EvidenceStrength` | Criterion strength: `VeryStrong`, `Strong`, `Moderate`, `Supporting` |
+| `AcmgCriterion` | A single applied criterion: `code`, `is_pathogenic`, `strength`, `description` |
+| `AcmgEvidence` | Builder for collecting criteria before classification |
+| `AcmgClassification` | Classification result: `classification`, `criteria`, per-level counts (`pvs_count`, `ps_count`, `pm_count`, `pp_count`, `ba_count`, `bs_count`, `bp_count`) |
+| `ClinVarAnnotation` | ClinVar-style annotation: `variation_id`, `significance`, `review_status`, `conditions`, `submitter_count`, `star_rating` |
+
+**AcmgEvidence builder methods:**
+
+| Method | Description |
+|--------|-------------|
+| `new() -> Self` | Empty evidence set |
+| `pvs1(desc) -> Self` | Add PVS1 (very strong pathogenic) |
+| `strong_pathogenic(code, desc) -> Self` | Add strong pathogenic criterion (PS1-PS4) |
+| `moderate_pathogenic(code, desc) -> Self` | Add moderate pathogenic criterion (PM1-PM6) |
+| `supporting_pathogenic(code, desc) -> Self` | Add supporting pathogenic criterion (PP1-PP5) |
+| `ba1(desc) -> Self` | Add BA1 (benign stand-alone) |
+| `strong_benign(code, desc) -> Self` | Add strong benign criterion (BS1-BS4) |
+| `supporting_benign(code, desc) -> Self` | Add supporting benign criterion (BP1-BP7) |
+| `classify() -> AcmgClassification` | Apply ACMG combining rules and return classification |
+
+**Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `auto_evidence(variant, allele_freq, is_lof_gene, in_silico_pathogenic) -> AcmgEvidence` | Auto-assign basic ACMG criteria from variant properties (PVS1, PM2, PP3, BA1, BS1, BP4) |
+| `match_clinvar(variant, annotations) -> Option<ClinVarAnnotation>` | Match a variant against a ClinVar annotation database by (chrom, pos, ref, alt) |
+| `parse_clinvar_tsv(content) -> Result<Vec<...>>` | Parse simple ClinVar TSV (9 columns: chrom, pos, ref, alt, significance, review_status, conditions, submitter_count, star_rating) |
+
+### Pharmacogenomics (`pharmacogenomics.rs`)
+
+Star allele calling, metabolizer phenotype prediction, and drug-gene interaction lookup following CPIC guidelines.
+
+| Type | Description |
+|------|-------------|
+| `StarAllele` | Star allele definition: `gene`, `allele` name, `defining_variants`, `activity_score`, `function` |
+| `AlleleFunction` | Functional status: `NormalFunction`, `DecreasedFunction`, `NoFunction`, `IncreasedFunction`, `Uncertain` |
+| `MetabolizerPhenotype` | Predicted phenotype: `UltrarapidMetabolizer`, `RapidMetabolizer`, `NormalMetabolizer`, `IntermediateMetabolizer`, `PoorMetabolizer`, `Indeterminate` |
+| `StarAlleleCall` | Calling result: `gene`, `diplotype`, `allele1`, `allele2`, `activity_score`, `phenotype` |
+| `DrugGeneInteraction` | Clinical recommendation: `drug`, `gene`, `phenotype`, `recommendation`, `evidence_level`, `source` |
+| `PgxDatabase` | Allele database: `alleles` (gene -> star alleles), `interactions` (drug-gene guidelines) |
+
+**PgxDatabase methods:**
+
+| Method | Description |
+|--------|-------------|
+| `new() -> Self` | Empty database |
+| `add_allele(allele)` | Register a star allele definition |
+| `add_interaction(interaction)` | Register a drug-gene interaction guideline |
+
+**Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `call_star_alleles(gene, variants, db) -> Result<StarAlleleCall>` | Call star alleles by matching observed variants against definitions; defaults to *1 (reference) |
+| `activity_to_phenotype(score) -> MetabolizerPhenotype` | Convert CPIC activity score to metabolizer phenotype (>2.25 UM, >2.0 RM, 1.25-2.0 NM, 0.25-1.0 IM, <0.25 PM) |
+| `lookup_drug_interactions(db, gene, phenotype) -> Vec<&DrugGeneInteraction>` | Look up drug recommendations for a gene and phenotype |
+| `demo_cyp2d6_database() -> PgxDatabase` | Demo CYP2D6 database with *4, *10, *17 alleles and codeine/tamoxifen interactions |
+
+### Clinical genomics (`clinical.rs`)
+
+HLA typing for transplant matching, tumor mutational burden (TMB), and microsatellite instability (MSI) analysis.
+
+**HLA typing:**
+
+| Type | Description |
+|------|-------------|
+| `HlaAllele` | HLA allele: `gene` (e.g. "A"), `allele` (e.g. "02:01:01") |
+| `HlaTypingResult` | Per-individual typing: `genotypes` (gene -> (allele1, allele2)) |
+
+| Method / Function | Description |
+|-------------------|-------------|
+| `HlaAllele::new(gene, allele) -> Self` | Construct an HLA allele |
+| `HlaAllele::two_digit() -> String` | Two-digit resolution (e.g. "A*02") |
+| `HlaAllele::four_digit() -> String` | Four-digit resolution (e.g. "A*02:01") |
+| `HlaAllele::full_name() -> String` | Full notation (e.g. "HLA-A*02:01:01") |
+| `HlaTypingResult::genes() -> Vec<&str>` | All typed loci |
+| `HlaTypingResult::diplotype(gene) -> Option<(&HlaAllele, &HlaAllele)>` | Diplotype at a locus |
+| `HlaTypingResult::shared_alleles(other, gene) -> usize` | Count shared alleles at a locus |
+| `hla_compatibility(donor, recipient, loci) -> usize` | Compute HLA match count across specified loci (max = 2 x num_loci) |
+| `parse_hla_typing(content) -> Result<HlaTypingResult>` | Parse tab-separated HLA typing (GENE\tALLELE1\tALLELE2) |
+
+**Tumor mutational burden:**
+
+| Type | Description |
+|------|-------------|
+| `TmbResult` | TMB result: `mutation_count`, `exome_size_mb`, `tmb` (mut/Mb), `category`, `by_type` breakdown |
+| `TmbCategory` | Classification: `Low` (<6), `Intermediate` (6-19), `High` (>=20 mut/Mb, FDA pembrolizumab threshold) |
+
+| Function | Description |
+|----------|-------------|
+| `compute_tmb(variants, exome_size_mb, count_indels) -> Result<TmbResult>` | Compute TMB from somatic variants; optionally includes indels |
+
+**Microsatellite instability:**
+
+| Type | Description |
+|------|-------------|
+| `MsiLocus` | Microsatellite locus: `name`, `chrom`, `start`, `end`, `repeat_unit`, `reference_count` |
+| `MsiStatus` | Stability call: `MSS` (stable), `MSILow` (1 unstable), `MSIHigh` (>=2 unstable or >=30%) |
+| `MsiResult` | MSI result: `status`, `total_loci`, `unstable_loci`, `instability_fraction`, `locus_calls` |
+
+| Function | Description |
+|----------|-------------|
+| `bethesda_markers() -> Vec<MsiLocus>` | Standard 5 Bethesda markers (BAT25, BAT26, NR21, NR24, MONO27) |
+| `call_msi(observed_counts, markers, shift_threshold) -> MsiResult` | Call MSI status from observed repeat counts vs. reference |
+
 ## Feature Flags
 
 | Flag | Default | Description |
@@ -496,7 +608,7 @@ Pure Rust implementation using zarrs 0.18 (Zarr v3) -- no system library require
 
 ## Tests
 
-434 unit tests + 2 doc tests.
+475 unit tests + 2 doc tests.
 
 ## Source Files
 
@@ -527,4 +639,7 @@ Pure Rust implementation using zarrs 0.18 (Zarr v3) -- no system library require
 | `sc_cluster.rs` | kNN graph, Leiden, Louvain, NMI, ARI |
 | `sc_trajectory.rs` | Diffusion map, DPT, PAGA, RNA velocity |
 | `sc_markers.rs` | Marker genes (t-test, Wilcoxon, logistic regression) |
+| `acmg.rs` | ACMG/AMP variant classification, ClinVar annotation matching |
+| `pharmacogenomics.rs` | Star allele calling, metabolizer phenotypes, drug-gene interactions |
+| `clinical.rs` | HLA typing, tumor mutational burden (TMB), microsatellite instability (MSI) |
 | `sc_integrate.rs` | Harmony, ComBat, MNN, kBET/LISI metrics |

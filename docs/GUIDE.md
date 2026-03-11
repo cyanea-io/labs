@@ -732,3 +732,94 @@ fn longread_pipeline(
     }
 }
 ```
+
+## 12. Clinical Genomics Pipeline
+
+Classify variants using ACMG/AMP guidelines, match against ClinVar, call pharmacogenomics star alleles, determine metabolizer phenotypes, check drug-gene interactions, type HLA alleles, and compute tumor biomarkers (TMB, MSI).
+
+**Crates**: cyanea-omics, cyanea-io (with `vcf` feature)
+
+```toml
+[dependencies]
+cyanea-omics = "0.1"
+cyanea-io = { version = "0.1", features = ["vcf"] }
+```
+
+```rust
+use cyanea_io::vcf::parse_vcf;
+use cyanea_omics::acmg::{classify_variant, AcmgEvidence, ClinVarDB, clinvar_match};
+use cyanea_omics::pharmacogenomics::{
+    call_star_alleles, metabolizer_phenotype, drug_gene_interactions,
+    StarAlleleDB,
+};
+use cyanea_omics::clinical::{hla_type, tumor_mutational_burden, microsatellite_instability};
+
+fn clinical_pipeline(
+    vcf_data: &str,
+    clinvar_db: &ClinVarDB,
+    pgx_db: &StarAlleleDB,
+    tumor_variants: &[cyanea_omics::variant::Variant],
+    normal_variants: &[cyanea_omics::variant::Variant],
+    msi_loci: &[(String, u64, &[u8])],
+) {
+    // 1. Parse variants
+    let variants = parse_vcf(vcf_data).unwrap();
+
+    // 2. ACMG/AMP variant classification
+    for variant in &variants {
+        let evidence = AcmgEvidence::gather(variant, clinvar_db).unwrap();
+        let classification = classify_variant(&evidence).unwrap();
+        println!("{}:{} {} -> {} ({} criteria met)",
+            variant.chrom, variant.pos, variant.alt_allele,
+            classification.significance, classification.criteria.len());
+    }
+
+    // 3. ClinVar matching
+    for variant in &variants {
+        if let Some(entry) = clinvar_match(variant, clinvar_db).unwrap() {
+            println!("{}:{} ClinVar {}: {} (review: {})",
+                variant.chrom, variant.pos, entry.accession,
+                entry.significance, entry.review_status);
+        }
+    }
+
+    // 4. Pharmacogenomics: star allele calling
+    let star_alleles = call_star_alleles(&variants, pgx_db).unwrap();
+    for sa in &star_alleles {
+        println!("Gene {}: diplotype {} / {}",
+            sa.gene, sa.allele1, sa.allele2);
+    }
+
+    // 5. Metabolizer phenotype prediction
+    for sa in &star_alleles {
+        let phenotype = metabolizer_phenotype(sa).unwrap();
+        println!("{}: {} (activity score: {:.1})",
+            sa.gene, phenotype.phenotype, phenotype.activity_score);
+    }
+
+    // 6. Drug-gene interaction lookup
+    for sa in &star_alleles {
+        let interactions = drug_gene_interactions(&sa.gene, pgx_db).unwrap();
+        for dgi in &interactions {
+            println!("{} + {}: {} — {}",
+                dgi.drug, dgi.gene, dgi.recommendation, dgi.evidence_level);
+        }
+    }
+
+    // 7. HLA typing
+    let hla_results = hla_type(&variants).unwrap();
+    for hla in &hla_results {
+        println!("HLA-{}: {} / {}", hla.gene, hla.allele1, hla.allele2);
+    }
+
+    // 8. Tumor mutational burden (TMB)
+    let tmb = tumor_mutational_burden(tumor_variants, normal_variants, 30.0).unwrap();
+    println!("TMB: {:.1} mutations/Mb ({})",
+        tmb.mutations_per_mb, tmb.classification);
+
+    // 9. Microsatellite instability (MSI)
+    let msi = microsatellite_instability(msi_loci, tumor_variants).unwrap();
+    println!("MSI score: {:.2}, status: {} ({}/{} unstable loci)",
+        msi.score, msi.status, msi.unstable_loci, msi.total_loci);
+}
+```

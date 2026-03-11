@@ -26,6 +26,8 @@
 //! assert_eq!(matrix.summary(), "ExpressionMatrix: 2 features \u{00d7} 2 samples");
 //! ```
 
+pub mod acmg;
+pub mod clinical;
 pub mod genomic;
 pub mod haplotype;
 pub mod interval;
@@ -44,6 +46,7 @@ pub mod genome_arithmetic;
 pub mod cnv;
 pub mod liftover;
 pub mod methylation;
+pub mod pharmacogenomics;
 #[cfg(feature = "h5ad")]
 pub mod h5ad;
 #[cfg(feature = "zarr")]
@@ -103,6 +106,25 @@ pub use network::{CentralityScores, Community, Graph};
 pub use haplotype::{
     haplotype_blocks, haplotype_diversity, phase_em, Haplotype, HaplotypeBlock, PhasedGenotypes,
 };
+// Re-export ACMG/ClinVar types
+pub use acmg::{
+    auto_evidence, match_clinvar, parse_clinvar_tsv, AcmgClass, AcmgClassification,
+    AcmgCriterion, AcmgEvidence, ClinVarAnnotation, EvidenceStrength,
+};
+
+// Re-export clinical genomics types
+pub use clinical::{
+    bethesda_markers, call_msi, compute_tmb, hla_compatibility, parse_hla_typing,
+    HlaAllele, HlaTypingResult, MsiLocus, MsiResult, MsiStatus, TmbCategory, TmbResult,
+};
+
+// Re-export pharmacogenomics types
+pub use pharmacogenomics::{
+    activity_to_phenotype, call_star_alleles, demo_cyp2d6_database, lookup_drug_interactions,
+    AlleleFunction, DrugGeneInteraction, MetabolizerPhenotype, PgxDatabase, StarAllele,
+    StarAlleleCall,
+};
+
 #[cfg(feature = "h5ad")]
 pub use h5ad::{read_h5ad, write_h5ad};
 #[cfg(feature = "zarr")]

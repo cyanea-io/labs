@@ -1,6 +1,6 @@
 # cyanea-omics Usage Guide
 
-Practical examples for working with genomic data structures, single-cell analysis, variant annotation, and spatial transcriptomics.
+Practical examples for working with genomic data structures, single-cell analysis, variant annotation, spatial transcriptomics, ACMG variant classification, pharmacogenomics, and clinical genomics.
 
 ## Genomic Intervals and Interval Sets
 
@@ -313,6 +313,135 @@ let islands = find_cpg_islands(reference, "chr1", Default::default()).unwrap();
 let group1_sites = vec![/* CpgSite vec for condition 1 */];
 let group2_sites = vec![/* CpgSite vec for condition 2 */];
 let dmrs = find_dmrs(&group1_sites, &group2_sites, Default::default()).unwrap();
+```
+
+## ACMG/AMP Variant Classification
+
+```rust
+use cyanea_omics::acmg::*;
+use cyanea_omics::variant::Variant;
+
+// Build evidence manually using the builder pattern
+let evidence = AcmgEvidence::new()
+    .pvs1("Frameshift in BRCA1 — known LOF mechanism")
+    .strong_pathogenic("PS1", "Same amino acid change as established pathogenic variant")
+    .moderate_pathogenic("PM2", "Absent from gnomAD");
+
+let result = evidence.classify();
+println!("{}", result.classification.as_str()); // "Pathogenic"
+println!("PVS={}, PS={}, PM={}", result.pvs_count, result.ps_count, result.pm_count);
+
+// Auto-assign evidence from variant properties
+let variant = Variant::new("chr17", 43092919, b"ACGTG".to_vec(), vec![b"A".to_vec()]).unwrap();
+let auto_ev = auto_evidence(&variant, None, true, Some(true));
+let auto_result = auto_ev.classify();
+// PVS1 (frameshift in LOF gene) + PM2 (absent) + PP3 (in silico) → Likely Pathogenic or Pathogenic
+
+// Match against ClinVar annotations
+let clinvar_tsv = "chrom\tpos\tref\talt\tsignificance\treview_status\tconditions\tsubmitter_count\tstar_rating\n\
+                   chr17\t43092919\tA\tG\tPathogenic\texpert panel\tBreast cancer\t5\t3\n";
+let db = parse_clinvar_tsv(clinvar_tsv).unwrap();
+
+let query = Variant::new("chr17", 43092919, b"A".to_vec(), vec![b"G".to_vec()]).unwrap();
+if let Some(ann) = match_clinvar(&query, &db) {
+    println!("{} ({}, {} stars)", ann.significance, ann.review_status, ann.star_rating);
+}
+```
+
+## Pharmacogenomics
+
+```rust
+use cyanea_omics::pharmacogenomics::*;
+use cyanea_omics::variant::Variant;
+
+// Use the built-in demo CYP2D6 database (*4, *10, *17 alleles)
+let db = demo_cyp2d6_database();
+
+// Call star alleles from observed variants
+let variants = vec![
+    Variant::new("chr22", 42128945, b"C".to_vec(), vec![b"T".to_vec()]).unwrap(), // CYP2D6*4
+];
+let call = call_star_alleles("CYP2D6", &variants, &db).unwrap();
+println!("Diplotype: {}", call.diplotype);  // e.g., "*4/*1"
+println!("Activity score: {}", call.activity_score);
+println!("Phenotype: {}", call.phenotype.as_str());
+
+// No variants → reference *1/*1 (Normal Metabolizer)
+let ref_call = call_star_alleles("CYP2D6", &[], &db).unwrap();
+assert_eq!(ref_call.diplotype, "*1/*1");
+
+// Look up drug interaction recommendations
+let recs = lookup_drug_interactions(&db, "CYP2D6", MetabolizerPhenotype::PoorMetabolizer);
+for rec in &recs {
+    println!("{}: {} [{}] ({})", rec.drug, rec.recommendation, rec.evidence_level, rec.source);
+}
+
+// Build a custom PGx database
+let mut custom_db = PgxDatabase::new();
+custom_db.add_allele(StarAllele {
+    gene: "CYP2C19".into(),
+    allele: "*2".into(),
+    defining_variants: vec![("chr10".into(), 94781859, b"G".to_vec(), b"A".to_vec())],
+    activity_score: 0.0,
+    function: AlleleFunction::NoFunction,
+});
+```
+
+## Clinical Genomics: HLA Typing
+
+```rust
+use cyanea_omics::clinical::*;
+
+// Parse HLA typing from tab-separated input
+let donor_typing = parse_hla_typing("A\t02:01\t03:01\nB\t07:02\t44:02\nDRB1\t04:01\t15:01\n").unwrap();
+let recipient_typing = parse_hla_typing("A\t02:01\t68:01\nB\t07:02\t44:02\nDRB1\t04:01\t07:01\n").unwrap();
+
+// Check compatibility across HLA-A, -B, -DRB1
+let match_count = hla_compatibility(&donor_typing, &recipient_typing, &["A", "B", "DRB1"]);
+println!("Matched alleles: {} / 6", match_count);
+
+// Inspect allele resolution
+let (a1, a2) = donor_typing.diplotype("A").unwrap();
+println!("{} / {}", a1.four_digit(), a2.four_digit()); // "A*02:01 / A*03:01"
+```
+
+## Clinical Genomics: Tumor Mutational Burden
+
+```rust
+use cyanea_omics::clinical::*;
+use cyanea_omics::variant::Variant;
+
+// Compute TMB from somatic variants
+let somatic_variants: Vec<Variant> = (0..600)
+    .map(|i| Variant::new("chr1", i * 100, b"A".to_vec(), vec![b"G".to_vec()]).unwrap())
+    .collect();
+
+let tmb = compute_tmb(&somatic_variants, 30.0, false).unwrap();
+println!("TMB: {:.1} mut/Mb ({})", tmb.tmb, tmb.category.as_str());
+// TMB: 20.0 mut/Mb (TMB-High) — above FDA pembrolizumab threshold
+```
+
+## Clinical Genomics: Microsatellite Instability
+
+```rust
+use cyanea_omics::clinical::*;
+use std::collections::HashMap;
+
+// Use the standard 5 Bethesda markers
+let markers = bethesda_markers();
+
+// Simulate tumor with instability at BAT25 and BAT26
+let mut observed: HashMap<String, usize> = markers.iter()
+    .map(|m| (m.name.clone(), m.reference_count))
+    .collect();
+*observed.get_mut("BAT25").unwrap() = 20; // shifted by 5 from reference 25
+*observed.get_mut("BAT26").unwrap() = 20; // shifted by 6 from reference 26
+
+let result = call_msi(&observed, &markers, 2);
+println!("{}: {}/{} unstable loci ({:.0}%)",
+    result.status.as_str(), result.unstable_loci, result.total_loci,
+    result.instability_fraction * 100.0);
+// MSI-H: 2/5 unstable loci (40%)
 ```
 
 ## Liftover
