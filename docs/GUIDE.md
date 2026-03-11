@@ -786,7 +786,7 @@ fn explore_sample_data() {
 
 ## 13. Protocol Templates
 
-Access 16 structured protocol templates (10 wet lab, 6 dry lab) for common bioinformatics and laboratory workflows. Each protocol includes categorized steps, difficulty level, estimated duration, required materials, and renders to markdown.
+Access 16 structured protocol templates (10 wet lab, 6 dry lab) for common bioinformatics and laboratory workflows. Each protocol includes categorized steps, difficulty level, estimated time, required materials, tips, cautions, and renders to markdown.
 
 **Crates**: cyanea-datasets
 
@@ -798,41 +798,49 @@ cyanea-datasets = "0.1"
 ```rust
 use cyanea_datasets::protocols::{
     all_protocols, wet_lab_protocols, dry_lab_protocols,
-    Protocol, ProtocolCategory, Difficulty,
+    elisa, gwas_pipeline, ProtocolCategory,
 };
 
 fn explore_protocols() {
     // 1. List all 16 protocol templates
     let all = all_protocols();
-    println!("{} protocols available", all.len());
+    println!("{} protocols available", all.len());  // 16
 
     // 2. Filter by category: wet lab (10) or dry lab (6)
     let wet = wet_lab_protocols();
     let dry = dry_lab_protocols();
-    println!("{} wet lab, {} dry lab protocols", wet.len(), dry.len());
+    assert_eq!(wet.len(), 10);
+    assert_eq!(dry.len(), 6);
 
     // 3. Inspect a protocol's metadata
-    for protocol in &all {
-        println!("{}: {} ({}), difficulty: {:?}, ~{} min",
-            protocol.id, protocol.name, protocol.category,
-            protocol.difficulty, protocol.estimated_minutes);
-    }
+    let protocol = elisa();
+    println!("{} (slug: {})", protocol.title, protocol.slug);
+    println!("Difficulty: {:?}, Time: {}", protocol.difficulty, protocol.estimated_time);
+    println!("Requirements: {}", protocol.requirements.len());
 
     // 4. Access structured steps
-    for protocol in &wet {
-        println!("\n## {}", protocol.name);
-        for (i, step) in protocol.steps.iter().enumerate() {
-            println!("  Step {}: {} ({} min)", i + 1, step.title, step.duration_minutes);
-            if !step.notes.is_empty() {
-                println!("    Note: {}", step.notes);
-            }
+    for step in &protocol.steps {
+        println!("  Step {}: {}", step.number, step.title);
+        if let Some(dur) = step.duration {
+            println!("    Duration: {}", dur);
+        }
+        for tip in &step.tips {
+            println!("    Tip: {}", tip);
+        }
+        if let Some(caution) = step.caution {
+            println!("    Caution: {}", caution);
         }
     }
 
-    // 5. Render a protocol to markdown (for notebooks, export, display)
-    let protocol = &all[0];
-    let markdown = protocol.to_markdown();
-    println!("{}", markdown);
+    // 5. Render a protocol to markdown
+    let md = protocol.to_markdown();
+    assert!(md.contains("# ELISA"));
+    assert!(md.contains("## Steps"));
+
+    // 6. Unique slugs for URL routing
+    let gwas = gwas_pipeline();
+    assert_eq!(gwas.slug, "gwas-pipeline");
+    assert_eq!(gwas.category, ProtocolCategory::DryLab);
 }
 ```
 
@@ -840,90 +848,65 @@ fn explore_protocols() {
 
 Classify variants using ACMG/AMP guidelines, match against ClinVar, call pharmacogenomics star alleles, determine metabolizer phenotypes, check drug-gene interactions, type HLA alleles, and compute tumor biomarkers (TMB, MSI).
 
-**Crates**: cyanea-omics, cyanea-io (with `vcf` feature)
+**Crates**: cyanea-omics
 
 ```toml
 [dependencies]
 cyanea-omics = "0.1"
-cyanea-io = { version = "0.1", features = ["vcf"] }
 ```
 
 ```rust
-use cyanea_io::vcf::parse_vcf;
-use cyanea_omics::acmg::{classify_variant, AcmgEvidence, ClinVarDB, clinvar_match};
+use cyanea_omics::acmg::{auto_evidence, AcmgClassification, AcmgEvidence, parse_clinvar_tsv, match_clinvar};
 use cyanea_omics::pharmacogenomics::{
-    call_star_alleles, metabolizer_phenotype, drug_gene_interactions,
-    StarAlleleDB,
+    call_star_alleles, activity_to_phenotype, lookup_drug_interactions,
+    demo_cyp2d6_database,
 };
-use cyanea_omics::clinical::{hla_type, tumor_mutational_burden, microsatellite_instability};
+use cyanea_omics::clinical::{compute_tmb, call_msi, bethesda_markers, parse_hla_typing, hla_compatibility};
 
-fn clinical_pipeline(
-    vcf_data: &str,
-    clinvar_db: &ClinVarDB,
-    pgx_db: &StarAlleleDB,
-    tumor_variants: &[cyanea_omics::variant::Variant],
-    normal_variants: &[cyanea_omics::variant::Variant],
-    msi_loci: &[(String, u64, &[u8])],
-) {
-    // 1. Parse variants
-    let variants = parse_vcf(vcf_data).unwrap();
+fn clinical_pipeline() {
+    // 1. ACMG/AMP variant classification
+    //    Provide evidence criteria, get 5-tier classification
+    let evidence = AcmgEvidence::new();
+    // evidence.add(AcmgCriterion::PS1, EvidenceStrength::Strong);
+    let classification = AcmgClassification::from_evidence(&evidence);
+    println!("Classification: {:?}", classification.class);  // Pathogenic, Likely Pathogenic, VUS, etc.
 
-    // 2. ACMG/AMP variant classification
-    for variant in &variants {
-        let evidence = AcmgEvidence::gather(variant, clinvar_db).unwrap();
-        let classification = classify_variant(&evidence).unwrap();
-        println!("{}:{} {} -> {} ({} criteria met)",
-            variant.chrom, variant.pos, variant.alt_allele,
-            classification.significance, classification.criteria.len());
-    }
+    // 2. Auto-evidence from variant properties
+    let auto = auto_evidence("chr17", 7674220, "C", "T", Some(0.0001), None);
+    println!("Auto-gathered {} criteria", auto.criteria.len());
 
     // 3. ClinVar matching
-    for variant in &variants {
-        if let Some(entry) = clinvar_match(variant, clinvar_db).unwrap() {
-            println!("{}:{} ClinVar {}: {} (review: {})",
-                variant.chrom, variant.pos, entry.accession,
-                entry.significance, entry.review_status);
-        }
-    }
+    let clinvar_tsv = "...";  // ClinVar TSV data
+    let db = parse_clinvar_tsv(clinvar_tsv).unwrap();
+    let hit = match_clinvar("chr17", 7674220, "C", "T", &db);
 
-    // 4. Pharmacogenomics: star allele calling
-    let star_alleles = call_star_alleles(&variants, pgx_db).unwrap();
-    for sa in &star_alleles {
-        println!("Gene {}: diplotype {} / {}",
-            sa.gene, sa.allele1, sa.allele2);
-    }
+    // 4. Pharmacogenomics: star allele calling with demo CYP2D6 database
+    let pgx_db = demo_cyp2d6_database();
+    let variants_for_gene = vec![];  // variant positions
+    let calls = call_star_alleles(&variants_for_gene, &pgx_db);
 
-    // 5. Metabolizer phenotype prediction
-    for sa in &star_alleles {
-        let phenotype = metabolizer_phenotype(sa).unwrap();
-        println!("{}: {} (activity score: {:.1})",
-            sa.gene, phenotype.phenotype, phenotype.activity_score);
-    }
+    // 5. Metabolizer phenotype from activity scores
+    let phenotype = activity_to_phenotype(1.5);  // normal metabolizer
+    println!("Phenotype: {:?}", phenotype);
 
     // 6. Drug-gene interaction lookup
-    for sa in &star_alleles {
-        let interactions = drug_gene_interactions(&sa.gene, pgx_db).unwrap();
-        for dgi in &interactions {
-            println!("{} + {}: {} — {}",
-                dgi.drug, dgi.gene, dgi.recommendation, dgi.evidence_level);
-        }
+    let interactions = lookup_drug_interactions("CYP2D6", &pgx_db);
+    for dgi in &interactions {
+        println!("{}: {}", dgi.drug, dgi.recommendation);
     }
 
-    // 7. HLA typing
-    let hla_results = hla_type(&variants).unwrap();
-    for hla in &hla_results {
-        println!("HLA-{}: {} / {}", hla.gene, hla.allele1, hla.allele2);
-    }
+    // 7. HLA typing and compatibility
+    let typing = parse_hla_typing("A*02:01/A*03:01");
+    let compat = hla_compatibility(&typing, &typing);
 
-    // 8. Tumor mutational burden (TMB)
-    let tmb = tumor_mutational_burden(tumor_variants, normal_variants, 30.0).unwrap();
-    println!("TMB: {:.1} mutations/Mb ({})",
-        tmb.mutations_per_mb, tmb.classification);
+    // 8. Tumor mutational burden
+    let tmb = compute_tmb(150, 30.0);  // 150 somatic mutations, 30 Mb panel
+    println!("TMB: {:.1} mut/Mb, category: {:?}", tmb.mutations_per_mb, tmb.category);
 
-    // 9. Microsatellite instability (MSI)
-    let msi = microsatellite_instability(msi_loci, tumor_variants).unwrap();
-    println!("MSI score: {:.2}, status: {} ({}/{} unstable loci)",
-        msi.score, msi.status, msi.unstable_loci, msi.total_loci);
+    // 9. Microsatellite instability
+    let loci = bethesda_markers();
+    let msi = call_msi(&loci, 3);  // 3 of 5 unstable
+    println!("MSI status: {:?}", msi.status);
 }
 ```
 
@@ -931,84 +914,64 @@ fn clinical_pipeline(
 
 Analyze spatial transcriptomics data: load platform-specific data (Visium, MERFISH, Slide-seq), segment cells, detect spatial domains, find spatially variable genes, infer cell-cell communication, and deconvolve spot-level expression.
 
-**Crates**: cyanea-omics (with `single-cell` feature), cyanea-stats
+**Crates**: cyanea-omics
 
 ```toml
 [dependencies]
-cyanea-omics = { version = "0.1", features = ["single-cell"] }
-cyanea-stats = "0.1"
+cyanea-omics = "0.1"
 ```
 
 ```rust
-use cyanea_omics::spatial::{
-    VisiumData, MerfishData, SlideSeqData,
-    voronoi_segmentation, nucleus_expansion, watershed_segmentation,
-    spatial_kmeans, hmrf_smooth,
-    morans_i, spatially_variable_genes,
-    LigandReceptorDB, spatial_communication, CellChatConfig,
-    nnls_deconvolution, enrichment_scoring,
-};
+use cyanea_omics::spatial_platforms::{VisiumData, visium_to_spatial_points};
+use cyanea_omics::spatial_segmentation::{voronoi_segmentation, expansion_segmentation, ExpansionParams};
+use cyanea_omics::spatial_domains::{detect_domains, hmrf_smooth, find_spatially_variable_genes, DomainParams};
+use cyanea_omics::spatial_cellchat::{analyze_communication, demo_lr_database, CommParams};
+use cyanea_omics::spatial_deconvolution::{nnls_deconvolve, score_enrichment, CellTypeSignature};
+use cyanea_omics::spatial::{knn_spatial_neighbors, morans_i, SpatialPoint};
 
-fn spatial_pipeline(
-    coordinates: &[(f64, f64)],
-    counts: &[Vec<f64>],
-    gene_names: &[&str],
-    cell_types: &[&str],
-    reference_profiles: &[Vec<f64>],
-) {
-    // 1. Load platform-specific spatial data
-    let visium = VisiumData::from_coordinates_and_counts(coordinates, counts).unwrap();
+fn spatial_pipeline() {
+    // Example data: 5 spots with 3 genes
+    let coords = vec![(0.0, 0.0), (1.0, 0.0), (2.0, 0.0), (0.0, 1.0), (1.0, 1.0)];
+    let expression = vec![
+        vec![5.0, 2.0, 8.0], vec![3.0, 7.0, 1.0], vec![6.0, 1.0, 9.0],
+        vec![4.0, 6.0, 2.0], vec![5.0, 5.0, 5.0],
+    ];
+    let gene_names = vec!["GENE1", "GENE2", "GENE3"];
 
-    // 2. Cell segmentation (choose one strategy)
-    let voronoi_cells = voronoi_segmentation(coordinates).unwrap();
-    let expanded = nucleus_expansion(coordinates, 15.0).unwrap();  // 15 um radius
-    let watershed_cells = watershed_segmentation(coordinates, counts).unwrap();
+    // 1. Voronoi cell segmentation
+    let seeds: Vec<(f64, f64)> = coords.clone();
+    let transcripts = coords.clone(); // in practice, individual molecule locations
+    let cells = voronoi_segmentation(&seeds, &transcripts, Some(50.0));
+    println!("{} cells segmented", cells.len());
 
-    // 3. Spatial domain detection
-    //    Spatially-aware k-means incorporates coordinate proximity
-    let domains = spatial_kmeans(coordinates, counts, 8, 0.5).unwrap();  // 8 domains, alpha=0.5
-    //    HMRF smoothing refines cluster boundaries using neighbor context
-    let smoothed = hmrf_smooth(&domains, coordinates, 5, 0.3).unwrap();  // 5 iters, beta=0.3
-    println!("{} spatial domains detected", smoothed.n_domains);
+    // 2. Spatial domain detection (spatially-aware k-means + HMRF smoothing)
+    let params = DomainParams { k: 2, spatial_weight: 0.5, max_iter: 50, seed: 42 };
+    let domains = detect_domains(&expression, &coords, &params);
+    let neighbors: Vec<Vec<usize>> = vec![vec![1,3], vec![0,2,4], vec![1], vec![0,4], vec![1,3]];
+    let smoothed = hmrf_smooth(&domains.labels, &expression, &neighbors, 1.0, 10);
 
-    // 4. Spatially variable gene (SVG) detection via Moran's I
-    let svg_results = spatially_variable_genes(coordinates, counts, gene_names).unwrap();
-    for svg in svg_results.iter().filter(|s| s.fdr < 0.05).take(20) {
-        println!("SVG: {} (Moran's I={:.3}, FDR={:.2e})", svg.gene, svg.morans_i, svg.fdr);
+    // 3. Spatially variable genes (Moran's I with permutation test)
+    let svgs = find_spatially_variable_genes(&expression, &gene_names, &neighbors, 99, 42);
+    for svg in &svgs {
+        println!("{}: Moran's I = {:.3}, p = {:.3}", svg.gene, svg.morans_i, svg.p_value);
     }
 
-    // Single-gene Moran's I
-    let mi = morans_i(coordinates, &counts[0]).unwrap();
-    println!("Moran's I = {:.4}, p = {:.4}", mi.statistic, mi.p_value);
+    // 4. Cell-cell communication (CellChat-style L-R analysis)
+    let lr_pairs = demo_lr_database();
+    let cell_types = vec!["TypeA", "TypeA", "TypeB", "TypeB", "TypeA"];
+    let comm_params = CommParams { max_distance: 200.0, n_permutations: 100, seed: 42 };
+    let results = analyze_communication(
+        &expression, &gene_names, &cell_types, &coords, &lr_pairs, &comm_params,
+    );
 
-    // 5. Cell-cell communication (CellChat-style)
-    //    Uses a ligand-receptor database with multi-subunit complex support
-    let lr_db = LigandReceptorDB::builtin();
-    let config = CellChatConfig {
-        max_distance: 200.0,   // um
-        min_expression: 0.1,
-        ..Default::default()
-    };
-    let interactions = spatial_communication(
-        coordinates, counts, gene_names, cell_types, &lr_db, &config,
-    ).unwrap();
-    for inter in interactions.iter().take(10) {
-        println!("{} -> {} via {}-{}: score={:.3}",
-            inter.sender, inter.receiver,
-            inter.ligand, inter.receptor, inter.score);
-    }
-
-    // 6. Deconvolution of spot-level expression
-    //    NNLS: non-negative least squares for cell-type proportions
-    let nnls_props = nnls_deconvolution(counts, reference_profiles).unwrap();
-    println!("NNLS deconvolution: {} spots x {} cell types",
-        nnls_props.len(), nnls_props[0].len());
-
-    //    Enrichment scoring: rank-based cell-type enrichment per spot
-    let enrichment = enrichment_scoring(counts, reference_profiles, gene_names).unwrap();
-    for (i, scores) in enrichment.iter().enumerate().take(5) {
-        println!("Spot {}: top cell type = {} (score={:.3})",
-            i, cell_types[scores.top_type_index], scores.top_score);
+    // 5. NNLS deconvolution
+    let signatures = vec![
+        CellTypeSignature { name: "Tcell".into(), gene_names: vec!["GENE1".into()], expression: vec![8.0] },
+        CellTypeSignature { name: "Bcell".into(), gene_names: vec!["GENE2".into()], expression: vec![7.0] },
+    ];
+    let deconv = nnls_deconvolve(&expression, &gene_names, &signatures);
+    for spot in &deconv.proportions {
+        println!("Proportions: {:.2}/{:.2}", spot[0], spot[1]);
     }
 }
 ```
@@ -1021,100 +984,115 @@ Parse microarray data files (Affymetrix CEL, GenePix GPR, Illumina IDAT), normal
 
 ```toml
 [dependencies]
-cyanea-io = { version = "0.1", features = ["cel", "gpr", "idat"] }
+cyanea-io = "0.1"
 cyanea-omics = "0.1"
 ```
 
 ```rust
-use cyanea_io::cel::parse_cel;
-use cyanea_io::gpr::parse_gpr;
-use cyanea_io::idat::parse_idat;
+use cyanea_io::microarray::{parse_cel_v3, parse_gpr, parse_idat, CelFile, GprFile, IdatFile};
 use cyanea_omics::microarray::{
-    rma_normalize, limma_differential_expression, LimmaConfig,
-    methylation_array_analysis, MethylationArrayConfig,
+    rma_normalize, quantile_normalize, median_polish,
+    limma_diff_expr, DiffExprResult,
+    compute_beta, beta_to_m_value, swan_normalize, diff_methylation,
+    InfiniumType,
 };
 
-fn microarray_pipeline(
-    cel_data: &[u8],
-    gpr_data: &str,
-    idat_data: &[u8],
-) {
-    // 1. Parse Affymetrix CEL file (probe-level intensities)
-    let cel = parse_cel(cel_data).unwrap();
-    println!("{} probes, {} cells", cel.num_probes(), cel.num_cells());
+fn microarray_pipeline(cel_text: &str, gpr_text: &str, idat_bytes: &[u8]) {
+    // 1. Parse Affymetrix CEL v3 file (probe-level intensities)
+    let cel = parse_cel_v3(cel_text).unwrap();
+    println!("{} probes, algorithm: {}", cel.intensities.len(), cel.header.algorithm);
 
     // 2. Parse GenePix GPR file (two-color microarray)
-    let gpr = parse_gpr(gpr_data).unwrap();
-    println!("{} spots, {} blocks", gpr.num_spots(), gpr.num_blocks());
+    let gpr = parse_gpr(gpr_text).unwrap();
+    println!("{} spots in {} blocks", gpr.spots.len(), gpr.header.len());
 
-    // 3. Parse Illumina IDAT file (BeadArray intensities)
-    let idat = parse_idat(idat_data).unwrap();
-    println!("{} probes in IDAT", idat.num_probes());
+    // 3. Parse Illumina IDAT file (binary BeadArray)
+    let idat = parse_idat(idat_bytes).unwrap();
+    println!("{} probes, {} fields", idat.n_probes, idat.fields.len());
 
-    // 4. RMA normalization (background correction + quantile normalization + summarization)
-    let expression_matrix = vec![cel.intensities()];  // multiple CEL files in practice
-    let normalized = rma_normalize(&expression_matrix).unwrap();
-    println!("RMA normalized: {} genes x {} samples",
-        normalized.num_genes(), normalized.num_samples());
+    // 4. RMA normalization (log2 background correction + quantile normalization)
+    let probe_data = vec![vec![100.0, 200.0, 50.0], vec![150.0, 180.0, 60.0]];
+    let rma = rma_normalize(&probe_data);
+    println!("RMA: {} samples normalized", rma.len());
 
-    // 5. Limma-style differential expression
-    let config = LimmaConfig {
-        group_labels: vec!["control", "treated", "control", "treated"],
-        contrast: ("treated", "control"),
-        ..Default::default()
-    };
-    let de_results = limma_differential_expression(&normalized, &config).unwrap();
-    let significant: Vec<_> = de_results.iter()
-        .filter(|r| r.adj_p_value < 0.05 && r.log_fold_change.abs() > 1.0)
-        .collect();
-    println!("{} DE genes (|logFC| > 1, FDR < 0.05)", significant.len());
+    // 5. Quantile normalization (rank-based cross-sample normalization)
+    let mut data = vec![vec![5.0, 2.0, 3.0], vec![4.0, 1.0, 6.0]];
+    quantile_normalize(&mut data);
 
-    // 6. Illumina methylation array analysis (450K/EPIC)
-    let meth_config = MethylationArrayConfig::default();
-    let meth_results = methylation_array_analysis(&idat, &meth_config).unwrap();
-    println!("{} CpG sites, {} DMPs (FDR < 0.05)",
-        meth_results.num_sites(),
-        meth_results.differentially_methylated(0.05).len());
+    // 6. Limma-style differential expression (empirical Bayes moderated t-test)
+    let expression = vec![
+        vec![5.2, 5.1, 3.0, 2.9],  // gene1: 2 control, 2 treated
+        vec![2.0, 2.1, 2.0, 2.1],  // gene2: no change
+    ];
+    let gene_names = vec!["GeneA".into(), "GeneB".into()];
+    let groups = vec![0, 0, 1, 1];  // 0=control, 1=treated
+    let results = limma_diff_expr(&expression, &gene_names, &groups);
+    for r in &results {
+        println!("{}: logFC={:.2}, adj_p={:.4}", r.gene, r.log_fc, r.adj_p_value);
+    }
+
+    // 7. Methylation analysis: beta values, M-values, SWAN normalization
+    let methylated = 800.0;
+    let unmethylated = 200.0;
+    let beta = compute_beta(methylated, unmethylated);  // 0.8
+    let m_val = beta_to_m_value(beta);                  // log2(0.8/0.2)
+
+    let beta_values = vec![vec![0.1, 0.9, 0.5], vec![0.2, 0.8, 0.4]];
+    let design_types = vec![InfiniumType::TypeI, InfiniumType::TypeII, InfiniumType::TypeI];
+    let normalized_betas = swan_normalize(&beta_values, &design_types);
+
+    // 8. Differential methylation
+    let probe_ids = vec!["cg001".into(), "cg002".into(), "cg003".into()];
+    let dm_results = diff_methylation(&beta_values, &probe_ids, &groups);
 }
 ```
 
 ## 17. Flow Cytometry (FCS) Analysis
 
-Parse FCS files (versions 2.0, 3.0, 3.1), inspect parameter metadata, compute per-channel statistics, and write FCS output.
+Parse FCS files (versions 2.0, 3.0, 3.1), inspect parameter metadata, extract channel data, and write FCS output.
 
-**Crates**: cyanea-io (with `fcs` feature)
+**Crates**: cyanea-io
 
 ```toml
 [dependencies]
-cyanea-io = { version = "0.1", features = ["fcs"] }
+cyanea-io = "0.1"
 ```
 
 ```rust
-use cyanea_io::fcs::{parse_fcs, write_fcs, fcs_stats, FcsFile, FcsParameter, FcsStats};
+use cyanea_io::fcs::{parse_fcs, write_fcs, fcs_stats, FcsFile};
 
 fn fcs_pipeline(fcs_data: &[u8]) {
     // 1. Parse an FCS file (supports FCS 2.0, 3.0, 3.1)
     let fcs = parse_fcs(fcs_data).unwrap();
     println!("FCS version: {}", fcs.version);
-    println!("{} events, {} parameters", fcs.num_events(), fcs.num_parameters());
+    println!("{} events, {} parameters", fcs.n_events(), fcs.n_parameters());
 
-    // 2. Inspect parameter metadata (channel names, ranges, etc.)
+    // 2. Inspect parameter metadata
     for param in &fcs.parameters {
-        println!("  {} ({}): bits={}, range={}",
-            param.short_name, param.long_name,
-            param.bit_width, param.range);
+        println!("  {}: bits={}, range={}, amplification={:?}",
+            param.name, param.bits, param.range, param.amplification);
+        if let Some(ref stain) = param.stain {
+            println!("    stain: {}", stain);
+        }
     }
 
-    // 3. Compute per-channel statistics (mean, median, std, min, max)
-    let stats = fcs_stats(&fcs).unwrap();
-    for (param, st) in fcs.parameters.iter().zip(&stats) {
-        println!("{}: mean={:.1}, median={:.1}, std={:.1}",
-            param.short_name, st.mean, st.median, st.std_dev);
+    // 3. Access TEXT segment keywords
+    if let Some(date) = fcs.keyword("$DATE") {
+        println!("Acquisition date: {}", date);
     }
 
-    // 4. Write an FCS file (round-trip)
+    // 4. Extract channel data by name or index
+    let fsc_data = fcs.parameter_data_by_name("FSC-A");
+    let ssc_data = fcs.parameter_data(1);  // by index
+
+    // 5. Summary statistics
+    let stats = fcs.stats();
+    println!("{} parameters: {:?}", stats.n_parameters, stats.parameter_names);
+
+    // 6. Write an FCS 3.1 file (round-trip)
     let output = write_fcs(&fcs).unwrap();
-    println!("Wrote {} bytes", output.len());
+    let fcs2 = parse_fcs(&output).unwrap();
+    assert_eq!(fcs2.n_events(), fcs.n_events());
 }
 ```
 
@@ -1131,65 +1109,48 @@ cyanea-chem = "0.1"
 
 ```rust
 use cyanea_chem::metabolomics::{
-    match_mass, MassMatchConfig, isotope_pattern, IsotopeConfig,
-    predict_retention_time, RtModel,
-    kegg_pathway_enrichment, EnrichmentConfig, MetaboliteHit,
+    match_by_mass, positive_adducts, negative_adducts, calc_mz,
+    isotope_pattern, isotope_cosine_score,
+    predict_rt,
+    pathway_enrichment, demo_metabolite_database, demo_metabolic_pathways,
 };
 
-fn metabolomics_pipeline(observed_masses: &[f64], formulas: &[&str]) {
-    // 1. Match observed m/z values against a metabolite database
-    let config = MassMatchConfig {
-        tolerance_ppm: 5.0,
-        adducts: vec!["[M+H]+".into(), "[M+Na]+".into(), "[M-H]-".into()],
-        ..Default::default()
-    };
-    let hits: Vec<MetaboliteHit> = observed_masses.iter()
-        .flat_map(|&mz| match_mass(mz, &config).unwrap())
-        .collect();
-    println!("{} metabolite candidates from {} masses", hits.len(), observed_masses.len());
+fn metabolomics_pipeline() {
+    // 1. Match observed m/z against a metabolite database
+    let db = demo_metabolite_database();  // 20 common metabolites
+    let adducts = positive_adducts();     // [M+H]+, [M+Na]+, [M+K]+, etc.
 
-    for hit in hits.iter().take(5) {
-        println!("  {} ({}): delta={:.2} ppm, adduct={}",
-            hit.name, hit.formula, hit.ppm_error, hit.adduct);
+    let observed_mz = 181.0707;  // glucose [M+H]+
+    let matches = match_by_mass(observed_mz, &db, &adducts, 10.0);  // 10 ppm tolerance
+    for m in &matches {
+        println!("{} ({}): {:.1} ppm, adduct {}, calc m/z {:.4}",
+            m.metabolite.name, m.metabolite.formula,
+            m.ppm_error, m.adduct, m.calc_mz);
     }
 
-    // 2. Generate theoretical isotope patterns for candidate formulas
-    let iso_config = IsotopeConfig {
-        max_isotopes: 5,
-        min_abundance: 0.01,  // 1% cutoff
-        ..Default::default()
-    };
-    for formula in formulas {
-        let pattern = isotope_pattern(formula, &iso_config).unwrap();
-        println!("Isotope pattern for {}:", formula);
-        for peak in &pattern.peaks {
-            println!("  m/z={:.4}, relative_abundance={:.3}", peak.mz, peak.abundance);
-        }
+    // 2. Generate theoretical isotope pattern from formula
+    let pattern = isotope_pattern("C6H12O6", 4).unwrap();  // glucose, M+0 through M+3
+    for peak in &pattern {
+        println!("  M+{:.3}: abundance {:.3}", peak.mass_offset, peak.abundance);
     }
 
-    // 3. Predict retention times using a linear/nonlinear model
-    let model = RtModel::default();  // built-in HILIC model
-    for formula in formulas {
-        let predicted_rt = predict_retention_time(formula, &model).unwrap();
-        println!("{}: predicted RT = {:.1} min", formula, predicted_rt);
-    }
+    // Compare observed vs theoretical isotope patterns (cosine score)
+    let observed = vec![1.0, 0.068, 0.003];
+    let theoretical: Vec<f64> = pattern.iter().take(3).map(|p| p.abundance).collect();
+    let score = isotope_cosine_score(&observed, &theoretical);
+    println!("Isotope match score: {:.3}", score);  // > 0.99 = good match
 
-    // 4. KEGG pathway enrichment on identified metabolites
-    let kegg_ids: Vec<String> = hits.iter()
-        .filter_map(|h| h.kegg_id.clone())
-        .collect();
-    let enrichment_config = EnrichmentConfig {
-        p_value_cutoff: 0.05,
-        correction: "fdr".into(),
-        ..Default::default()
-    };
-    let pathways = kegg_pathway_enrichment(&kegg_ids, &enrichment_config).unwrap();
-    println!("{} enriched pathways:", pathways.len());
-    for pw in pathways.iter().take(10) {
-        println!("  {} ({}): p={:.2e}, q={:.2e}, {}/{} hits",
-            pw.pathway_name, pw.pathway_id,
-            pw.p_value, pw.q_value,
-            pw.hit_count, pw.pathway_size);
+    // 3. Predict reversed-phase HPLC retention time
+    let rt = predict_rt(0.5, 180.0, 110.0);  // logP, MW, PSA
+    println!("Predicted RT: {:.1} +/- {:.1} min", rt.rt_minutes, rt.error_margin);
+
+    // 4. KEGG pathway enrichment (hypergeometric test)
+    let pathways = demo_metabolic_pathways();  // 6 core KEGG pathways
+    let matched_ids = vec!["C00031", "C00022", "C00186", "C00074", "C00024"];  // glycolysis hits
+    let enriched = pathway_enrichment(&matched_ids, &pathways, 20);
+    for pw in &enriched {
+        println!("{}: {}/{} hits, p={:.2e}, impact={:.2}",
+            pw.pathway_name, pw.hits, pw.total, pw.p_value, pw.impact);
     }
 }
 ```
@@ -1207,88 +1168,65 @@ cyanea-omics = "0.1"
 
 ```rust
 use cyanea_omics::crispr::{
-    score_guide, GuideScoreMethod, find_off_targets, OffTargetConfig,
-    mageck_test, ScreenData, ScreenResult,
-    predict_base_editing, BaseEditor, EditingOutcome,
+    score_guide_rs2, cfd_score, find_off_targets, count_mismatches,
+    analyze_screen, predict_editing, BaseEditor,
 };
 
-fn crispr_pipeline(
-    guides: &[&str],
-    reference_genome: &[u8],
-    screen_counts: &ScreenData,
-) {
-    // 1. Score guide RNAs using Rule Set 2 (on-target efficiency)
-    for guide in guides {
-        let rs2_score = score_guide(guide, GuideScoreMethod::RuleSet2).unwrap();
-        let cfd_score = score_guide(guide, GuideScoreMethod::CFD).unwrap();
-        println!("Guide {}: Rule Set 2 = {:.3}, CFD = {:.3}",
-            &guide[..10], rs2_score, cfd_score);
+fn crispr_pipeline() {
+    // 1. Score guide RNA on-target activity (Rule Set 2)
+    //    Requires 30-nt context: 4nt upstream + 20nt spacer + 3nt PAM + 3nt downstream
+    let context = b"ACGTGCATGCTAGCTAGCGATGGNNGGATT";
+    let rs2_score = score_guide_rs2(context).unwrap();
+    println!("Rule Set 2 score: {:.3}", rs2_score);  // 0-1, higher = better
+
+    // 2. CFD off-target scoring (cutting frequency determination)
+    let guide     = b"ACGTACGTACGTACGTACGT";
+    let off_target = b"ACGTACGTACGTACGTACGA";  // 1 mismatch at position 20
+    let cfd = cfd_score(guide, off_target).unwrap();
+    println!("CFD score: {:.3}", cfd);  // 1.0 = perfect match, lower = less likely to cut
+    println!("Mismatches: {}", count_mismatches(guide, off_target));
+
+    // 3. Genome-wide off-target search (finds NGG PAM sites with up to N mismatches)
+    let genome = b"NNNNNACGTACGTACATACGTACGTNGGNNNNNN";  // 1 mismatch near guide
+    let off_targets = find_off_targets(guide, genome, "chr1", 3).unwrap();
+    for ot in &off_targets {
+        println!("{}:{} strand={}, mm={}, CFD={:.3}",
+            ot.chrom, ot.position, ot.strand, ot.mismatches, ot.cfd_score);
     }
 
-    // 2. Off-target prediction with mismatch tolerance
-    let ot_config = OffTargetConfig {
-        max_mismatches: 3,
-        pam: "NGG".into(),
-        score_threshold: 0.1,  // minimum CFD score to report
-        ..Default::default()
-    };
-    for guide in guides {
-        let off_targets = find_off_targets(guide, reference_genome, &ot_config).unwrap();
-        println!("Guide {}: {} off-target sites (max {} mismatches)",
-            &guide[..10], off_targets.len(), ot_config.max_mismatches);
-        for ot in off_targets.iter().take(3) {
-            println!("  pos={}, mismatches={}, CFD={:.3}, sequence={}",
-                ot.position, ot.num_mismatches, ot.cfd_score, ot.sequence);
-        }
+    // 4. MAGeCK-style CRISPR screen analysis (robust rank aggregation)
+    let screen_data = vec![
+        ("g1".into(), "TP53".into(), -3.5),   // guide, gene, log2FC
+        ("g2".into(), "TP53".into(), -2.8),
+        ("g3".into(), "TP53".into(), -4.1),
+        ("g4".into(), "GFP".into(),   0.1),   // control gene
+        ("g5".into(), "GFP".into(),  -0.2),
+        ("g6".into(), "GFP".into(),   0.3),
+    ];
+    let results = analyze_screen(&screen_data, true);  // true = negative selection
+    for r in &results {
+        println!("{}: median_lfc={:.2}, RRA={:.4}, FDR={:.4}, class={}",
+            r.gene, r.median_lfc, r.rra_score, r.fdr, r.classification);
     }
 
-    // 3. MAGeCK-style CRISPR screen analysis (RRA)
-    let results: Vec<ScreenResult> = mageck_test(screen_counts).unwrap();
-    println!("{} genes tested", results.len());
-
-    // Top depleted genes (negative selection)
-    let mut depleted = results.clone();
-    depleted.sort_by(|a, b| a.neg_p_value.partial_cmp(&b.neg_p_value).unwrap());
-    println!("Top depleted genes:");
-    for gene in depleted.iter().take(5) {
-        println!("  {}: neg_p={:.2e}, neg_fdr={:.2e}, neg_rank={}, lfc={:.2}",
-            gene.gene_name, gene.neg_p_value, gene.neg_fdr,
-            gene.neg_rank, gene.neg_lfc);
+    // 5. Base editing outcome prediction (CBE: C→T, ABE: A→G)
+    let spacer = b"AAGCACGTACGTACGTACGT";
+    let cbe_outcomes = predict_editing(BaseEditor::Cbe, spacer).unwrap();
+    for o in &cbe_outcomes {
+        println!("pos {}: {}→{}, efficiency={:.2}, in_window={}",
+            o.position, o.ref_base, o.alt_base, o.efficiency, o.in_window);
     }
 
-    // Top enriched genes (positive selection)
-    let mut enriched = results.clone();
-    enriched.sort_by(|a, b| a.pos_p_value.partial_cmp(&b.pos_p_value).unwrap());
-    println!("Top enriched genes:");
-    for gene in enriched.iter().take(5) {
-        println!("  {}: pos_p={:.2e}, pos_fdr={:.2e}, lfc={:.2}",
-            gene.gene_name, gene.pos_p_value, gene.pos_fdr, gene.pos_lfc);
-    }
-
-    // 4. Base editing outcome prediction (CBE and ABE)
-    for guide in guides {
-        // Cytosine base editor (C->T conversions)
-        let cbe_outcomes = predict_base_editing(guide, BaseEditor::CBE).unwrap();
-        println!("CBE outcomes for {}:", &guide[..10]);
-        for outcome in cbe_outcomes.iter().take(3) {
-            println!("  pos={}, edit={}, frequency={:.1}%",
-                outcome.position, outcome.edit, outcome.frequency * 100.0);
-        }
-
-        // Adenine base editor (A->G conversions)
-        let abe_outcomes = predict_base_editing(guide, BaseEditor::ABE).unwrap();
-        println!("ABE outcomes for {}:", &guide[..10]);
-        for outcome in abe_outcomes.iter().take(3) {
-            println!("  pos={}, edit={}, frequency={:.1}%",
-                outcome.position, outcome.edit, outcome.frequency * 100.0);
-        }
+    let abe_outcomes = predict_editing(BaseEditor::Abe, spacer).unwrap();
+    for o in &abe_outcomes {
+        println!("pos {}: {}→{}, efficiency={:.2}", o.position, o.ref_base, o.alt_base, o.efficiency);
     }
 }
 ```
 
 ## 20. Hi-C / 3D Genome Analysis
 
-Parse Hi-C contact matrices, call topologically associating domains (TADs), identify A/B compartments, and detect chromatin loops.
+Parse Hi-C contact data, build contact matrices with ICE/KR balancing, call TADs via insulation scores, identify A/B compartments, and detect chromatin loops.
 
 **Crates**: cyanea-omics
 
@@ -1299,62 +1237,66 @@ cyanea-omics = "0.1"
 
 ```rust
 use cyanea_omics::hic::{
-    ContactMatrix, load_contact_matrix, normalize_contacts, NormMethod,
-    call_tads, TadConfig, ab_compartments, CompartmentConfig,
-    detect_loops, LoopConfig,
+    ContactMatrix, contacts_to_matrix, parse_pairs, write_pairs, parse_cool_text,
+    call_tads, TadParams, insulation_scores,
+    call_compartments, Compartment,
+    call_loops, LoopParams,
 };
 
-fn hic_pipeline(
-    matrix_data: &[Vec<f64>],
-    resolution: u64,
-    chrom: &str,
-) {
-    // 1. Load and normalize Hi-C contact matrix
-    let matrix = ContactMatrix::from_dense(matrix_data, chrom, resolution).unwrap();
-    let normalized = normalize_contacts(&matrix, NormMethod::KR).unwrap();
-    println!("Contact matrix: {}x{} at {} bp resolution",
-        normalized.dim(), normalized.dim(), resolution);
+fn hic_pipeline() {
+    // 1. Build a contact matrix from sparse contacts
+    let n = 20;
+    let mut matrix = ContactMatrix::new("chr1", n, 10000);  // 20 bins, 10 kb resolution
 
-    // 2. Call topologically associating domains (TADs)
-    let tad_config = TadConfig {
-        min_size: 3,           // minimum 3 bins
-        max_size: 200,         // maximum 200 bins
-        ..Default::default()
+    // Add contacts (symmetric for cis)
+    matrix.add_contact(0, 1, 5.0);
+    matrix.add_contact(1, 2, 8.0);
+    matrix.add_contact(5, 6, 12.0);
+    println!("{}x{} matrix, resolution {} bp", matrix.size, matrix.size, matrix.resolution);
+
+    // 2. ICE or KR balancing (iterative correction)
+    let mut balanced = matrix.clone();
+    balanced.ice_balance(50, 1e-5);   // 50 iterations, tolerance 1e-5
+    // Or: balanced.kr_balance(100, 1e-6);
+
+    // 3. Observed/Expected normalization
+    let oe = balanced.observed_expected();
+
+    // 4. Call TADs via insulation scores
+    let tad_params = TadParams { window_size: 5, min_size: 3, zscore_threshold: -0.5 };
+    let tads = call_tads(&balanced, &tad_params);
+    for tad in &tads {
+        println!("TAD: bins {}-{}, mean insulation {:.3}", tad.start, tad.end, tad.mean_insulation);
+    }
+
+    // Raw insulation scores
+    let scores = insulation_scores(&balanced, 5);
+
+    // 5. A/B compartment calling (PCA on correlation of O/E matrix)
+    let gc_content: Option<&[f64]> = None;  // optional GC for orientation
+    let compartments = call_compartments(&balanced, gc_content);
+    let n_a = compartments.compartments.iter().filter(|c| **c == Compartment::A).count();
+    let n_b = compartments.compartments.iter().filter(|c| **c == Compartment::B).count();
+    println!("{} A bins, {} B bins", n_a, n_b);
+
+    // 6. Loop detection (donut background enrichment)
+    let loop_params = LoopParams {
+        donut_inner: 2, donut_outer: 5,
+        min_distance: 5, p_threshold: 0.01, min_enrichment: 1.5,
     };
-    let tads = call_tads(&normalized, &tad_config).unwrap();
-    println!("{} TADs called, median size: {} bins",
-        tads.len(), tads.median_size());
-
-    for tad in tads.iter().take(5) {
-        println!("TAD {}:{}-{} ({} bins, insulation score={:.3})",
-            chrom, tad.start, tad.end, tad.n_bins, tad.insulation_score);
+    let loops = call_loops(&balanced, &loop_params);
+    for lp in &loops {
+        println!("Loop ({},{}) enrichment={:.2}, p={:.2e}", lp.bin1, lp.bin2, lp.enrichment, lp.p_value);
     }
 
-    // 3. A/B compartment identification via eigenvector decomposition
-    let comp_config = CompartmentConfig::default();
-    let compartments = ab_compartments(&normalized, &comp_config).unwrap();
-    let n_a = compartments.iter().filter(|c| c.is_a()).count();
-    let n_b = compartments.iter().filter(|c| c.is_b()).count();
-    println!("{} A compartments, {} B compartments", n_a, n_b);
+    // 7. Parse/write .pairs format
+    let pairs_text = "## pairs format v1.0\n#columns: readID chr1 pos1 chr2 pos2 strand1 strand2\nr1\tchr1\t1000\tchr1\t5000\t+\t-\n";
+    let contacts = parse_pairs(pairs_text).unwrap();
+    let output = write_pairs(&contacts, "test");
 
-    for comp in compartments.iter().take(5) {
-        println!("Bin {}: compartment {} (eigenvector={:.4})",
-            comp.bin_index, comp.label(), comp.eigenvector_value);
-    }
-
-    // 4. Chromatin loop detection
-    let loop_config = LoopConfig {
-        min_distance: 5,       // minimum 5 bins apart
-        fdr_threshold: 0.05,
-        ..Default::default()
-    };
-    let loops = detect_loops(&normalized, &loop_config).unwrap();
-    println!("{} loops detected (FDR < {})", loops.len(), loop_config.fdr_threshold);
-
-    for lp in loops.iter().take(5) {
-        println!("Loop {}:{}-{} (observed/expected={:.2}, FDR={:.2e})",
-            chrom, lp.anchor1, lp.anchor2,
-            lp.observed_over_expected, lp.fdr);
-    }
+    // 8. Parse cooler text dump
+    let cool_text = "chr1\t0\t10000\tchr1\t10000\t20000\t5.0\n";
+    let sparse = parse_cool_text(cool_text, 10000).unwrap();
+    let mat = contacts_to_matrix(&sparse.contacts, "chr1", 20, 10000);
 }
 ```
