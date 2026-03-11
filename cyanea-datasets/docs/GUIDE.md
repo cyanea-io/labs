@@ -357,7 +357,93 @@ for (label, phi, psi) in &angles {
 // beta_sheet_1: phi=-120, psi=130
 ```
 
-## 9. Combining Datasets
+## 9. Protocols
+
+### Browsing protocols
+
+```rust
+use cyanea_datasets::protocols;
+
+// All 16 protocol templates
+let all = protocols::all_protocols();
+println!("{} protocols available", all.len());
+
+// Filter by category
+let wet = protocols::wet_lab_protocols();
+let dry = protocols::dry_lab_protocols();
+println!("{} wet-lab, {} dry-lab", wet.len(), dry.len()); // 10, 6
+
+for p in &all {
+    println!("[{}] {} — {} ({})",
+        match p.category {
+            protocols::ProtocolCategory::WetLab => "Wet",
+            protocols::ProtocolCategory::DryLab => "Dry",
+        },
+        p.title,
+        p.estimated_time,
+        match p.difficulty {
+            protocols::Difficulty::Beginner => "Beginner",
+            protocols::Difficulty::Intermediate => "Intermediate",
+            protocols::Difficulty::Advanced => "Advanced",
+        });
+}
+```
+
+### Individual protocol access
+
+```rust
+use cyanea_datasets::protocols;
+
+let elisa = protocols::elisa();
+println!("{} ({} steps)", elisa.title, elisa.steps.len());
+
+for step in &elisa.steps {
+    print!("  Step {}: {}", step.number, step.title);
+    if let Some(dur) = step.duration {
+        print!(" [{}]", dur);
+    }
+    println!();
+}
+
+println!("Requirements: {:?}", elisa.requirements);
+println!("Expected outputs: {:?}", elisa.expected_outputs);
+```
+
+### Markdown rendering
+
+```rust
+use cyanea_datasets::protocols;
+
+let gwas = protocols::gwas_pipeline();
+let md = gwas.to_markdown();
+println!("{}", md);
+// Outputs a full markdown document with title, metadata, requirements,
+// numbered steps (with durations, tips, cautions), outputs, and references.
+```
+
+### Working with protocol steps
+
+```rust
+use cyanea_datasets::protocols;
+
+let chipseq = protocols::chipseq_library_prep();
+
+// Steps with cautions
+for step in &chipseq.steps {
+    if let Some(caution) = step.caution {
+        println!("Step {}: CAUTION — {}", step.number, caution);
+    }
+}
+
+// Steps with tips
+for step in &chipseq.steps {
+    for tip in &step.tips {
+        println!("Step {} tip: {}", step.number, tip);
+    }
+}
+```
+
+## 10. Combining Datasets
 
 Datasets are designed to work together across cyanea crates.
 

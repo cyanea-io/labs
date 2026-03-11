@@ -26,6 +26,60 @@ Metagenomics demo datasets: OTU tables, taxonomy profiles.
 ### `structural`
 Structural biology demo datasets: protein structures, contact maps.
 
+### `protocols`
+Structured protocol templates: 10 wet-lab and 6 dry-lab workflows with steps, timing, tips, and markdown rendering.
+
+### `protocols::Protocol`
+A protocol template with structured steps and metadata.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `title` | `&'static str` | Protocol title |
+| `slug` | `&'static str` | URL-friendly identifier |
+| `category` | `ProtocolCategory` | Wet lab or dry lab |
+| `description` | `&'static str` | Overview of the protocol |
+| `estimated_time` | `&'static str` | Estimated total time |
+| `difficulty` | `Difficulty` | Beginner, Intermediate, or Advanced |
+| `requirements` | `Vec<&'static str>` | Materials or software needed |
+| `steps` | `Vec<ProtocolStep>` | Ordered protocol steps |
+| `expected_outputs` | `Vec<&'static str>` | What the protocol produces |
+| `references` | `Vec<&'static str>` | Literature references |
+
+**Methods:**
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `to_markdown` | `(&self) -> String` | Render the full protocol as a markdown document |
+
+### `protocols::ProtocolCategory`
+Protocol category enum.
+
+| Variant | Description |
+|---------|-------------|
+| `WetLab` | Bench/laboratory protocol |
+| `DryLab` | Computational/bioinformatics pipeline |
+
+### `protocols::Difficulty`
+Protocol difficulty level enum.
+
+| Variant | Description |
+|---------|-------------|
+| `Beginner` | Suitable for new researchers |
+| `Intermediate` | Requires some domain experience |
+| `Advanced` | Requires significant expertise |
+
+### `protocols::ProtocolStep`
+A single step in a protocol.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `number` | `u32` | Step number (1-based) |
+| `title` | `&'static str` | Step title |
+| `description` | `&'static str` | Detailed instructions |
+| `duration` | `Option<&'static str>` | Time estimate for this step |
+| `tips` | `Vec<&'static str>` | Practical tips |
+| `caution` | `Option<&'static str>` | Safety or critical warnings |
+
 ## Types
 
 ### `genomics::DemoVariant`
@@ -266,3 +320,27 @@ A demo protein structure (Cα trace).
 |----------|-----------|-------------|
 | `structural::insulin_chain_b` | `() -> DemoStructure` | Insulin chain B Cα trace (PDB 2INS), 30 residues |
 | `structural::demo_ramachandran` | `() -> Vec<(&'static str, f64, f64)>` | 10 demo (label, phi, psi) angles for Ramachandran plot |
+
+### Protocols
+
+| Function | Signature | Description |
+|----------|-----------|-------------|
+| `protocols::all_protocols` | `() -> Vec<Protocol>` | All 16 protocol templates |
+| `protocols::wet_lab_protocols` | `() -> Vec<Protocol>` | 10 wet-lab protocols |
+| `protocols::dry_lab_protocols` | `() -> Vec<Protocol>` | 6 dry-lab (computational) protocols |
+| `protocols::elisa` | `() -> Protocol` | ELISA (Enzyme-Linked Immunosorbent Assay) |
+| `protocols::qpcr` | `() -> Protocol` | qPCR / RT-qPCR |
+| `protocols::immunofluorescence` | `() -> Protocol` | Immunofluorescence staining |
+| `protocols::cell_viability_mtt` | `() -> Protocol` | MTT Cell Viability Assay |
+| `protocols::site_directed_mutagenesis` | `() -> Protocol` | Site-Directed Mutagenesis |
+| `protocols::bacterial_transformation` | `() -> Protocol` | Bacterial Transformation |
+| `protocols::coimmunoprecipitation` | `() -> Protocol` | Co-Immunoprecipitation (Co-IP) |
+| `protocols::chipseq_library_prep` | `() -> Protocol` | ChIP-seq Library Preparation |
+| `protocols::atacseq_library_prep` | `() -> Protocol` | ATAC-seq Library Preparation |
+| `protocols::hic_library_prep` | `() -> Protocol` | Hi-C Library Preparation |
+| `protocols::gwas_pipeline` | `() -> Protocol` | GWAS Pipeline |
+| `protocols::longread_genome_assembly` | `() -> Protocol` | Long-Read Genome Assembly |
+| `protocols::proteomics_dia_search` | `() -> Protocol` | DIA Proteomics Analysis |
+| `protocols::spatial_transcriptomics_analysis` | `() -> Protocol` | Spatial Transcriptomics Analysis |
+| `protocols::hic_analysis` | `() -> Protocol` | Hi-C Analysis Pipeline |
+| `protocols::alphafold_structure_prediction` | `() -> Protocol` | AlphaFold Structure Prediction |

@@ -12,6 +12,7 @@ cyanea-datasets
  +-- phylogenetics.rs  Primate Newick/NEXUS trees, cytochrome b sequences, FASTA, distance matrix
  +-- metagenomics.rs   Gut microbiome OTU table, relative abundance, Shannon diversity, taxonomy lineages
  +-- structural.rs     Insulin chain B Ca trace, distance/contact map, PDB output, Ramachandran angles
+ +-- protocols.rs     16 structured protocol templates (10 wet lab, 6 dry lab) with markdown rendering
 ```
 
 ## Design Decisions
@@ -57,6 +58,20 @@ Several structs include methods to produce standard bioinformatics format output
 
 These are intentionally simplified (e.g., the PDB output contains only Cα atoms) to serve as demo input for parsers in other cyanea crates.
 
+### Protocol Templates
+
+The `protocols` module follows a different pattern from the dataset modules. Rather than providing raw data for analysis, it provides **structured workflow templates** — step-by-step instructions for wet-lab and dry-lab procedures.
+
+Each `Protocol` struct contains metadata (title, slug, category, difficulty, estimated time), a list of requirements (materials or software), ordered `ProtocolStep` entries with optional timing, tips, and caution notes, plus expected outputs and literature references.
+
+The `to_markdown()` method renders a complete protocol as a formatted markdown document suitable for display in the Cyanea notebook platform. This supports the "open and run" workflow where users can browse, fork, and follow protocols directly in notebooks.
+
+Protocols are split into two categories:
+- **Wet lab (10)**: ELISA, qPCR/RT-qPCR, Immunofluorescence, MTT Cell Viability, Site-Directed Mutagenesis, Bacterial Transformation, Co-IP, ChIP-seq Library Prep, ATAC-seq Library Prep, Hi-C Library Prep
+- **Dry lab (6)**: GWAS Pipeline, Long-Read Genome Assembly, DIA Proteomics, Spatial Transcriptomics Analysis, Hi-C Analysis, AlphaFold Structure Prediction
+
+Three convenience functions provide access: `all_protocols()` (all 16), `wet_lab_protocols()`, and `dry_lab_protocols()`, plus individual constructor functions for each protocol (e.g., `elisa()`, `gwas_pipeline()`).
+
 ### Analytical Methods
 
 Some structs include basic analytical methods to make the datasets immediately useful without importing domain-specific crates:
@@ -101,6 +116,7 @@ All datasets are deliberately small to load instantly and display readably in no
 | OTU table | 8 taxa x 6 samples | Diversity, differential abundance |
 | Insulin chain B | 30 residues | Structure analysis, contact maps |
 | Ramachandran angles | 10 points | Secondary structure assessment |
+| Protocol templates | 16 protocols (10 wet, 6 dry) | Notebook workflows, tutorials |
 
 ## Dependencies
 
@@ -117,3 +133,4 @@ No external dependencies beyond `cyanea-core`. All data is self-contained.
 - **Invariant checks**: Sequence validity (DNA bases only), matrix dimensions, symmetry of distance matrices, beta values in [0,1], summit within peak bounds, contact map symmetry
 - **Biological assertions**: Marker enrichment in correct cell types, healthy > IBD diversity, Lipinski compliance counts, phylogenetic distance ordering
 - **Format validation**: VCF header present, narrowPeak field count, FASTA record count, PDB ATOM line count
+- **Protocol validation**: Correct counts (16 total, 10 wet, 6 dry), non-empty steps/requirements/outputs, sequential step numbering, markdown rendering contains expected sections, individual constructor consistency with collection functions
