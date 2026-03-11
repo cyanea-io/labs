@@ -1,10 +1,10 @@
 # cyanea-chem
 
-Chemistry and small molecule toolkit: molecular graph representation, SMILES/SDF/SMARTS parsing, fingerprints, property calculation, substructure search, canonical SMILES, MACCS keys, stereochemistry, molecular descriptors, drug-likeness filters, scaffold analysis, molecule standardization, 3D conformer generation, force field energy calculations, Gasteiger charges, chemical reactions, and 3D embedding.
+Chemistry and small molecule toolkit: molecular graph representation, SMILES/SDF/SMARTS parsing, fingerprints, property calculation, substructure search, canonical SMILES, MACCS keys, stereochemistry, molecular descriptors, drug-likeness filters, scaffold analysis, molecule standardization, 3D conformer generation, force field energy calculations, Gasteiger charges, chemical reactions, 3D embedding, and metabolomics (metabolite identification, isotope patterns, RT prediction, pathway mapping).
 
 ## Status: Complete
 
-All planned functionality is implemented across 20 modules covering molecular representation, I/O (SMILES, SDF V2000/V3000, SMARTS), fingerprints (Morgan, MACCS), properties, substructure search, canonical SMILES, stereochemistry (CIP rules), molecular descriptors (topological, physicochemical), drug-likeness (Lipinski, Veber, PAINS, Brenk, QED), scaffold analysis (Murcko, MCS, R-group), standardization pipeline, 3D conformer generation (distance geometry, ETKDG), force fields (UFF, MMFF94), Gasteiger charges, chemical reactions (SMIRKS, retrosynthesis), and 3D coordinate embedding.
+All planned functionality is implemented across 21 modules covering molecular representation, I/O (SMILES, SDF V2000/V3000, SMARTS), fingerprints (Morgan, MACCS), properties, substructure search, canonical SMILES, stereochemistry (CIP rules), molecular descriptors (topological, physicochemical), drug-likeness (Lipinski, Veber, PAINS, Brenk, QED), scaffold analysis (Murcko, MCS, R-group), standardization pipeline, 3D conformer generation (distance geometry, ETKDG), force fields (UFF, MMFF94), Gasteiger charges, chemical reactions (SMIRKS, retrosynthesis), 3D coordinate embedding, and metabolomics (mass-based identification, isotope patterns, RT prediction, KEGG pathway enrichment).
 
 ## Public API
 
@@ -230,6 +230,30 @@ Iterative partial equalization of orbital electronegativity. Parameters for H, C
 | `atom_atom_mapping(reactant, product, reaction) -> Result<AtomAtomMapping>` | Compute atom-atom mapping |
 | `retrosynthetic_disconnection(mol) -> Result<Vec<Disconnection>>` | Apply retrosynthetic transforms to find precursors |
 
+### Metabolomics (`metabolomics.rs`)
+
+Metabolite identification, isotope pattern prediction, retention time prediction, and KEGG pathway enrichment analysis for untargeted and targeted metabolomics workflows.
+
+| Type/Function | Description |
+|---------------|-------------|
+| `Metabolite` | `id`, `name`, `formula`, `exact_mass`, `pathways`, `inchikey_prefix` |
+| `MassMatch` | `metabolite`, `ppm_error`, `adduct`, `calc_mz` |
+| `Adduct` | `name`, `mult`, `shift`, `charge` — adduct definition for m/z calculation |
+| `IsotopePeak` | `mass_offset`, `abundance` — theoretical isotope peak |
+| `RtPrediction` | `rt_minutes`, `error_margin`, `descriptors` |
+| `PathwayEnrichment` | `pathway_id`, `pathway_name`, `hits`, `total`, `p_value`, `impact` |
+| `MetabolicPathway` | `id`, `name`, `metabolite_ids` — KEGG-style pathway definition |
+| `match_by_mass(observed_mz, database, adducts, ppm_tolerance) -> Vec<MassMatch>` | Search metabolite database by observed m/z within ppm tolerance |
+| `isotope_pattern(formula, max_peaks) -> Result<Vec<IsotopePeak>>` | Generate theoretical isotope pattern from molecular formula (C, H, N, O, S, P, Cl, Br, F, Si) |
+| `isotope_cosine_score(observed, theoretical) -> f64` | Cosine similarity between observed and theoretical isotope patterns (0-1) |
+| `predict_rt(logp, molecular_weight, polar_surface_area) -> RtPrediction` | Predict reversed-phase HPLC retention time from molecular properties |
+| `pathway_enrichment(matched_ids, pathways, universe_size) -> Vec<PathwayEnrichment>` | Hypergeometric pathway enrichment analysis |
+| `calc_mz(exact_mass, adduct) -> f64` | Calculate m/z for a given mass and adduct |
+| `positive_adducts() -> Vec<Adduct>` | Common positive-mode ESI adducts ([M+H]+, [M+Na]+, [M+K]+, [M+NH4]+, [2M+H]+, [M+2H]2+) |
+| `negative_adducts() -> Vec<Adduct>` | Common negative-mode ESI adducts ([M-H]-, [M+FA-H]-, [M+Cl]-, [M-2H]2-) |
+| `demo_metabolite_database() -> Vec<Metabolite>` | 20 common metabolites (amino acids, TCA cycle, glycolysis intermediates) |
+| `demo_metabolic_pathways() -> Vec<MetabolicPathway>` | 6 KEGG pathways (glycolysis, TCA, amino acid metabolism, pyruvate metabolism) |
+
 ## Feature Flags
 
 | Flag | Default | Description |
@@ -246,7 +270,7 @@ Iterative partial equalization of orbital electronegativity. Parameters for H, C
 
 ## Tests
 
-200 unit tests + 7 doc tests across 22 source files.
+216 unit tests + 7 doc tests across 23 source files.
 
 ## Source Files
 
@@ -274,3 +298,4 @@ Iterative partial equalization of orbital electronegativity. Parameters for H, C
 | `forcefield.rs` | -- | UFF/MMFF94 energy, steepest descent/conjugate gradient minimization |
 | `gasteiger.rs` | -- | Gasteiger-Marsili partial charges |
 | `reaction.rs` | -- | SMIRKS reactions, enumeration, retrosynthesis |
+| `metabolomics.rs` | -- | Metabolite identification, isotope patterns, RT prediction, pathway enrichment |

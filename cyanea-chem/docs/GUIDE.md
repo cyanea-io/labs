@@ -1,6 +1,6 @@
 # cyanea-chem Usage Guide
 
-Practical examples for cheminformatics: SMILES/SDF parsing, fingerprints, properties, substructure search, descriptors, drug-likeness, scaffold analysis, 3D conformers, and chemical reactions.
+Practical examples for cheminformatics: SMILES/SDF parsing, fingerprints, properties, substructure search, descriptors, drug-likeness, scaffold analysis, 3D conformers, chemical reactions, and metabolomics.
 
 ## SMILES Parsing and Canonical Output
 
@@ -319,4 +319,83 @@ let charges = gasteiger_charges(&mol).unwrap();
 for (i, q) in charges.iter().enumerate() {
     println!("Atom {}: charge = {:.4}", i, q);
 }
+```
+
+## Metabolomics
+
+### Metabolite Identification by Mass
+
+```rust
+use cyanea_chem::metabolomics::*;
+
+let db = demo_metabolite_database();
+let adducts = positive_adducts();
+
+// Search for glucose [M+H]+ at m/z ~181.07
+let matches = match_by_mass(181.0707, &db, &adducts, 10.0);
+for m in &matches {
+    println!("{} ({}) ppm={:.1} adduct={}",
+        m.metabolite.name, m.metabolite.formula, m.ppm_error, m.adduct);
+}
+
+// Calculate m/z for a specific adduct
+let mz = calc_mz(180.06339, &positive_adducts()[0]); // glucose [M+H]+
+println!("[M+H]+ = {:.4}", mz);
+
+// Negative-mode adducts
+let neg = negative_adducts();
+let mz_neg = calc_mz(180.06339, &neg[0]); // glucose [M-H]-
+println!("[M-H]- = {:.4}", mz_neg);
+```
+
+### Isotope Patterns
+
+```rust
+use cyanea_chem::metabolomics::*;
+
+// Generate theoretical isotope pattern for glucose (C6H12O6)
+let pattern = isotope_pattern("C6H12O6", 5).unwrap();
+for peak in &pattern {
+    println!("M+{:.3}: {:.4}", peak.mass_offset, peak.abundance);
+}
+
+// Compare observed vs theoretical patterns (cosine similarity)
+let observed = vec![1.0, 0.068, 0.003];
+let theoretical: Vec<f64> = pattern.iter().take(3).map(|p| p.abundance).collect();
+let score = isotope_cosine_score(&observed, &theoretical);
+println!("Isotope match score: {:.3}", score); // > 0.9 = good match
+```
+
+### Retention Time Prediction
+
+```rust
+use cyanea_chem::metabolomics::predict_rt;
+
+// Predict RT from molecular properties (logP, MW, PSA)
+// Hydrophobic compound: later elution
+let rt = predict_rt(3.0, 300.0, 40.0);
+println!("Predicted RT: {:.1} +/- {:.1} min", rt.rt_minutes, rt.error_margin);
+
+// Polar compound: earlier elution
+let rt_polar = predict_rt(-1.0, 150.0, 100.0);
+println!("Predicted RT: {:.1} +/- {:.1} min", rt_polar.rt_minutes, rt_polar.error_margin);
+```
+
+### Pathway Enrichment Analysis
+
+```rust
+use cyanea_chem::metabolomics::*;
+
+let pathways = demo_metabolic_pathways();
+let db = demo_metabolite_database();
+
+// Simulate matched metabolite IDs (glycolysis intermediates)
+let matched_ids = vec!["C00031", "C00022", "C00186", "C00074", "C00024"];
+
+let results = pathway_enrichment(&matched_ids, &pathways, db.len());
+for r in &results {
+    println!("{} ({}): {}/{} hits, p={:.4}, impact={:.2}",
+        r.pathway_name, r.pathway_id, r.hits, r.total, r.p_value, r.impact);
+}
+// Glycolysis will rank first with 5/5 hits and impact = 1.0
 ```

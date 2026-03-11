@@ -136,3 +136,50 @@ SMIRKS reactions are parsed as `reactant_SMARTS>>product_SMARTS` with atom-map n
    - Delete atoms/bonds present in the reactant but not in the product
    - Modify bond orders and atom properties according to the mapping
 4. **Retrosynthesis**: Apply a library of known disconnection transforms in the reverse direction (product >> reactants).
+
+## Metabolomics
+
+Tools for untargeted and targeted metabolomics: mass-based metabolite identification, theoretical isotope pattern generation, retention time prediction, and metabolic pathway enrichment.
+
+### Mass-Based Matching
+
+`match_by_mass` searches a metabolite database by observed m/z:
+
+1. For each metabolite and adduct combination, compute the theoretical m/z: `(exact_mass * mult + shift) / charge`.
+2. Calculate ppm error: `abs((observed - theoretical) / theoretical) * 1e6`.
+3. Retain matches within the user-specified ppm tolerance.
+4. Sort results by ascending ppm error.
+
+The module provides `positive_adducts()` (6 common ESI+ adducts: [M+H]+, [M+Na]+, [M+K]+, [M+NH4]+, [2M+H]+, [M+2H]2+) and `negative_adducts()` (4 common ESI- adducts: [M-H]-, [M+FA-H]-, [M+Cl]-, [M-2H]2-).
+
+### Isotope Pattern Prediction
+
+`isotope_pattern` generates theoretical isotope distributions from molecular formulas:
+
+1. **Formula parsing**: Extract element counts from a Hill-style formula string.
+2. **Element patterns**: Look up natural isotope abundance vectors for each element (C: 12C/13C, H: 1H/2H, N: 14N/15N, O: 16O/17O/18O, S: 32S/33S/34S/36S, etc.).
+3. **Convolution**: For each element with count *n*, raise its abundance vector to the *n*-th power via repeated polynomial convolution. Then convolve all element contributions together.
+4. **Normalization**: Truncate to the requested number of peaks and normalize so the monoisotopic peak (M+0) = 1.0.
+
+`isotope_cosine_score` computes the cosine similarity between observed and theoretical abundance vectors for pattern matching validation.
+
+### Retention Time Prediction
+
+`predict_rt` uses a linear model calibrated for C18 reversed-phase HPLC with water/acetonitrile gradient:
+
+```
+RT = 2.5 * logP + 1.8 * (MW/1000) - 3.2 * (PSA/100) + 5.0
+```
+
+Results are clamped to [0.5, 30.0] minutes. The error margin scales with logP uncertainty: `0.5 + 0.1 * |logP|`.
+
+### Pathway Enrichment
+
+`pathway_enrichment` performs over-representation analysis using the hypergeometric test:
+
+1. For each pathway, count how many of the matched metabolite IDs appear in the pathway's metabolite list.
+2. Compute a one-tailed hypergeometric p-value: P(X >= k) where X ~ Hypergeometric(N=universe_size, K=pathway_size, n=matched_count).
+3. Calculate a topology-based impact score as the fraction of pathway metabolites that were hit.
+4. Sort results by ascending p-value.
+
+Log-factorial computation uses exact summation for n <= 20 and Stirling's approximation for larger values.

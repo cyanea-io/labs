@@ -48,6 +48,7 @@ pub mod smiles;
 pub mod standardize;
 pub mod stereo;
 pub mod substructure;
+pub mod metabolomics;
 
 mod ring;
 
@@ -90,6 +91,12 @@ pub use forcefield::{
     Mmff94AtomType, UffAtomType,
 };
 pub use gasteiger::gasteiger_charges;
+pub use metabolomics::{
+    calc_mz, demo_metabolic_pathways, demo_metabolite_database, isotope_cosine_score,
+    isotope_pattern, match_by_mass, negative_adducts, pathway_enrichment, positive_adducts,
+    predict_rt, Adduct, IsotopePeak, MassMatch, Metabolite, MetabolicPathway, PathwayEnrichment,
+    RtPrediction,
+};
 pub use reaction::{
     apply_reaction, atom_atom_map, enumerate_reactions, parse_reaction, retrosynthetic_disconnections,
     AtomAtomMapping, Disconnection, Reaction, ReactionProduct,
