@@ -784,7 +784,59 @@ fn explore_sample_data() {
 }
 ```
 
-## 13. Clinical Genomics Pipeline
+## 13. Protocol Templates
+
+Access 16 structured protocol templates (10 wet lab, 6 dry lab) for common bioinformatics and laboratory workflows. Each protocol includes categorized steps, difficulty level, estimated duration, required materials, and renders to markdown.
+
+**Crates**: cyanea-datasets
+
+```toml
+[dependencies]
+cyanea-datasets = "0.1"
+```
+
+```rust
+use cyanea_datasets::protocols::{
+    all_protocols, wet_lab_protocols, dry_lab_protocols,
+    Protocol, ProtocolCategory, Difficulty,
+};
+
+fn explore_protocols() {
+    // 1. List all 16 protocol templates
+    let all = all_protocols();
+    println!("{} protocols available", all.len());
+
+    // 2. Filter by category: wet lab (10) or dry lab (6)
+    let wet = wet_lab_protocols();
+    let dry = dry_lab_protocols();
+    println!("{} wet lab, {} dry lab protocols", wet.len(), dry.len());
+
+    // 3. Inspect a protocol's metadata
+    for protocol in &all {
+        println!("{}: {} ({}), difficulty: {:?}, ~{} min",
+            protocol.id, protocol.name, protocol.category,
+            protocol.difficulty, protocol.estimated_minutes);
+    }
+
+    // 4. Access structured steps
+    for protocol in &wet {
+        println!("\n## {}", protocol.name);
+        for (i, step) in protocol.steps.iter().enumerate() {
+            println!("  Step {}: {} ({} min)", i + 1, step.title, step.duration_minutes);
+            if !step.notes.is_empty() {
+                println!("    Note: {}", step.notes);
+            }
+        }
+    }
+
+    // 5. Render a protocol to markdown (for notebooks, export, display)
+    let protocol = &all[0];
+    let markdown = protocol.to_markdown();
+    println!("{}", markdown);
+}
+```
+
+## 14. Clinical Genomics Pipeline
 
 Classify variants using ACMG/AMP guidelines, match against ClinVar, call pharmacogenomics star alleles, determine metabolizer phenotypes, check drug-gene interactions, type HLA alleles, and compute tumor biomarkers (TMB, MSI).
 
@@ -875,7 +927,7 @@ fn clinical_pipeline(
 }
 ```
 
-## 14. Spatial Biology Analysis
+## 15. Spatial Biology Analysis
 
 Analyze spatial transcriptomics data: load platform-specific data (Visium, MERFISH, Slide-seq), segment cells, detect spatial domains, find spatially variable genes, infer cell-cell communication, and deconvolve spot-level expression.
 
@@ -961,7 +1013,7 @@ fn spatial_pipeline(
 }
 ```
 
-## 15. Microarray Analysis Pipeline
+## 16. Microarray Analysis Pipeline
 
 Parse microarray data files (Affymetrix CEL, GenePix GPR, Illumina IDAT), normalize expression values with RMA, run limma-style differential expression analysis, and analyze Illumina methylation arrays.
 
@@ -1026,7 +1078,215 @@ fn microarray_pipeline(
 }
 ```
 
-## 16. Hi-C / 3D Genome Analysis
+## 17. Flow Cytometry (FCS) Analysis
+
+Parse FCS files (versions 2.0, 3.0, 3.1), inspect parameter metadata, compute per-channel statistics, and write FCS output.
+
+**Crates**: cyanea-io (with `fcs` feature)
+
+```toml
+[dependencies]
+cyanea-io = { version = "0.1", features = ["fcs"] }
+```
+
+```rust
+use cyanea_io::fcs::{parse_fcs, write_fcs, fcs_stats, FcsFile, FcsParameter, FcsStats};
+
+fn fcs_pipeline(fcs_data: &[u8]) {
+    // 1. Parse an FCS file (supports FCS 2.0, 3.0, 3.1)
+    let fcs = parse_fcs(fcs_data).unwrap();
+    println!("FCS version: {}", fcs.version);
+    println!("{} events, {} parameters", fcs.num_events(), fcs.num_parameters());
+
+    // 2. Inspect parameter metadata (channel names, ranges, etc.)
+    for param in &fcs.parameters {
+        println!("  {} ({}): bits={}, range={}",
+            param.short_name, param.long_name,
+            param.bit_width, param.range);
+    }
+
+    // 3. Compute per-channel statistics (mean, median, std, min, max)
+    let stats = fcs_stats(&fcs).unwrap();
+    for (param, st) in fcs.parameters.iter().zip(&stats) {
+        println!("{}: mean={:.1}, median={:.1}, std={:.1}",
+            param.short_name, st.mean, st.median, st.std_dev);
+    }
+
+    // 4. Write an FCS file (round-trip)
+    let output = write_fcs(&fcs).unwrap();
+    println!("Wrote {} bytes", output.len());
+}
+```
+
+## 18. Metabolomics
+
+Identify metabolites by exact mass matching, generate theoretical isotope patterns, predict retention times, and run KEGG pathway enrichment on detected metabolites.
+
+**Crates**: cyanea-chem
+
+```toml
+[dependencies]
+cyanea-chem = "0.1"
+```
+
+```rust
+use cyanea_chem::metabolomics::{
+    match_mass, MassMatchConfig, isotope_pattern, IsotopeConfig,
+    predict_retention_time, RtModel,
+    kegg_pathway_enrichment, EnrichmentConfig, MetaboliteHit,
+};
+
+fn metabolomics_pipeline(observed_masses: &[f64], formulas: &[&str]) {
+    // 1. Match observed m/z values against a metabolite database
+    let config = MassMatchConfig {
+        tolerance_ppm: 5.0,
+        adducts: vec!["[M+H]+".into(), "[M+Na]+".into(), "[M-H]-".into()],
+        ..Default::default()
+    };
+    let hits: Vec<MetaboliteHit> = observed_masses.iter()
+        .flat_map(|&mz| match_mass(mz, &config).unwrap())
+        .collect();
+    println!("{} metabolite candidates from {} masses", hits.len(), observed_masses.len());
+
+    for hit in hits.iter().take(5) {
+        println!("  {} ({}): delta={:.2} ppm, adduct={}",
+            hit.name, hit.formula, hit.ppm_error, hit.adduct);
+    }
+
+    // 2. Generate theoretical isotope patterns for candidate formulas
+    let iso_config = IsotopeConfig {
+        max_isotopes: 5,
+        min_abundance: 0.01,  // 1% cutoff
+        ..Default::default()
+    };
+    for formula in formulas {
+        let pattern = isotope_pattern(formula, &iso_config).unwrap();
+        println!("Isotope pattern for {}:", formula);
+        for peak in &pattern.peaks {
+            println!("  m/z={:.4}, relative_abundance={:.3}", peak.mz, peak.abundance);
+        }
+    }
+
+    // 3. Predict retention times using a linear/nonlinear model
+    let model = RtModel::default();  // built-in HILIC model
+    for formula in formulas {
+        let predicted_rt = predict_retention_time(formula, &model).unwrap();
+        println!("{}: predicted RT = {:.1} min", formula, predicted_rt);
+    }
+
+    // 4. KEGG pathway enrichment on identified metabolites
+    let kegg_ids: Vec<String> = hits.iter()
+        .filter_map(|h| h.kegg_id.clone())
+        .collect();
+    let enrichment_config = EnrichmentConfig {
+        p_value_cutoff: 0.05,
+        correction: "fdr".into(),
+        ..Default::default()
+    };
+    let pathways = kegg_pathway_enrichment(&kegg_ids, &enrichment_config).unwrap();
+    println!("{} enriched pathways:", pathways.len());
+    for pw in pathways.iter().take(10) {
+        println!("  {} ({}): p={:.2e}, q={:.2e}, {}/{} hits",
+            pw.pathway_name, pw.pathway_id,
+            pw.p_value, pw.q_value,
+            pw.hit_count, pw.pathway_size);
+    }
+}
+```
+
+## 19. CRISPR Guide Design and Screen Analysis
+
+Score guide RNAs (Rule Set 2 and CFD), search for off-targets with mismatches, run MAGeCK-style CRISPR screen analysis, and predict base editing outcomes.
+
+**Crates**: cyanea-omics
+
+```toml
+[dependencies]
+cyanea-omics = "0.1"
+```
+
+```rust
+use cyanea_omics::crispr::{
+    score_guide, GuideScoreMethod, find_off_targets, OffTargetConfig,
+    mageck_test, ScreenData, ScreenResult,
+    predict_base_editing, BaseEditor, EditingOutcome,
+};
+
+fn crispr_pipeline(
+    guides: &[&str],
+    reference_genome: &[u8],
+    screen_counts: &ScreenData,
+) {
+    // 1. Score guide RNAs using Rule Set 2 (on-target efficiency)
+    for guide in guides {
+        let rs2_score = score_guide(guide, GuideScoreMethod::RuleSet2).unwrap();
+        let cfd_score = score_guide(guide, GuideScoreMethod::CFD).unwrap();
+        println!("Guide {}: Rule Set 2 = {:.3}, CFD = {:.3}",
+            &guide[..10], rs2_score, cfd_score);
+    }
+
+    // 2. Off-target prediction with mismatch tolerance
+    let ot_config = OffTargetConfig {
+        max_mismatches: 3,
+        pam: "NGG".into(),
+        score_threshold: 0.1,  // minimum CFD score to report
+        ..Default::default()
+    };
+    for guide in guides {
+        let off_targets = find_off_targets(guide, reference_genome, &ot_config).unwrap();
+        println!("Guide {}: {} off-target sites (max {} mismatches)",
+            &guide[..10], off_targets.len(), ot_config.max_mismatches);
+        for ot in off_targets.iter().take(3) {
+            println!("  pos={}, mismatches={}, CFD={:.3}, sequence={}",
+                ot.position, ot.num_mismatches, ot.cfd_score, ot.sequence);
+        }
+    }
+
+    // 3. MAGeCK-style CRISPR screen analysis (RRA)
+    let results: Vec<ScreenResult> = mageck_test(screen_counts).unwrap();
+    println!("{} genes tested", results.len());
+
+    // Top depleted genes (negative selection)
+    let mut depleted = results.clone();
+    depleted.sort_by(|a, b| a.neg_p_value.partial_cmp(&b.neg_p_value).unwrap());
+    println!("Top depleted genes:");
+    for gene in depleted.iter().take(5) {
+        println!("  {}: neg_p={:.2e}, neg_fdr={:.2e}, neg_rank={}, lfc={:.2}",
+            gene.gene_name, gene.neg_p_value, gene.neg_fdr,
+            gene.neg_rank, gene.neg_lfc);
+    }
+
+    // Top enriched genes (positive selection)
+    let mut enriched = results.clone();
+    enriched.sort_by(|a, b| a.pos_p_value.partial_cmp(&b.pos_p_value).unwrap());
+    println!("Top enriched genes:");
+    for gene in enriched.iter().take(5) {
+        println!("  {}: pos_p={:.2e}, pos_fdr={:.2e}, lfc={:.2}",
+            gene.gene_name, gene.pos_p_value, gene.pos_fdr, gene.pos_lfc);
+    }
+
+    // 4. Base editing outcome prediction (CBE and ABE)
+    for guide in guides {
+        // Cytosine base editor (C->T conversions)
+        let cbe_outcomes = predict_base_editing(guide, BaseEditor::CBE).unwrap();
+        println!("CBE outcomes for {}:", &guide[..10]);
+        for outcome in cbe_outcomes.iter().take(3) {
+            println!("  pos={}, edit={}, frequency={:.1}%",
+                outcome.position, outcome.edit, outcome.frequency * 100.0);
+        }
+
+        // Adenine base editor (A->G conversions)
+        let abe_outcomes = predict_base_editing(guide, BaseEditor::ABE).unwrap();
+        println!("ABE outcomes for {}:", &guide[..10]);
+        for outcome in abe_outcomes.iter().take(3) {
+            println!("  pos={}, edit={}, frequency={:.1}%",
+                outcome.position, outcome.edit, outcome.frequency * 100.0);
+        }
+    }
+}
+```
+
+## 20. Hi-C / 3D Genome Analysis
 
 Parse Hi-C contact matrices, call topologically associating domains (TADs), identify A/B compartments, and detect chromatin loops.
 

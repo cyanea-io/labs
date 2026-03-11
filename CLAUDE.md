@@ -1,6 +1,6 @@
 # Cyanea Labs
 
-Rust bioinformatics ecosystem — 18 crates, 4090+ tests, targeting native, WASM, Python, and Elixir NIFs.
+Rust bioinformatics ecosystem — 18 crates, 4150+ tests, targeting native, WASM, Python, and Elixir NIFs.
 
 ## Workspace
 
@@ -21,12 +21,12 @@ All crates are complete. Each has `docs/API.md` (full API reference), `docs/GUID
 |-------|---------|------:|----------|
 | **cyanea-core** | Traits, errors, SHA-256, zstd, mmap, log-space probability types, rank/select bitvectors, wavelet matrix, Fenwick tree | 58 | thiserror, sha2, zstd, flate2, memmap2 |
 | **cyanea-seq** | DNA/RNA/protein, FASTA/FASTQ, k-mers, 2-bit encoding, suffix array, FM-index, BWT, MinHash, pattern matching, PSSM/motif scanning, ORF finder, FASTA indexed reader (.fai), FMD-Index, quality trimming/filtering, codon tables (7 NCBI), codon usage/CAI, DUST/SEG/tandem repeat masking, paired-end FASTQ, RNA secondary structure prediction, protein sequence properties, read simulation, long-read analysis (PacBio HiFi/CLR, Nanopore simplex/duplex), structural variant calling from split alignments, nanopore QC/methylation | 515 | cyanea-core, needletail |
-| **cyanea-io** | CSV, VCF, BED, BEDPE, GFF3, GTF, SAM, BAM, CRAM, BCF, Parquet, BLAST, BLAST XML, MAF, GenBank, bigWig, Stockholm, Clustal, Phylip, EMBL, PIR, ABI, bedGraph, GFA, CEL/GPR/IDAT microarray formats, fetch helpers (feature-gated) | 368 | cyanea-core, cyanea-omics, csv, flate2, noodles, arrow/parquet |
+| **cyanea-io** | CSV, VCF, BED, BEDPE, GFF3, GTF, SAM, BAM, CRAM, BCF, Parquet, BLAST, BLAST XML, MAF, GenBank, bigWig, Stockholm, Clustal, Phylip, EMBL, PIR, ABI, bedGraph, GFA, CEL/GPR/IDAT microarray formats, FCS (Flow Cytometry Standard 2.0/3.0/3.1), fetch helpers (feature-gated) | 381 | cyanea-core, cyanea-omics, csv, flate2, noodles, arrow/parquet |
 | **cyanea-align** | NW, SW, semi-global, MSA, banded, seed-and-extend, minimizers, WFA, GPU dispatch, POA, LCSk++ sparse alignment, pair HMM, profile HMM, PAM40/120/200, BLOSUM30, CIGAR utilities, X-drop/Z-drop extension, spliced alignment, SIMD (NEON/SSE4.1/AVX2) | 321 | cyanea-core |
-| **cyanea-omics** | Genomic coords, intervals, matrices, variants, AnnData, h5ad, zarr, variant annotation/VEP, CNV/CBS, methylation, spatial transcriptomics (Visium/MERFISH/Slide-seq, cell segmentation, spatial domains, SVG detection via Moran's I, cell-cell communication, deconvolution), single-cell (HVG, normalize, clustering, trajectory, markers, integration), clinical genomics (ACMG/AMP classification, ClinVar matching, pharmacogenomics star allele calling, metabolizer phenotypes, drug-gene interactions, HLA typing, TMB, MSI), microarray analysis (RMA normalization, limma-style differential expression, Illumina methylation array analysis), Hi-C contact matrices, TAD calling, A/B compartments, loop detection | 541 | cyanea-core, zarrs, cyanea-stats, cyanea-ml |
+| **cyanea-omics** | Genomic coords, intervals, matrices, variants, AnnData, h5ad, zarr, variant annotation/VEP, CNV/CBS, methylation, spatial transcriptomics (Visium/MERFISH/Slide-seq, cell segmentation, spatial domains, SVG detection via Moran's I, cell-cell communication, deconvolution), single-cell (HVG, normalize, clustering, trajectory, markers, integration), clinical genomics (ACMG/AMP classification, ClinVar matching, pharmacogenomics star allele calling, metabolizer phenotypes, drug-gene interactions, HLA typing, TMB, MSI), microarray analysis (RMA normalization, limma-style differential expression, Illumina methylation array analysis), Hi-C contact matrices, TAD calling, A/B compartments, loop detection, CRISPR (guide RNA scoring Rule Set 2/CFD, off-target prediction, MAGeCK-style screen analysis, base editing CBE/ABE outcome prediction) | 556 | cyanea-core, zarrs, cyanea-stats, cyanea-ml |
 | **cyanea-stats** | Descriptive, correlation, hypothesis tests, distributions, PCA, effect sizes, Bayesian conjugate priors, combinatorics, population genetics, enrichment analysis (GSEA/ORA), survival analysis, null models, ordination (PCoA/NMDS/CCA/RDA), multivariate (PERMANOVA/ANOSIM/Mantel), diversity, differential expression, normalization | 384 | cyanea-core |
 | **cyanea-ml** | Clustering, distances, embeddings, KNN, PCA, t-SNE, UMAP, random forest, GBDT, feature selection, HMM, classification metrics, cross-validation | 269 | cyanea-core |
-| **cyanea-chem** | SMILES/SDF V2000/V3000, fingerprints, MACCS keys, properties, substructure, stereochemistry, canonical SMILES, 3D conformers (distance geometry/ETKDG), UFF/MMFF94 force fields, energy minimization, SMIRKS reactions, retrosynthesis, Gasteiger charges | 200 | cyanea-core, sha2 |
+| **cyanea-chem** | SMILES/SDF V2000/V3000, fingerprints, MACCS keys, properties, substructure, stereochemistry, canonical SMILES, 3D conformers (distance geometry/ETKDG), UFF/MMFF94 force fields, energy minimization, SMIRKS reactions, retrosynthesis, Gasteiger charges, metabolomics (mass matching, isotope patterns, RT prediction, KEGG pathway enrichment) | 216 | cyanea-core, sha2 |
 | **cyanea-struct** | PDB, mmCIF, geometry, DSSP, Kabsch, contact maps, Ramachandran | 76 | cyanea-core, sha2 |
 | **cyanea-phylo** | Newick/NEXUS, distances, UPGMA/NJ, Fitch/Sankoff, ML likelihood (GTR+G), bootstrap, tree search (NNI/SPR/TBR), model selection (AIC/BIC), protein models (LG/WAG/JTT), Bayesian MCMC, species tree, UniFrac, simulation, consensus, dating, drawing | 225 | cyanea-core, cyanea-ml (optional) |
 | **cyanea-meta** | Metagenomics: taxonomy (k-mer LCA), profiling, alpha/beta diversity, compositional analysis (CLR/ILR, ALDEx2, ANCOM), functional annotation, binning (TNF + coverage), assembly QC | 117 | cyanea-core, cyanea-seq, cyanea-stats, cyanea-io |
@@ -35,7 +35,7 @@ All crates are complete. Each has `docs/API.md` (full API reference), `docs/GUID
 | **cyanea-network** | Network/pathway biology: graph types, centrality, community detection (Louvain/LP), PPI analysis, GRN inference (correlation/MI/CLR), pathway topology scoring, crosstalk, GMT/GraphML/SIF/GEXF I/O | 87 | cyanea-core |
 | **cyanea-gpu** | Backend trait, CPU/CUDA/Metal/WebGPU backends, buffers, ops, k-mer counting, Smith-Waterman, MinHash, benchmarks | 62 | cyanea-core, metal-rs, cudarc, wgpu, criterion (bench) |
 | **cyanea-wasm** | JSON-based WASM bindings (seq, io, align, stats, ml, chem, struct, phylo, omics) | 223 | serde_json, wasm-bindgen |
-| **cyanea-datasets** | Bundled sample datasets: genomics, alignment, epigenomics, single-cell, chemistry, phylogenetics, metagenomics, structural biology | 45 | cyanea-core |
+| **cyanea-datasets** | Bundled sample datasets and structured protocol templates (10 wet lab + 6 dry lab): genomics, alignment, epigenomics, single-cell, chemistry, phylogenetics, metagenomics, structural biology | 57 | cyanea-core |
 | **cyanea-py** | Python bindings via PyO3 (seq, align, stats, ml, chem, struct, phylo, io, omics) | — | pyo3 |
 
 ## Conventions
@@ -63,6 +63,7 @@ All crates are complete. Each has `docs/API.md` (full API reference), `docs/GUID
 - `zarr` — Zarr v3 directory-based file I/O in cyanea-omics (pure Rust, zarrs 0.18)
 - `cram` — CRAM alignment format in cyanea-io (implies `sam`, noodles-cram 0.72)
 - `single-cell` — Single-cell analysis pipeline in cyanea-omics (HVG, normalize, Leiden/Louvain, diffusion map, DPT, PAGA, RNA velocity, markers, Harmony/ComBat/MNN; requires cyanea-stats + cyanea-ml)
+- `fcs` — FCS flow cytometry format (2.0/3.0/3.1) in cyanea-io
 - `parquet` — Apache Parquet columnar format in cyanea-io (implies `vcf`, `bed`; arrow/parquet 54)
 
 ### Code patterns
