@@ -260,7 +260,7 @@ CyaneaError
 | cyanea-seq | 515 | 26 | 541 |
 | cyanea-align | 321 | 8 | 329 |
 | cyanea-io | 357 | 7 | 364 |
-| cyanea-omics | 504 | 3 | 507 |
+| cyanea-omics | 515 | 3 | 518 |
 | cyanea-stats | 384 | 12 | 396 |
 | cyanea-ml | 269 | 4 | 273 |
 | cyanea-chem | 200 | 7 | 207 |
@@ -273,7 +273,7 @@ CyaneaError
 | cyanea-network | 87 | 2 | 89 |
 | cyanea-wasm | 223 | 1 | 224 |
 | cyanea-datasets | 44 | 1 | 45 |
-| **Total** | | | **4,010+** |
+| **Total** | | | **4,050+** |
 
 Test data is always inline (strings, vecs) -- no external fixture files. Tests needing the filesystem use the `tempfile` crate.
 
@@ -306,7 +306,7 @@ Test data is always inline (strings, vecs) -- no external fixture files. Tests n
 | **cyanea-seq** | Sequence analysis | `DnaSequence`/`RnaSequence`/`ProteinSequence`, FASTA/FASTQ, FM-index, FMD-index, MinHash, pattern matching, trimming, codon tables, masking, RNA structure, protein properties, read simulation, long-read analysis (PacBio/Nanopore), structural variant calling, nanopore QC/methylation |
 | **cyanea-align** | Alignment | NW/SW/semi-global, banded, MSA, POA, pair/profile HMM, LCSk++, WFA, X-drop/Z-drop, spliced alignment, GPU dispatch, CIGAR |
 | **cyanea-io** | File formats | 30+ format parsers (CSV, VCF, BED, BEDPE, GFF3, GTF, SAM, BAM, CRAM, BCF, Parquet, BLAST, BLAST XML, MAF, GenBank, bigWig, Stockholm, Clustal, Phylip, EMBL, PIR, ABI, bedGraph, GFA), indexed BAM/VCF, feature-gated, streaming |
-| **cyanea-omics** | Genomic data | Intervals, interval trees, coverage, variants, variant annotation/VEP, CNV/CBS, methylation, spatial transcriptomics, single-cell (HVG, normalize, clustering, trajectory, markers, integration), AnnData, h5ad/zarr, OTU tables, networks, haplotypes, genome arithmetic, liftover, clinical genomics (ACMG/AMP classification, ClinVar matching, pharmacogenomics star allele calling, metabolizer phenotypes, drug-gene interactions, HLA typing, TMB, MSI) |
+| **cyanea-omics** | Genomic data | Intervals, interval trees, coverage, variants, variant annotation/VEP, CNV/CBS, methylation, spatial transcriptomics (Visium/MERFISH/Slide-seq platforms, Voronoi/nucleus expansion/watershed cell segmentation, spatially-aware k-means/HMRF spatial domain detection, SVG detection via Moran's I, CellChat-style cell-cell communication with L-R database and multi-subunit complexes, NNLS/enrichment deconvolution), single-cell (HVG, normalize, clustering, trajectory, markers, integration), AnnData, h5ad/zarr, OTU tables, networks, haplotypes, genome arithmetic, liftover, clinical genomics (ACMG/AMP classification, ClinVar matching, pharmacogenomics star allele calling, metabolizer phenotypes, drug-gene interactions, HLA typing, TMB, MSI) |
 | **cyanea-stats** | Statistics | Descriptive, hypothesis tests, distributions, PCA, Bayesian conjugate priors, popgen (Fst, Tajima's D, LD, HWE), survival (Kaplan-Meier, Cox PH, log-rank), enrichment (GSEA, ORA), diversity indices, ordination (PCoA, NMDS), multivariate (PERMANOVA, ANOSIM), normalization, differential expression, null models, effect sizes |
 | **cyanea-ml** | Machine learning | Clustering, KNN, trees/forests/GBDT, HMM, PCA/t-SNE/UMAP, metrics, CV, feature selection |
 | **cyanea-chem** | Cheminformatics | SMILES/SDF V2000/V3000, SMARTS, Morgan/MACCS fingerprints, properties, descriptors, drug-likeness (Lipinski, Veber), substructure, stereochemistry, canonical SMILES, scaffolds (Murcko), 3D conformers (distance geometry/ETKDG), UFF/MMFF94 force fields, energy minimization, SMIRKS reactions, retrosynthesis, Gasteiger charges |

@@ -42,6 +42,11 @@ pub mod annotation;
 pub mod variant_annotation;
 pub mod single_cell;
 pub mod spatial;
+pub mod spatial_platforms;
+pub mod spatial_segmentation;
+pub mod spatial_domains;
+pub mod spatial_cellchat;
+pub mod spatial_deconvolution;
 pub mod genome_arithmetic;
 pub mod cnv;
 pub mod liftover;
@@ -100,6 +105,26 @@ pub use spatial::{
     CooccurrenceResult, GearysC, LrInteraction, SpatialAutocorrelation, SpatialGraph, SpatialPoint,
     cooccurrence, delaunay_neighbors, gearys_c, knn_spatial_neighbors, ligand_receptor_score,
     morans_i,
+};
+pub use spatial_platforms::{
+    MerfishData, SlideseqData, VisiumData, VisiumScaleFactors,
+    merfish_to_spatial_points, slideseq_to_spatial_points, visium_to_spatial_points,
+};
+pub use spatial_segmentation::{
+    ExpansionParams, SegmentationResult, SegmentedCell,
+    expansion_segmentation, voronoi_segmentation, watershed_grid,
+};
+pub use spatial_domains::{
+    DomainParams, DomainResult, SpatialDomain, SpatiallyVariableGene,
+    detect_domains, find_spatially_variable_genes, hmrf_smooth,
+};
+pub use spatial_cellchat::{
+    CommParams, CommunicationResult, LrPair, PathwayCommunication,
+    aggregate_pathways, analyze_communication, demo_lr_database,
+};
+pub use spatial_deconvolution::{
+    CellTypeSignature, DeconvolutionResult, EnrichmentScore, SpotDeconvolution,
+    nnls_deconvolve, score_enrichment,
 };
 pub use otu::OtuTable;
 pub use network::{CentralityScores, Community, Graph};

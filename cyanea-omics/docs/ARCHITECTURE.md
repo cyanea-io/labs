@@ -91,6 +91,55 @@ Each module reads and writes standard AnnData slots, so steps can be composed in
 - **Moran's I**: Computed as a weighted covariance of deviations from the mean, normalized by the variance, with analytic p-value from the normal approximation.
 - **Ligand-receptor**: For each ligand-receptor pair, compute the mean product of ligand expression in sending cells and receptor expression in receiving neighbors. Significance by permuting cell labels.
 
+### Spatial Platforms
+
+`VisiumData`, `MerfishData`, and `SlideseqData` are typed containers for the three major spatial transcriptomics technologies. Each constructor validates dimension consistency (counts rows vs. barcodes/cell_ids, counts columns vs. genes, coordinate array lengths). Platform-specific fields capture technology details: Visium carries `array_positions` (hex grid row/col), `in_tissue` flags, and `VisiumScaleFactors` for coordinate system conversion; MERFISH supports optional `cell_volumes` (3D segmentation), `fov_ids`, and `blank_counts` for error rate estimation; Slide-seq stores bead coordinates in microns.
+
+The `*_to_spatial_points` converter functions bridge platform containers to the core `SpatialPoint` type used by the spatial analysis functions (`morans_i`, `knn_graph`, etc.), mapping each platform's native coordinates to `(x, y, index)` tuples.
+
+### Spatial Segmentation
+
+Three complementary segmentation strategies for assigning transcripts or pixels to cells:
+
+1. **Voronoi segmentation**: Assigns each transcript to the nearest seed (nucleus centroid) via brute-force nearest-neighbor search. An optional `max_radius` parameter clips assignments beyond a threshold, leaving distant transcripts unassigned. Cell boundaries are approximated by the convex hull of assigned transcripts (Andrew's monotone chain algorithm), with area computed by the shoelace formula.
+
+2. **Nucleus expansion**: A simplified Baysor/Cellpose-style approach. For each seed, the effective radius is `min(max_radius, (nearest_neighbor_distance - min_gap) / 2)`, preventing cell overlap. Transcripts are assigned to the nearest seed only if within that seed's effective radius. This naturally handles variable cell density -- seeds in sparse regions expand to `max_radius`, while closely packed seeds shrink their territories.
+
+3. **Watershed grid**: Operates on a 2D intensity image (e.g., DAPI). Seeds are placed at detected nucleus positions. A BFS flood-fill processes pixels in order of decreasing intensity, propagating labels from seeds outward via 4-connected neighbors. Returns a label grid where each pixel carries a cell ID (1-based; no explicit boundary/background detection in this simplified variant).
+
+### Spatial Domains
+
+Domain detection uses a spatially-aware k-means variant:
+
+1. **Normalization**: Expression is z-scored per gene; spatial coordinates are min-max normalized to [0, 1].
+2. **Combined distance**: `d = (1 - alpha) * expr_distance + alpha * spatial_distance`, where `alpha = spatial_weight` (0 = expression only, 1 = space only). Expression distance is Euclidean on z-scored values, normalized by `sqrt(n_genes)`.
+3. **K selection**: If `n_domains` is not specified, an automatic heuristic uses `sqrt(n_spots / 2)` clamped to [2, 20].
+4. **Iteration**: Standard k-means assignment + update loop with early convergence termination.
+
+**HMRF smoothing** refines domain labels post-clustering using Iterated Conditional Modes (ICM). The energy function for assigning spot `i` to domain `k` is: `E = ||x_i - mu_k||^2 + beta * (number of neighbors with label != k)`. The `beta` parameter controls the spatial smoothness penalty -- higher values produce more spatially coherent domains at the cost of expression fidelity. Cluster means are recomputed each iteration. Convergence is detected when no labels change.
+
+**SVG detection** (`find_spatially_variable_genes`) computes Moran's I per gene on a pre-built neighbor graph, using the standard formula `I = (N/W) * sum(w_ij * z_i * z_j) / sum(z_i^2)`. Significance is assessed by permutation testing (Fisher-Yates shuffle of expression values, xorshift64 PRNG). Multiple testing correction uses Benjamini-Hochberg with monotonicity enforcement (step-up procedure). Results are sorted by adjusted p-value.
+
+### Spatial Cell-Cell Communication
+
+Implements a CellChat-style analysis pipeline with spatial awareness:
+
+1. **L-R database**: `demo_lr_database()` provides 12 curated ligand-receptor pairs across 8 signaling pathways (CXCL, CCL, NOTCH, WNT, VEGF, TGFb, COLLAGEN, FN1, PD-L1, EGF, HGF). Multi-subunit complexes are supported (e.g., WNT3A/FZD1+LRP6, TGFB1/TGFBR1+TGFBR2). Three interaction types: Secreted Signaling, Cell-Cell Contact, ECM-Receptor.
+
+2. **Communication probability**: For each L-R pair and each (source_type, target_type) pair, the probability is `P = mean(L_i * R_j * w_ij)` across all source cell `i` and target cell `j` pairs (excluding self-interactions). `L_i` and `R_j` are geometric means of subunit expression (handles multi-subunit complexes -- if any subunit is zero, the geometric mean is zero). `w_ij = exp(-d^2 / (2 * sigma^2))` is a Gaussian spatial weight that downweights distant cell pairs.
+
+3. **Significance**: Permutation testing shuffles cell type labels (not expression values), recomputing the probability under the null. The p-value is `(count_permuted >= observed + 1) / (n_permutations + 1)`.
+
+4. **Pathway aggregation**: `aggregate_pathways` groups L-R pair results by pathway, summing probabilities and counting significant pairs (below `p_threshold`).
+
+### Spatial Deconvolution
+
+Two approaches for estimating cell type composition at each spatial spot:
+
+1. **NNLS deconvolution** (`nnls_deconvolve`): Given cell type reference signatures (gene sets with expected expression weights), estimates per-spot proportions via non-negative least squares using coordinate descent. For each cell type `t`, the optimal proportion is `dot(residual, reference_t) / dot(reference_t, reference_t)`, clamped to >= 0. Iterates until convergence (max 200 iterations). Proportions are normalized to sum to 1. Residual error (RMSE) quantifies reconstruction quality. Genes present in at least one signature are used; genes absent from a signature get weight 0.
+
+2. **Enrichment scoring** (`score_enrichment`): Per-spot, per-signature scoring based on mean z-scored expression of signature genes. Z-scores are computed per gene across all spots. Significance is assessed by comparing the observed score against random gene sets of the same size (permutation test, xorshift64 PRNG). Unlike deconvolution, enrichment does not estimate proportions -- it provides a relative enrichment score and p-value, useful for identifying hotspots of cell type activity.
+
 ## ACMG/AMP Variant Classification
 
 Implements the Richards et al. 2015 combining rules for the 5-tier ACMG/AMP classification system. The `AcmgEvidence` builder collects criteria with their pathogenic/benign direction and evidence strength. On `classify()`, criteria are counted by category (PVS, PS, PM, PP for pathogenic; BA, BS, BP for benign) and the combining rules are applied in priority order: benign rules first (BA1 is stand-alone), then pathogenic, then likely pathogenic, defaulting to VUS.

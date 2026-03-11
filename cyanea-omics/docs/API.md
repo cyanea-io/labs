@@ -4,7 +4,7 @@ Data structures for genomics, transcriptomics, and variant analysis. Provides th
 
 ## Status: Complete
 
-All omics data structures are implemented including genomic coordinates, interval operations, interval trees, coverage vectors, expression matrices, sparse matrices, variant types, variant annotation, gene annotations, an AnnData-like single-cell container, genome arithmetic, liftover, copy number analysis, methylation analysis, spatial transcriptomics, HDF5-backed `.h5ad` file I/O, Zarr I/O, a full single-cell pipeline (preprocessing, clustering, trajectory, markers, integration), ACMG/AMP variant classification with ClinVar annotation, pharmacogenomics (star allele calling, drug-gene interactions), and clinical genomics (HLA typing, TMB, MSI).
+All omics data structures are implemented including genomic coordinates, interval operations, interval trees, coverage vectors, expression matrices, sparse matrices, variant types, variant annotation, gene annotations, an AnnData-like single-cell container, genome arithmetic, liftover, copy number analysis, methylation analysis, spatial transcriptomics (core analysis, platform-specific containers for Visium/MERFISH/Slide-seq, cell segmentation, spatial domain detection, cell-cell communication, deconvolution), HDF5-backed `.h5ad` file I/O, Zarr I/O, a full single-cell pipeline (preprocessing, clustering, trajectory, markers, integration), ACMG/AMP variant classification with ClinVar annotation, pharmacogenomics (star allele calling, drug-gene interactions), and clinical genomics (HLA typing, TMB, MSI).
 
 ## Public API
 
@@ -196,6 +196,131 @@ Variant effect prediction: maps genomic variants to their functional consequence
 | `gearys_c(values, graph) -> Result<GearysC>` | Geary's C spatial autocorrelation |
 | `cooccurrence(features_a, features_b, graph, n_permutations) -> Result<Vec<CooccurrenceResult>>` | Feature co-occurrence analysis with permutation p-values |
 | `ligand_receptor(expression, graph, pairs, n_permutations) -> Result<Vec<LrInteraction>>` | Ligand-receptor interaction scoring |
+
+### Spatial platforms (`spatial_platforms.rs`)
+
+Platform-specific data structures for Visium, MERFISH, and Slide-seq with validation, QC, and coordinate conversion.
+
+| Type | Description |
+|------|-------------|
+| `VisiumData` | 10x Visium dataset: `genes`, `barcodes`, `counts[spot][gene]`, `spot_coords`, `array_positions`, `in_tissue`, `scale_factors` |
+| `VisiumScaleFactors` | Scale factors: `spot_diameter_fullres`, `tissue_hires_scalef`, `tissue_lowres_scalef`, `fiducial_diameter_fullres` |
+| `MerfishData` | MERFISH dataset: `genes`, `cell_ids`, `cell_centroids`, `counts[cell][gene]`, optional `cell_volumes`, `fov_ids`, `blank_counts` |
+| `SlideseqData` | Slide-seq dataset: `genes`, `barcodes`, `bead_coords`, `counts[bead][gene]` |
+
+**VisiumData methods:**
+
+| Method | Description |
+|--------|-------------|
+| `new(genes, barcodes, counts, spot_coords, array_positions, in_tissue) -> Result<Self>` | Construct with dimension validation |
+| `n_spots() -> usize` | Number of spots |
+| `n_tissue_spots() -> usize` | Number of spots under tissue |
+| `n_genes() -> usize` | Number of genes |
+| `filter_tissue() -> Self` | Filter to only in-tissue spots |
+| `total_counts_per_spot() -> Vec<f64>` | Total UMI counts per spot |
+| `genes_detected_per_spot() -> Vec<usize>` | Genes with count > 0 per spot |
+
+**MerfishData methods:**
+
+| Method | Description |
+|--------|-------------|
+| `new(genes, cell_ids, cell_centroids, counts) -> Result<Self>` | Construct with dimension validation |
+| `n_cells() -> usize` | Number of cells |
+| `n_genes() -> usize` | Number of genes |
+| `estimated_fpr() -> Option<Vec<f64>>` | Per-cell false positive rate from blank barcodes |
+| `total_counts_per_cell() -> Vec<f64>` | Total transcript counts per cell |
+
+**SlideseqData methods:**
+
+| Method | Description |
+|--------|-------------|
+| `new(genes, barcodes, bead_coords, counts) -> Result<Self>` | Construct with dimension validation |
+| `n_beads() -> usize` | Number of beads |
+| `n_genes() -> usize` | Number of genes |
+| `total_counts_per_bead() -> Vec<f64>` | Total UMI counts per bead |
+| `filter_min_counts(min_counts) -> Self` | Filter beads by minimum total count |
+
+**Coordinate conversion functions:**
+
+| Function | Description |
+|----------|-------------|
+| `visium_to_spatial_points(data) -> Vec<SpatialPoint>` | Convert Visium spot coords to `SpatialPoint` |
+| `merfish_to_spatial_points(data) -> Vec<SpatialPoint>` | Convert MERFISH cell centroids to `SpatialPoint` |
+| `slideseq_to_spatial_points(data) -> Vec<SpatialPoint>` | Convert Slide-seq bead coords to `SpatialPoint` |
+
+### Spatial segmentation (`spatial_segmentation.rs`)
+
+Cell segmentation algorithms for assigning transcripts or pixels to cells based on spatial coordinates.
+
+| Type | Description |
+|------|-------------|
+| `SegmentedCell` | Segmented cell: `cell_id`, `centroid`, `area`, `boundary` (convex hull vertices), `n_transcripts` |
+| `ExpansionParams` | Expansion config: `max_radius` (default 15.0 µm), `min_gap` (default 1.0 µm) |
+| `SegmentationResult` | Result: `cells`, `assigned_transcripts`, `unassigned_transcripts` |
+
+**Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `voronoi_segmentation(seeds, transcripts, max_radius) -> Result<SegmentationResult>` | Voronoi tessellation around seed points; optional max_radius clips distant transcripts |
+| `expansion_segmentation(seeds, transcripts, params) -> Result<SegmentationResult>` | Nucleus expansion segmentation — grow circles until they meet neighbors or reach max_radius |
+| `watershed_grid(grid, rows, cols, seeds) -> Result<Vec<Vec<usize>>>` | Watershed segmentation on a 2D intensity grid (e.g. DAPI); returns cell label per pixel |
+
+### Spatial domains (`spatial_domains.rs`)
+
+Spatially-aware tissue domain detection and spatially variable gene (SVG) identification.
+
+| Type | Description |
+|------|-------------|
+| `SpatialDomain` | Domain: `domain_id`, `members` (spot indices), `mean_expression` |
+| `DomainResult` | Result: `labels` (per-spot), `domains`, `n_domains` |
+| `SpatiallyVariableGene` | SVG result: `gene_idx`, `gene_name`, `morans_i`, `p_value`, `adjusted_p_value` (BH-corrected) |
+| `DomainParams` | Config: `spatial_weight` (0-1), `n_domains` (optional), `n_neighbors`, `max_iter`, `tolerance` |
+
+**Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `detect_domains(expression, coords, params) -> Result<DomainResult>` | Spatially-aware k-means: combined distance `(1-α)*expr + α*spatial`, auto-k via `sqrt(n/2)` if not specified |
+| `hmrf_smooth(labels, expression, neighbors, beta, max_iter) -> Result<Vec<usize>>` | HMRF label smoothing via ICM: expression cost + β * spatial consistency penalty |
+| `find_spatially_variable_genes(expression, gene_names, neighbors, n_permutations, seed) -> Result<Vec<SpatiallyVariableGene>>` | Per-gene Moran's I with permutation p-values and BH multiple testing correction; results sorted by adjusted p-value |
+
+### Spatial cell-cell communication (`spatial_cellchat.rs`)
+
+CellChat-style ligand-receptor communication analysis with spatial distance weighting.
+
+| Type | Description |
+|------|-------------|
+| `LrPair` | L-R interaction: `name`, `ligand_genes`, `receptor_genes` (multi-subunit), `pathway`, `interaction_type` |
+| `CommunicationResult` | Per-pair result: `lr_pair`, `source`, `target`, `probability`, `p_value`, `pathway` |
+| `PathwayCommunication` | Pathway aggregate: `pathway`, `source`, `target`, `strength` (sum of probs), `n_significant` |
+| `CommParams` | Config: `distance_sigma` (Gaussian kernel σ, default 100), `n_permutations` (default 100), `p_threshold`, `min_pct`, `seed` |
+
+**Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `demo_lr_database() -> Vec<LrPair>` | Curated 12-pair L-R database: CXCL12/CXCR4, CCL2/CCR2, DLL1/NOTCH1, JAG1/NOTCH2, WNT3A/FZD1+LRP6, VEGFA/FLT1, TGFB1/TGFBR1+TGFBR2, COL1A1/ITGA1+ITGB1, FN1/ITGAV+ITGB3, CD274/PDCD1, EGF/EGFR, HGF/MET |
+| `analyze_communication(expression, gene_names, cell_types, coords, lr_pairs, params) -> Result<Vec<CommunicationResult>>` | Spatial communication probability: `P = mean(L_i * R_j * w_ij)` with Gaussian kernel `w = exp(-d²/(2σ²))`, geometric mean for multi-subunit complexes, permutation p-values |
+| `aggregate_pathways(results, p_threshold) -> Vec<PathwayCommunication>` | Aggregate L-R results to pathway level; sum probabilities, count significant pairs |
+
+### Spatial deconvolution (`spatial_deconvolution.rs`)
+
+Cell type deconvolution and enrichment scoring for spatial spots.
+
+| Type | Description |
+|------|-------------|
+| `CellTypeSignature` | Reference signature: `cell_type`, `genes`, `weights` (expected expression) |
+| `SpotDeconvolution` | Per-spot result: `spot_idx`, `proportions` (sums to ~1), `residual` |
+| `DeconvolutionResult` | Full result: `cell_types`, `spots`, `mean_residual` |
+| `EnrichmentScore` | Enrichment result: `spot_idx`, `cell_type`, `score`, `p_value` |
+
+**Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `nnls_deconvolve(expression, gene_names, signatures) -> Result<DeconvolutionResult>` | NNLS deconvolution via coordinate descent; proportions normalized to sum to 1 |
+| `score_enrichment(expression, gene_names, signatures, n_permutations, seed) -> Result<Vec<EnrichmentScore>>` | Per-spot enrichment scoring: mean z-scored expression of signature genes, with permutation p-values |
 
 ### Genome arithmetic (`genome_arithmetic.rs`)
 
@@ -608,7 +733,7 @@ HLA typing for transplant matching, tumor mutational burden (TMB), and microsate
 
 ## Tests
 
-475 unit tests + 2 doc tests.
+515 unit tests + 2 doc tests.
 
 ## Source Files
 
@@ -631,6 +756,11 @@ HLA typing for transplant matching, tumor mutational burden (TMB), and microsate
 | `cnv.rs` | CBS segmentation, BAF, SV breakpoints |
 | `methylation.rs` | CpG sites, DMRs, CpG islands, bisulfite conversion |
 | `spatial.rs` | Spatial neighbors, Moran's I, Geary's C, co-occurrence, ligand-receptor |
+| `spatial_platforms.rs` | Visium, MERFISH, Slide-seq data structures with validation, QC, coordinate conversion |
+| `spatial_segmentation.rs` | Voronoi, nucleus expansion, watershed grid segmentation; convex hull, polygon area |
+| `spatial_domains.rs` | Spatially-aware k-means, HMRF smoothing, spatially variable gene detection (Moran's I + BH) |
+| `spatial_cellchat.rs` | CellChat-style L-R communication: curated database, multi-subunit, Gaussian spatial weighting, pathway aggregation |
+| `spatial_deconvolution.rs` | NNLS deconvolution, enrichment scoring with permutation p-values |
 | `genome_arithmetic.rs` | Intersect, union, subtract, complement, closest, window, Jaccard |
 | `liftover.rs` | UCSC chain file parsing, coordinate liftover |
 | `h5ad.rs` | HDF5 `.h5ad` reader/writer |

@@ -1,6 +1,6 @@
 # cyanea-omics Usage Guide
 
-Practical examples for working with genomic data structures, single-cell analysis, variant annotation, spatial transcriptomics, ACMG variant classification, pharmacogenomics, and clinical genomics.
+Practical examples for working with genomic data structures, single-cell analysis, variant annotation, spatial transcriptomics (including platform-specific containers, segmentation, domain detection, cell-cell communication, and deconvolution), ACMG variant classification, pharmacogenomics, and clinical genomics.
 
 ## Genomic Intervals and Interval Sets
 
@@ -276,6 +276,198 @@ let gc = gearys_c(&gene_expr, &graph).unwrap();
 // Ligand-receptor interaction analysis
 let pairs = vec![("LIG1".into(), "REC1".into())];
 let lr = ligand_receptor(&expression_matrix, &graph, &pairs, 1000).unwrap();
+```
+
+## Spatial Platform Data: Visium, MERFISH, Slide-seq
+
+```rust
+use cyanea_omics::spatial_platforms::*;
+
+// Load Visium data with validation
+let visium = VisiumData::new(
+    gene_names,
+    barcodes,
+    count_matrix,      // counts[spot][gene]
+    spot_coordinates,  // (x, y) pixel coords
+    array_positions,   // (row, col) on Visium grid
+    in_tissue_flags,   // which spots are under tissue
+).unwrap();
+
+// QC: filter to tissue spots and inspect
+let tissue_only = visium.filter_tissue();
+println!("{} tissue spots, {} genes", tissue_only.n_spots(), tissue_only.n_genes());
+let totals = tissue_only.total_counts_per_spot();
+let detected = tissue_only.genes_detected_per_spot();
+
+// Convert to SpatialPoint for downstream spatial analysis
+let points = visium_to_spatial_points(&tissue_only);
+let graph = cyanea_omics::spatial::knn_graph(&points, 6).unwrap();
+
+// MERFISH: subcellular-resolution imaging data
+let merfish = MerfishData::new(
+    gene_panel,       // typically 100-500 genes
+    cell_ids,
+    cell_centroids,   // (x, y) in µm
+    cell_by_gene,     // counts[cell][gene]
+).unwrap();
+// Estimate false positive rate from blank barcodes
+merfish.blank_counts = Some(blank_barcode_counts);
+if let Some(fpr) = merfish.estimated_fpr() {
+    println!("Mean FPR: {:.4}", fpr.iter().sum::<f64>() / fpr.len() as f64);
+}
+
+// Slide-seq: bead-based near-cellular resolution
+let slideseq = SlideseqData::new(genes, barcodes, bead_coords, counts).unwrap();
+let filtered = slideseq.filter_min_counts(100.0); // remove low-quality beads
+```
+
+## Spatial Cell Segmentation
+
+```rust
+use cyanea_omics::spatial_segmentation::*;
+
+// Voronoi segmentation: assign transcripts to nearest nucleus
+let nuclei = vec![(100.0, 200.0), (300.0, 150.0), (500.0, 400.0)];
+let transcript_positions = vec![/* (x, y) per detected transcript */];
+let result = voronoi_segmentation(&nuclei, &transcript_positions, Some(50.0)).unwrap();
+println!("{} cells, {} assigned, {} unassigned",
+    result.cells.len(), result.assigned_transcripts, result.unassigned_transcripts);
+
+// Nucleus expansion: grow circles from seeds, stop at neighbors
+let params = ExpansionParams {
+    max_radius: 15.0,  // max expansion in µm
+    min_gap: 1.0,      // min gap between cell boundaries
+};
+let result = expansion_segmentation(&nuclei, &transcript_positions, &params).unwrap();
+for cell in &result.cells {
+    println!("Cell {}: area={:.1}, transcripts={}", cell.cell_id, cell.area, cell.n_transcripts);
+}
+
+// Watershed on DAPI intensity grid
+let dapi_grid = vec![vec![0.0; 512]; 512]; // row-major intensity image
+let detected_nuclei = vec![(100, 200), (300, 150)]; // (row, col) seeds
+let labels = watershed_grid(&dapi_grid, 512, 512, &detected_nuclei).unwrap();
+// labels[row][col] gives cell ID (1-based), 0 = background
+```
+
+## Spatial Domain Detection
+
+```rust
+use cyanea_omics::spatial_domains::*;
+
+// Detect tissue domains via spatially-aware k-means
+let params = DomainParams {
+    spatial_weight: 0.5,    // balance expression vs. space (0=expr only, 1=space only)
+    n_domains: Some(5),     // or None for auto (sqrt(n/2))
+    n_neighbors: 6,
+    max_iter: 50,
+    tolerance: 1e-4,
+};
+let result = detect_domains(&expression, &coords, &params).unwrap();
+println!("{} domains detected", result.n_domains);
+for domain in &result.domains {
+    println!("Domain {}: {} spots", domain.domain_id, domain.members.len());
+}
+
+// HMRF smoothing: refine noisy labels with spatial consistency
+let neighbors: Vec<Vec<usize>> = /* build kNN neighbor lists */;
+let smoothed_labels = hmrf_smooth(
+    &result.labels,    // initial labels from k-means
+    &expression,       // spot x gene matrix
+    &neighbors,        // per-spot neighbor indices
+    1.0,               // beta: higher = smoother
+    20,                // max ICM iterations
+).unwrap();
+
+// Find spatially variable genes (SVGs) via Moran's I
+let svgs = find_spatially_variable_genes(
+    &expression,
+    &gene_names,
+    &neighbors,
+    999,   // permutations
+    42,    // seed
+).unwrap();
+// Results sorted by BH-adjusted p-value
+for svg in svgs.iter().take(10) {
+    println!("{}: Moran's I = {:.3}, padj = {:.4}", svg.gene_name, svg.morans_i, svg.adjusted_p_value);
+}
+```
+
+## Spatial Cell-Cell Communication
+
+```rust
+use cyanea_omics::spatial_cellchat::*;
+
+// Use the built-in curated L-R database (12 pairs, 8 pathways)
+let lr_db = demo_lr_database();
+
+// Analyze communication with spatial distance weighting
+let params = CommParams {
+    distance_sigma: 100.0,   // Gaussian kernel sigma
+    n_permutations: 100,
+    p_threshold: 0.05,
+    min_pct: 0.1,            // min fraction expressing
+    seed: 42,
+};
+let results = analyze_communication(
+    &expression,     // cell x gene
+    &gene_names,
+    &cell_types,     // per-cell type label
+    &coords,         // (x, y) per cell
+    &lr_db,
+    &params,
+).unwrap();
+
+// Filter significant interactions
+for r in results.iter().filter(|r| r.p_value < 0.05) {
+    println!("{}: {} -> {} (prob={:.3}, p={:.3}, pathway={})",
+        r.lr_pair, r.source, r.target, r.probability, r.p_value, r.pathway);
+}
+
+// Aggregate to pathway level
+let pathways = aggregate_pathways(&results, 0.05);
+for pw in &pathways {
+    println!("{} {} -> {}: strength={:.2}, {} significant pairs",
+        pw.pathway, pw.source, pw.target, pw.strength, pw.n_significant);
+}
+```
+
+## Spatial Deconvolution
+
+```rust
+use cyanea_omics::spatial_deconvolution::*;
+
+// Define cell type signatures (reference profiles)
+let signatures = vec![
+    CellTypeSignature {
+        cell_type: "T_cell".into(),
+        genes: vec!["CD3D".into(), "CD3E".into(), "CD8A".into()],
+        weights: vec![10.0, 8.0, 6.0],
+    },
+    CellTypeSignature {
+        cell_type: "Macrophage".into(),
+        genes: vec!["CD68".into(), "CD163".into(), "CSF1R".into()],
+        weights: vec![9.0, 7.0, 5.0],
+    },
+];
+
+// NNLS deconvolution: estimate cell type proportions per spot
+let result = nnls_deconvolve(&expression, &gene_names, &signatures).unwrap();
+for spot in &result.spots {
+    println!("Spot {}: T_cell={:.1}%, Macrophage={:.1}%, residual={:.3}",
+        spot.spot_idx,
+        spot.proportions[0] * 100.0,
+        spot.proportions[1] * 100.0,
+        spot.residual);
+}
+println!("Mean residual: {:.3}", result.mean_residual);
+
+// Enrichment scoring with permutation p-values
+let enrichment = score_enrichment(&expression, &gene_names, &signatures, 999, 42).unwrap();
+for e in enrichment.iter().filter(|e| e.p_value < 0.05) {
+    println!("Spot {} enriched for {} (score={:.2}, p={:.3})",
+        e.spot_idx, e.cell_type, e.score, e.p_value);
+}
 ```
 
 ## CNV Detection

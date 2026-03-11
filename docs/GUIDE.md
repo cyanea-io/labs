@@ -874,3 +874,89 @@ fn clinical_pipeline(
         msi.score, msi.status, msi.unstable_loci, msi.total_loci);
 }
 ```
+
+## 14. Spatial Biology Analysis
+
+Analyze spatial transcriptomics data: load platform-specific data (Visium, MERFISH, Slide-seq), segment cells, detect spatial domains, find spatially variable genes, infer cell-cell communication, and deconvolve spot-level expression.
+
+**Crates**: cyanea-omics (with `single-cell` feature), cyanea-stats
+
+```toml
+[dependencies]
+cyanea-omics = { version = "0.1", features = ["single-cell"] }
+cyanea-stats = "0.1"
+```
+
+```rust
+use cyanea_omics::spatial::{
+    VisiumData, MerfishData, SlideSeqData,
+    voronoi_segmentation, nucleus_expansion, watershed_segmentation,
+    spatial_kmeans, hmrf_smooth,
+    morans_i, spatially_variable_genes,
+    LigandReceptorDB, spatial_communication, CellChatConfig,
+    nnls_deconvolution, enrichment_scoring,
+};
+
+fn spatial_pipeline(
+    coordinates: &[(f64, f64)],
+    counts: &[Vec<f64>],
+    gene_names: &[&str],
+    cell_types: &[&str],
+    reference_profiles: &[Vec<f64>],
+) {
+    // 1. Load platform-specific spatial data
+    let visium = VisiumData::from_coordinates_and_counts(coordinates, counts).unwrap();
+
+    // 2. Cell segmentation (choose one strategy)
+    let voronoi_cells = voronoi_segmentation(coordinates).unwrap();
+    let expanded = nucleus_expansion(coordinates, 15.0).unwrap();  // 15 um radius
+    let watershed_cells = watershed_segmentation(coordinates, counts).unwrap();
+
+    // 3. Spatial domain detection
+    //    Spatially-aware k-means incorporates coordinate proximity
+    let domains = spatial_kmeans(coordinates, counts, 8, 0.5).unwrap();  // 8 domains, alpha=0.5
+    //    HMRF smoothing refines cluster boundaries using neighbor context
+    let smoothed = hmrf_smooth(&domains, coordinates, 5, 0.3).unwrap();  // 5 iters, beta=0.3
+    println!("{} spatial domains detected", smoothed.n_domains);
+
+    // 4. Spatially variable gene (SVG) detection via Moran's I
+    let svg_results = spatially_variable_genes(coordinates, counts, gene_names).unwrap();
+    for svg in svg_results.iter().filter(|s| s.fdr < 0.05).take(20) {
+        println!("SVG: {} (Moran's I={:.3}, FDR={:.2e})", svg.gene, svg.morans_i, svg.fdr);
+    }
+
+    // Single-gene Moran's I
+    let mi = morans_i(coordinates, &counts[0]).unwrap();
+    println!("Moran's I = {:.4}, p = {:.4}", mi.statistic, mi.p_value);
+
+    // 5. Cell-cell communication (CellChat-style)
+    //    Uses a ligand-receptor database with multi-subunit complex support
+    let lr_db = LigandReceptorDB::builtin();
+    let config = CellChatConfig {
+        max_distance: 200.0,   // um
+        min_expression: 0.1,
+        ..Default::default()
+    };
+    let interactions = spatial_communication(
+        coordinates, counts, gene_names, cell_types, &lr_db, &config,
+    ).unwrap();
+    for inter in interactions.iter().take(10) {
+        println!("{} -> {} via {}-{}: score={:.3}",
+            inter.sender, inter.receiver,
+            inter.ligand, inter.receptor, inter.score);
+    }
+
+    // 6. Deconvolution of spot-level expression
+    //    NNLS: non-negative least squares for cell-type proportions
+    let nnls_props = nnls_deconvolution(counts, reference_profiles).unwrap();
+    println!("NNLS deconvolution: {} spots x {} cell types",
+        nnls_props.len(), nnls_props[0].len());
+
+    //    Enrichment scoring: rank-based cell-type enrichment per spot
+    let enrichment = enrichment_scoring(counts, reference_profiles, gene_names).unwrap();
+    for (i, scores) in enrichment.iter().enumerate().take(5) {
+        println!("Spot {}: top cell type = {} (score={:.3})",
+            i, cell_types[scores.top_type_index], scores.top_score);
+    }
+}
+```
