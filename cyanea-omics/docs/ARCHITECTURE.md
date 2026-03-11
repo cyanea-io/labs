@@ -80,6 +80,67 @@ The single-cell pipeline (feature-gated behind `single-cell`) follows a modular 
 
 Each module reads and writes standard AnnData slots, so steps can be composed in any order.
 
+## Hi-C / 3D Genome Analysis
+
+`hic.rs` provides data structures and algorithms for chromosome conformation capture (Hi-C) analysis: contact matrices, TAD calling, A/B compartment detection, chromatin loop calling, and file format I/O.
+
+### ContactMatrix
+
+The `ContactMatrix` stores Hi-C contacts as a dense `Vec<Vec<f64>>` matrix. For intra-chromosomal (cis) matrices, `set()` and `add_contact()` automatically maintain symmetry (setting both `[i][j]` and `[j][i]`). The matrix supports both square (intra-chromosomal) and rectangular (inter-chromosomal) layouts via separate `n_bins1`/`n_bins2` dimensions.
+
+Two balancing methods normalize systematic biases:
+
+- **ICE** (Imakaev et al. 2012): Iteratively scales rows and columns so that all marginal sums converge to a uniform value. Each iteration computes row sums, divides both the row and corresponding column by `sqrt(row_sum)`, and accumulates the bias factor. Converges when the maximum relative change in bias drops below the tolerance.
+
+- **KR** (Knight-Ruiz): Computes a target marginal (`sqrt(mean_marginal)`) and iteratively adjusts per-bin weights so that the weighted row sums match the target. After convergence, applies the weight products `w_i * w_j` to the matrix. Better suited for sparse matrices than ICE.
+
+**Observed/expected** (`observed_expected`): For each diagonal offset `d`, computes the mean contact count across all entries at that distance, then divides each cell by its expected value. This removes the distance-decay signal, highlighting structural features like TADs and compartments.
+
+### TAD Calling
+
+TADs are called using the insulation score method (Crane et al. 2015):
+
+1. **Insulation score**: For each bin `i`, compute the mean contact count in the square window `[i-w, i) x [i, i+w)` on the contact matrix, then take `ln()` (clamped to -10 to handle zeros). Low insulation indicates a boundary where contacts do not cross.
+
+2. **Z-score normalization**: Insulation scores are standardized to z-scores across all bins.
+
+3. **Boundary detection**: Local minima in the z-scored insulation profile that fall below `boundary_threshold` are identified as TAD boundaries. A point is a local minimum if its z-score is <= both neighbors.
+
+4. **TAD construction**: Consecutive boundary pairs define TADs. The matrix start (bin 0) and end (bin n) are implicitly included as boundaries. TADs smaller than `min_tad_size` are discarded.
+
+### A/B Compartments
+
+Compartment calling follows the Lieberman-Aiden method:
+
+1. Compute the O/E matrix (distance normalization).
+2. Compute the Pearson correlation matrix of O/E rows -- bins with similar interaction patterns have high correlation.
+3. Extract the first eigenvector (PC1) via power iteration (100 iterations) on the correlation matrix.
+4. Assign compartments: positive PC1 = A (active/open), negative PC1 = B (inactive/closed).
+
+If GC content (or gene density) is provided, the eigenvector is oriented so that A compartments correlate positively with GC content, resolving the sign ambiguity inherent in eigenvector extraction.
+
+### Loop Calling
+
+Loop calling uses a HiCCUPS-style local enrichment approach:
+
+1. For each pixel `(i, j)` within the allowed distance range `[min_distance, max_distance]`, compute the donut background: the mean contact count in a ring of radius `background_window` around the pixel, excluding the 3x3 center.
+
+2. Compute enrichment as `observed / expected`. Filter by `min_enrichment`.
+
+3. Compute a p-value using a normal approximation to the Poisson distribution: `z = (observed - expected) / sqrt(expected)`, then `p = erfc(z / sqrt(2)) / 2`. The complementary error function uses the Abramowitz-Stegun polynomial approximation.
+
+4. Loops passing the p-value threshold are collected and sorted by enrichment (descending).
+
+### File Format I/O
+
+- **parse_cool_text**: Parses tab-delimited contact exports from cooler tools (7 columns: chrom1, start1, end1, chrom2, start2, end2, count). Genomic positions are converted to bin indices by dividing by the resolution. Lines starting with `#` are skipped.
+
+- **parse_pairs**: Parses the 4DN consortium pairs format (readID, chr1, pos1, chr2, pos2, strand1, strand2). Returns `(chrom1, pos1, chrom2, pos2)` tuples. Header lines (starting with `#`) are skipped.
+
+- **contacts_to_matrix**: Builds a dense `ContactMatrix` from a slice of `SparseContact` records, calling `add_contact` for each entry (which handles symmetry).
+
+- **write_pairs**: Serializes sparse contacts back to 4DN pairs text format, converting bin indices to genomic positions by multiplying by the resolution.
+
 ## CNV and Methylation
 
 - **CBS** (Circular Binary Segmentation): Recursively finds the split point that maximizes the t-statistic between segment means, using permutation testing for significance. Segments are then optionally merged based on log2-ratio similarity.

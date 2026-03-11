@@ -53,6 +53,7 @@ pub mod liftover;
 pub mod methylation;
 pub mod pharmacogenomics;
 pub mod microarray;
+pub mod hic;
 #[cfg(feature = "h5ad")]
 pub mod h5ad;
 #[cfg(feature = "zarr")]
@@ -142,6 +143,14 @@ pub use acmg::{
 pub use clinical::{
     bethesda_markers, call_msi, compute_tmb, hla_compatibility, parse_hla_typing,
     HlaAllele, HlaTypingResult, MsiLocus, MsiResult, MsiStatus, TmbCategory, TmbResult,
+};
+
+// Re-export Hi-C types
+pub use hic::{
+    call_compartments, call_loops, call_tads, contacts_to_matrix, insulation_scores,
+    parse_cool_text, parse_pairs, write_pairs,
+    ChromatinLoop, Compartment, CompartmentResult, ContactMatrix, CoolHeader,
+    LoopParams, SparseContact, Tad, TadParams,
 };
 
 // Re-export microarray analysis types

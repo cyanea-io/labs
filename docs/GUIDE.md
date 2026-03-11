@@ -1025,3 +1025,76 @@ fn microarray_pipeline(
         meth_results.differentially_methylated(0.05).len());
 }
 ```
+
+## 16. Hi-C / 3D Genome Analysis
+
+Parse Hi-C contact matrices, call topologically associating domains (TADs), identify A/B compartments, and detect chromatin loops.
+
+**Crates**: cyanea-omics
+
+```toml
+[dependencies]
+cyanea-omics = "0.1"
+```
+
+```rust
+use cyanea_omics::hic::{
+    ContactMatrix, load_contact_matrix, normalize_contacts, NormMethod,
+    call_tads, TadConfig, ab_compartments, CompartmentConfig,
+    detect_loops, LoopConfig,
+};
+
+fn hic_pipeline(
+    matrix_data: &[Vec<f64>],
+    resolution: u64,
+    chrom: &str,
+) {
+    // 1. Load and normalize Hi-C contact matrix
+    let matrix = ContactMatrix::from_dense(matrix_data, chrom, resolution).unwrap();
+    let normalized = normalize_contacts(&matrix, NormMethod::KR).unwrap();
+    println!("Contact matrix: {}x{} at {} bp resolution",
+        normalized.dim(), normalized.dim(), resolution);
+
+    // 2. Call topologically associating domains (TADs)
+    let tad_config = TadConfig {
+        min_size: 3,           // minimum 3 bins
+        max_size: 200,         // maximum 200 bins
+        ..Default::default()
+    };
+    let tads = call_tads(&normalized, &tad_config).unwrap();
+    println!("{} TADs called, median size: {} bins",
+        tads.len(), tads.median_size());
+
+    for tad in tads.iter().take(5) {
+        println!("TAD {}:{}-{} ({} bins, insulation score={:.3})",
+            chrom, tad.start, tad.end, tad.n_bins, tad.insulation_score);
+    }
+
+    // 3. A/B compartment identification via eigenvector decomposition
+    let comp_config = CompartmentConfig::default();
+    let compartments = ab_compartments(&normalized, &comp_config).unwrap();
+    let n_a = compartments.iter().filter(|c| c.is_a()).count();
+    let n_b = compartments.iter().filter(|c| c.is_b()).count();
+    println!("{} A compartments, {} B compartments", n_a, n_b);
+
+    for comp in compartments.iter().take(5) {
+        println!("Bin {}: compartment {} (eigenvector={:.4})",
+            comp.bin_index, comp.label(), comp.eigenvector_value);
+    }
+
+    // 4. Chromatin loop detection
+    let loop_config = LoopConfig {
+        min_distance: 5,       // minimum 5 bins apart
+        fdr_threshold: 0.05,
+        ..Default::default()
+    };
+    let loops = detect_loops(&normalized, &loop_config).unwrap();
+    println!("{} loops detected (FDR < {})", loops.len(), loop_config.fdr_threshold);
+
+    for lp in loops.iter().take(5) {
+        println!("Loop {}:{}-{} (observed/expected={:.2}, FDR={:.2e})",
+            chrom, lp.anchor1, lp.anchor2,
+            lp.observed_over_expected, lp.fdr);
+    }
+}
+```

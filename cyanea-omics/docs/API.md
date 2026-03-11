@@ -1,10 +1,10 @@
 # cyanea-omics
 
-Data structures for genomics, transcriptomics, and variant analysis. Provides the core types used across the Cyanea ecosystem for representing biological coordinates, expression data, variants, gene annotations, single-cell analysis, spatial transcriptomics, copy number variation, methylation, and genome arithmetic.
+Data structures for genomics, transcriptomics, and variant analysis. Provides the core types used across the Cyanea ecosystem for representing biological coordinates, expression data, variants, gene annotations, single-cell analysis, spatial transcriptomics, copy number variation, methylation, Hi-C / 3D genome analysis, and genome arithmetic.
 
 ## Status: Complete
 
-All omics data structures are implemented including genomic coordinates, interval operations, interval trees, coverage vectors, expression matrices, sparse matrices, variant types, variant annotation, gene annotations, an AnnData-like single-cell container, genome arithmetic, liftover, copy number analysis, methylation analysis, spatial transcriptomics (core analysis, platform-specific containers for Visium/MERFISH/Slide-seq, cell segmentation, spatial domain detection, cell-cell communication, deconvolution), HDF5-backed `.h5ad` file I/O, Zarr I/O, a full single-cell pipeline (preprocessing, clustering, trajectory, markers, integration), ACMG/AMP variant classification with ClinVar annotation, pharmacogenomics (star allele calling, drug-gene interactions), and clinical genomics (HLA typing, TMB, MSI).
+All omics data structures are implemented including genomic coordinates, interval operations, interval trees, coverage vectors, expression matrices, sparse matrices, variant types, variant annotation, gene annotations, an AnnData-like single-cell container, genome arithmetic, liftover, copy number analysis, methylation analysis, spatial transcriptomics (core analysis, platform-specific containers for Visium/MERFISH/Slide-seq, cell segmentation, spatial domain detection, cell-cell communication, deconvolution), Hi-C / 3D genome analysis (contact matrices, TAD calling, A/B compartments, loop calling, .cool and 4DN pairs format I/O), HDF5-backed `.h5ad` file I/O, Zarr I/O, a full single-cell pipeline (preprocessing, clustering, trajectory, markers, integration), ACMG/AMP variant classification with ClinVar annotation, pharmacogenomics (star allele calling, drug-gene interactions), and clinical genomics (HLA typing, TMB, MSI).
 
 ## Public API
 
@@ -389,6 +389,50 @@ BEDTools-style operations on genomic intervals.
 | `swan_normalize(beta_values, design_types) -> Result<Vec<Vec<f64>>>` | SWAN normalization for Infinium I/II probe design bias |
 | `diff_methylation(beta_values, probe_ids, groups) -> Result<Vec<DiffMethResult>>` | Differential methylation analysis using moderated t-test on M-values |
 
+### Hi-C / 3D genome analysis (`hic.rs`)
+
+Contact matrices, TAD calling, A/B compartment detection, chromatin loop calling, and Hi-C file format parsing.
+
+| Type | Description |
+|------|-------------|
+| `ContactMatrix` | Dense Hi-C contact matrix: `chrom`, `chrom2`, `resolution`, `n_bins1`, `n_bins2`, `matrix` (symmetric for intra-chromosomal) |
+| `Tad` | Topologically Associating Domain: `chrom`, `start_bin`, `end_bin`, `start_bp`, `end_bp`, `boundary_score` |
+| `TadParams` | TAD calling config: `window_size` (default 10), `boundary_threshold` (default -0.5), `min_tad_size` (default 3) |
+| `Compartment` | A/B compartment enum: `A` (active/open), `B` (inactive/closed) |
+| `CompartmentResult` | Compartment calling result: per-bin `compartments` + `eigenvector` (PC1 values) |
+| `ChromatinLoop` | Chromatin loop: `chrom`, anchor bin/bp positions, `observed`, `expected`, `enrichment`, `p_value` |
+| `LoopParams` | Loop calling config: `background_window` (default 5), `min_enrichment` (default 1.5), `min_distance` (default 5), `max_distance` (default 500), `p_threshold` (default 0.01) |
+| `SparseContact` | Sparse contact record: `bin1`, `bin2`, `count` |
+| `CoolHeader` | .cool file metadata: `bin_size`, `chroms`, `chrom_sizes`, `n_bins`, `nnz` |
+
+**ContactMatrix methods:**
+
+| Method | Description |
+|--------|-------------|
+| `new(chrom, resolution, n_bins) -> Self` | Create empty square intra-chromosomal matrix |
+| `from_dense(chrom, resolution, matrix) -> Result<Self>` | Create from dense `Vec<Vec<f64>>` with validation |
+| `is_cis() -> bool` | Whether intra-chromosomal (chrom == chrom2) |
+| `total_contacts() -> f64` | Sum of all contact values |
+| `get(i, j) -> f64` | Access contact at (i, j) |
+| `set(i, j, value)` | Set contact value (symmetric for cis matrices) |
+| `add_contact(i, j, count)` | Add to contact value (symmetric for cis matrices) |
+| `ice_balance(max_iter, tolerance) -> Vec<f64>` | ICE iterative correction; returns bias vector |
+| `kr_balance(max_iter, tolerance) -> Vec<f64>` | Knight-Ruiz balancing; returns weight vector |
+| `observed_expected() -> Vec<Vec<f64>>` | Distance-normalized O/E matrix |
+
+**Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `call_tads(matrix, params) -> Result<Vec<Tad>>` | Call TADs via insulation score method (Crane et al. 2015) |
+| `insulation_scores(matrix, window_size) -> Vec<f64>` | Per-bin insulation scores (mean contacts in diagonal window) |
+| `call_compartments(matrix, gc_content) -> Result<CompartmentResult>` | A/B compartment calling via Lieberman-Aiden PC1 method; optional GC content orients eigenvector |
+| `call_loops(matrix, params) -> Result<Vec<ChromatinLoop>>` | HiCCUPS-style loop calling via local enrichment over donut background |
+| `parse_cool_text(data, resolution) -> Result<Vec<SparseContact>>` | Parse tab-delimited .cool text export (chrom1, start1, end1, chrom2, start2, end2, count) |
+| `parse_pairs(data) -> Result<Vec<(String, u64, String, u64)>>` | Parse 4DN pairs format (readID, chr1, pos1, chr2, pos2, strand1, strand2) |
+| `contacts_to_matrix(contacts, chrom, resolution, n_bins) -> ContactMatrix` | Build dense ContactMatrix from sparse contacts |
+| `write_pairs(contacts, chrom, resolution) -> String` | Write sparse contacts in 4DN pairs text format |
+
 ### Metadata columns (`single_cell.rs`)
 
 | Type | Description |
@@ -761,7 +805,7 @@ HLA typing for transplant matching, tumor mutational burden (TMB), and microsate
 
 ## Tests
 
-525 unit tests + 2 doc tests.
+541 unit tests + 2 doc tests.
 
 ## Source Files
 
@@ -801,4 +845,5 @@ HLA typing for transplant matching, tumor mutational burden (TMB), and microsate
 | `pharmacogenomics.rs` | Star allele calling, metabolizer phenotypes, drug-gene interactions |
 | `clinical.rs` | HLA typing, tumor mutational burden (TMB), microsatellite instability (MSI) |
 | `microarray.rs` | Microarray normalization (RMA, quantile, SWAN), differential expression (limma), methylation analysis |
+| `hic.rs` | Hi-C contact matrices, TAD calling, A/B compartments, loop calling, .cool/.pairs I/O |
 | `sc_integrate.rs` | Harmony, ComBat, MNN, kBET/LISI metrics |

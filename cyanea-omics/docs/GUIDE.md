@@ -1,6 +1,6 @@
 # cyanea-omics Usage Guide
 
-Practical examples for working with genomic data structures, single-cell analysis, variant annotation, spatial transcriptomics (including platform-specific containers, segmentation, domain detection, cell-cell communication, and deconvolution), ACMG variant classification, pharmacogenomics, and clinical genomics.
+Practical examples for working with genomic data structures, single-cell analysis, variant annotation, spatial transcriptomics (including platform-specific containers, segmentation, domain detection, cell-cell communication, and deconvolution), Hi-C / 3D genome analysis, ACMG variant classification, pharmacogenomics, and clinical genomics.
 
 ## Genomic Intervals and Interval Sets
 
@@ -468,6 +468,110 @@ for e in enrichment.iter().filter(|e| e.p_value < 0.05) {
     println!("Spot {} enriched for {} (score={:.2}, p={:.3})",
         e.spot_idx, e.cell_type, e.score, e.p_value);
 }
+```
+
+## Hi-C / 3D Genome Analysis
+
+```rust
+use cyanea_omics::hic::*;
+
+// Create a contact matrix from scratch
+let mut matrix = ContactMatrix::new("chr1", 10000, 100); // 100 bins at 10kb resolution
+
+// Add contacts (automatically symmetric for intra-chromosomal)
+matrix.add_contact(5, 20, 150.0);
+matrix.add_contact(10, 15, 200.0);
+assert!((matrix.get(20, 5) - 150.0).abs() < 1e-10); // symmetric
+
+// Or parse from .cool text export
+let cool_data = "chr1\t0\t10000\tchr1\t10000\t20000\t150\n\
+                  chr1\t0\t10000\tchr1\t20000\t30000\t50\n\
+                  chr1\t10000\t20000\tchr1\t20000\t30000\t120\n";
+let contacts = parse_cool_text(cool_data, 10000).unwrap();
+let matrix = contacts_to_matrix(&contacts, "chr1", 10000, 100);
+
+// Parse 4DN pairs format
+let pairs_data = "## pairs format v1.0\n\
+                   #columns: readID chr1 pos1 chr2 pos2 strand1 strand2\n\
+                   read_1\tchr1\t1000\tchr1\t50000\t+\t-\n\
+                   read_2\tchr1\t2000\tchr1\t30000\t+\t+\n";
+let pairs = parse_pairs(pairs_data).unwrap();
+println!("{} contacts parsed", pairs.len());
+
+// ICE balancing (iterative correction)
+let mut matrix = ContactMatrix::from_dense("chr1", 10000, raw_data).unwrap();
+let bias = matrix.ice_balance(50, 1e-6);
+
+// KR (Knight-Ruiz) balancing
+let weights = matrix.kr_balance(100, 1e-6);
+
+// Observed/expected (distance normalization)
+let oe = matrix.observed_expected();
+// Within-TAD entries will have O/E > 1, between-TAD < 1
+```
+
+### TAD Calling
+
+```rust
+use cyanea_omics::hic::*;
+
+// Call TADs using the insulation score method (Crane et al. 2015)
+let params = TadParams {
+    window_size: 10,             // insulation window in bins
+    boundary_threshold: -0.5,    // z-score threshold for boundaries
+    min_tad_size: 3,             // minimum TAD size in bins
+};
+let tads = call_tads(&matrix, &params).unwrap();
+for tad in &tads {
+    println!("TAD: {}:{}-{} ({} bins, boundary_score={:.2})",
+        tad.chrom, tad.start_bp, tad.end_bp,
+        tad.end_bin - tad.start_bin, tad.boundary_score);
+}
+
+// Get raw insulation scores for custom analysis
+let scores = insulation_scores(&matrix, 10);
+```
+
+### A/B Compartment Calling
+
+```rust
+use cyanea_omics::hic::*;
+
+// Call compartments via PC1 of the O/E correlation matrix
+let result = call_compartments(&matrix, None).unwrap();
+for (i, comp) in result.compartments.iter().enumerate() {
+    println!("Bin {}: {:?} (eigenvector={:.3})", i, comp, result.eigenvector[i]);
+}
+
+// Use GC content to orient the eigenvector (A = high GC)
+let gc_content: Vec<f64> = (0..matrix.n_bins1)
+    .map(|i| if i < 50 { 0.55 } else { 0.40 })
+    .collect();
+let result = call_compartments(&matrix, Some(&gc_content)).unwrap();
+```
+
+### Loop Calling
+
+```rust
+use cyanea_omics::hic::*;
+
+// Call chromatin loops (HiCCUPS-style local enrichment)
+let params = LoopParams {
+    background_window: 5,    // donut background window size in bins
+    min_enrichment: 1.5,     // minimum enrichment over background
+    min_distance: 5,         // min genomic distance in bins
+    max_distance: 500,       // max genomic distance in bins
+    p_threshold: 0.01,       // p-value threshold
+};
+let loops = call_loops(&matrix, &params).unwrap();
+// Results sorted by enrichment (descending)
+for lp in loops.iter().take(10) {
+    println!("Loop: {}:{}-{} (enrichment={:.1}x, p={:.2e})",
+        lp.chrom, lp.anchor1_bp, lp.anchor2_bp, lp.enrichment, lp.p_value);
+}
+
+// Write contacts back to 4DN pairs format
+let output = write_pairs(&contacts, "chr1", 10000);
 ```
 
 ## Microarray Expression Analysis
