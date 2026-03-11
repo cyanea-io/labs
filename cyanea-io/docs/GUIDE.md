@@ -195,6 +195,45 @@ let embl_input = std::fs::read_to_string("sequence.embl").unwrap();
 let embl_records = parse_embl(&embl_input).unwrap();
 ```
 
+## Microarray Data Formats (CEL, GPR, IDAT)
+
+```rust
+use cyanea_io::microarray::{parse_cel_v3, parse_gpr, parse_idat, write_cel_v3};
+
+// Parse Affymetrix CEL v3 text file
+let cel_data = std::fs::read_to_string("sample.cel").unwrap();
+let cel = parse_cel_v3(&cel_data).unwrap();
+println!("Chip: {}, {}x{} probes, {} intensities",
+    cel.chip_type, cel.cols, cel.rows, cel.intensities.len());
+println!("Outliers: {}, Masked: {}", cel.outliers.len(), cel.masked.len());
+
+// Round-trip: write back to CEL v3 text
+let cel_text = write_cel_v3(&cel);
+
+// Parse GenePix GPR file (ATF format)
+let gpr_data = std::fs::read_to_string("scan.gpr").unwrap();
+let gpr = parse_gpr(&gpr_data).unwrap();
+for spot in &gpr.spots {
+    let corrected_cy5 = spot.corrected_635();   // F635 - B635
+    let corrected_cy3 = spot.corrected_532();   // F532 - B532
+    if !spot.is_flagged() {
+        println!("{}: Cy5={}, Cy3={}, log2 ratio={:.2}",
+            spot.name, corrected_cy5, corrected_cy3, spot.log_ratio);
+    }
+}
+
+// Parse Illumina IDAT binary file
+let idat_bytes = std::fs::read("sample.idat").unwrap();
+let idat = parse_idat(&idat_bytes).unwrap();
+println!("Barcode: {}, Chip: {}, {} probes",
+    idat.barcode, idat.chip_type, idat.illumina_ids.len());
+for i in 0..5.min(idat.illumina_ids.len()) {
+    println!("  Probe {}: mean={:.1}, n_beads={}, sd={:.1}",
+        idat.illumina_ids[i], idat.mean_intensities[i],
+        idat.n_beads[i], idat.std_devs[i]);
+}
+```
+
 ## Alignment Format I/O (Stockholm, Clustal, Phylip)
 
 ```rust

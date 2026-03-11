@@ -364,6 +364,23 @@ Unified file format parsing for bioinformatics and tabular data. Each parser is 
 | `parse_gfa(input) -> Result<GfaGraph>` | Parse GFA v1 format |
 | `write_gfa(graph) -> String` | Write GFA v1 format |
 
+### Microarray (`microarray.rs`, `microarray` feature)
+
+| Type | Description |
+|------|-------------|
+| `CelFile` | Affymetrix CEL file: `version`, `chip_type`, `algorithm`, `cols`, `rows`, `intensities`, `std_devs`, `n_pixels`, `outliers`, `masked` |
+| `CelVersion` | Enum: `V3`, `V4`, `CommandConsole` |
+| `GprFile` | GenePix GPR file: `spots`, `columns`, `header` |
+| `GprSpot` | GPR spot: `block`, `row`, `col`, `name`, `id`, `f635_median`, `b635_median`, `f532_median`, `b532_median`, `ratio`, `log_ratio`, `flags`; methods: `corrected_635()`, `corrected_532()`, `is_flagged()` |
+| `IdatFile` | Illumina IDAT file: `illumina_ids`, `mean_intensities`, `n_beads`, `std_devs`, `barcode`, `chip_type`, `manifest` |
+
+| Function | Description |
+|----------|-------------|
+| `parse_cel_v3(data) -> Result<CelFile>` | Parse Affymetrix CEL v3 text format |
+| `parse_gpr(data) -> Result<GprFile>` | Parse GenePix GPR (ATF format) |
+| `parse_idat(data) -> Result<IdatFile>` | Parse Illumina IDAT binary format |
+| `write_cel_v3(cel) -> String` | Write CEL v3 text format |
+
 ### Fetch helpers (`fetch.rs`, `fetch` feature)
 
 URL builders and response parsers for bioinformatics APIs. No HTTP client -- pure URL construction and text parsing.
@@ -395,6 +412,7 @@ URL builders and response parsers for bioinformatics APIs. No HTTP client -- pur
 | `bigwig` | No | bigWig/bigBed binary format (requires `flate2`) |
 | `parquet` | No | Apache Parquet columnar format (implies `vcf` + `bed`, arrow/parquet deps) |
 | `variant-calling` | No | Bayesian variant caller (implies `sam` + `vcf`) |
+| `microarray` | No | Affymetrix CEL, GenePix GPR, Illumina IDAT parsing and writing |
 | `fetch` | No | URL builders for NCBI/UniProt/KEGG/htsget/refget |
 | `parallel` | No | Rayon parallelism |
 | `wasm` | No | WASM target |
@@ -411,4 +429,4 @@ URL builders and response parsers for bioinformatics APIs. No HTTP client -- pur
 
 ## Tests
 
-357 unit + 7 doc tests with all features enabled. Breakdown by module: CSV (3), VCF (25), VCF ops (32), BED (9), BEDPE (10), GFF3 (9), GTF (6), SAM (32), pileup (36), BAM (35), indexed BAM/VCF (8), BGZF (4), CRAM (7), Parquet (14), BCF (12), BCF write (included in BCF), variant calling (21), BLAST tabular (5), BLAST XML (5), MAF (5), GenBank (6), bigWig (6), Stockholm (6), Clustal (5), Phylip (5), EMBL (5), PIR (6), ABI (5), bedGraph (5), GFA (5), fetch (12).
+368 unit + 7 doc tests with all features enabled. Breakdown by module: CSV (3), VCF (25), VCF ops (32), BED (9), BEDPE (10), GFF3 (9), GTF (6), SAM (32), pileup (36), BAM (35), indexed BAM/VCF (8), BGZF (4), CRAM (7), Parquet (14), BCF (12), BCF write (included in BCF), variant calling (21), BLAST tabular (5), BLAST XML (5), MAF (5), GenBank (6), bigWig (6), Stockholm (6), Clustal (5), Phylip (5), EMBL (5), PIR (6), ABI (5), bedGraph (5), GFA (5), microarray (11), fetch (12).

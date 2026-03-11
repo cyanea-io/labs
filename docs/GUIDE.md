@@ -960,3 +960,68 @@ fn spatial_pipeline(
     }
 }
 ```
+
+## 15. Microarray Analysis Pipeline
+
+Parse microarray data files (Affymetrix CEL, GenePix GPR, Illumina IDAT), normalize expression values with RMA, run limma-style differential expression analysis, and analyze Illumina methylation arrays.
+
+**Crates**: cyanea-io, cyanea-omics
+
+```toml
+[dependencies]
+cyanea-io = { version = "0.1", features = ["cel", "gpr", "idat"] }
+cyanea-omics = "0.1"
+```
+
+```rust
+use cyanea_io::cel::parse_cel;
+use cyanea_io::gpr::parse_gpr;
+use cyanea_io::idat::parse_idat;
+use cyanea_omics::microarray::{
+    rma_normalize, limma_differential_expression, LimmaConfig,
+    methylation_array_analysis, MethylationArrayConfig,
+};
+
+fn microarray_pipeline(
+    cel_data: &[u8],
+    gpr_data: &str,
+    idat_data: &[u8],
+) {
+    // 1. Parse Affymetrix CEL file (probe-level intensities)
+    let cel = parse_cel(cel_data).unwrap();
+    println!("{} probes, {} cells", cel.num_probes(), cel.num_cells());
+
+    // 2. Parse GenePix GPR file (two-color microarray)
+    let gpr = parse_gpr(gpr_data).unwrap();
+    println!("{} spots, {} blocks", gpr.num_spots(), gpr.num_blocks());
+
+    // 3. Parse Illumina IDAT file (BeadArray intensities)
+    let idat = parse_idat(idat_data).unwrap();
+    println!("{} probes in IDAT", idat.num_probes());
+
+    // 4. RMA normalization (background correction + quantile normalization + summarization)
+    let expression_matrix = vec![cel.intensities()];  // multiple CEL files in practice
+    let normalized = rma_normalize(&expression_matrix).unwrap();
+    println!("RMA normalized: {} genes x {} samples",
+        normalized.num_genes(), normalized.num_samples());
+
+    // 5. Limma-style differential expression
+    let config = LimmaConfig {
+        group_labels: vec!["control", "treated", "control", "treated"],
+        contrast: ("treated", "control"),
+        ..Default::default()
+    };
+    let de_results = limma_differential_expression(&normalized, &config).unwrap();
+    let significant: Vec<_> = de_results.iter()
+        .filter(|r| r.adj_p_value < 0.05 && r.log_fold_change.abs() > 1.0)
+        .collect();
+    println!("{} DE genes (|logFC| > 1, FDR < 0.05)", significant.len());
+
+    // 6. Illumina methylation array analysis (450K/EPIC)
+    let meth_config = MethylationArrayConfig::default();
+    let meth_results = methylation_array_analysis(&idat, &meth_config).unwrap();
+    println!("{} CpG sites, {} DMPs (FDR < 0.05)",
+        meth_results.num_sites(),
+        meth_results.differentially_methylated(0.05).len());
+}
+```

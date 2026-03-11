@@ -85,6 +85,30 @@ Each module reads and writes standard AnnData slots, so steps can be composed in
 - **CBS** (Circular Binary Segmentation): Recursively finds the split point that maximizes the t-statistic between segment means, using permutation testing for significance. Segments are then optionally merged based on log2-ratio similarity.
 - **Methylation**: CpG sites carry read-level methylation counts. DMR detection uses a sliding window approach, testing beta-value differences between groups with Welch's t-test. CpG island detection uses the Gardiner-Garden & Frommer criteria (GC% > 50%, observed/expected CpG ratio > 0.6, length > 200bp).
 
+## Microarray Analysis
+
+`microarray.rs` provides normalization, summarization, and differential analysis for expression and methylation microarray data.
+
+### Expression Microarray Pipeline
+
+- **Quantile normalization**: Sorts each sample's values, replaces each rank with the mean across samples at that rank, then restores original ordering. This forces all samples to have identical value distributions, removing systematic technical variation while preserving relative differences within samples.
+
+- **RMA** (Robust Multi-array Average): A two-step pipeline combining background correction (log2 transform with offset to stabilize low-intensity values) followed by quantile normalization. This is the standard preprocessing for Affymetrix GeneChip data.
+
+- **Median polish**: Tukey's iterative median polish for probe set summarization. Alternately subtracts row medians and column medians until convergence (or `max_iter`), decomposing the probe-by-sample matrix into an overall effect, row effects (probe affinities), and column effects (sample expression levels). The column effects become the summarized expression values per sample.
+
+- **limma differential expression**: Implements moderated t-statistics with empirical Bayes variance moderation (Smyth 2004). For each gene, fits a linear model comparing two groups, then shrinks per-gene variance estimates toward a common prior estimated across all genes. This borrowing of information across genes improves power for small sample sizes. P-values are computed from the moderated t-statistic and corrected for multiple testing using Benjamini-Hochberg.
+
+### Methylation Microarray Pipeline
+
+- **Beta values**: Computed as `M / (M + U + offset)` where M and U are methylated and unmethylated signal intensities. The offset (typically 100) prevents division instability when both signals are near zero. Beta values range from 0 (unmethylated) to 1 (fully methylated) and are biologically interpretable but heteroscedastic.
+
+- **M-values**: The logit transform `log2(beta / (1 - beta))` of beta values. M-values have better statistical properties (approximately homoscedastic) and are preferred for differential analysis, though less interpretable. Conversion functions are provided in both directions.
+
+- **SWAN normalization**: Subset-quantile Within Array Normalization corrects the technical bias between Infinium I and Infinium II probe designs on Illumina BeadChip arrays. TypeI probes use two beads (methylated and unmethylated channels), while TypeII probes use a single bead, leading to systematic intensity differences. SWAN performs separate quantile normalization within each design type to equalize their distributions.
+
+- **Differential methylation**: Converts beta values to M-values, then applies the same empirical Bayes moderated t-test framework as limma. Reports delta-beta (difference in mean beta between groups) for biological interpretability alongside the statistical results from M-value analysis. BH correction controls the false discovery rate.
+
 ## Spatial Transcriptomics
 
 - **Neighbor graphs**: Delaunay triangulation uses divide-and-conquer on the 2D point set. k-nearest neighbor graphs compute all pairwise distances and select the k closest per point.

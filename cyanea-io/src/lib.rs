@@ -109,6 +109,8 @@ pub mod abi;
 #[cfg(feature = "fetch")]
 pub mod fetch;
 
+pub mod microarray;
+
 // Re-exports for convenience.
 
 #[cfg(feature = "csv")]
@@ -247,6 +249,11 @@ pub use blast_xml::{
 
 #[cfg(feature = "abi")]
 pub use abi::{parse_abi_bytes, AbiRecord, AbiTraces};
+
+pub use microarray::{
+    parse_cel_v3, parse_gpr, parse_idat, write_cel_v3,
+    CelFile, CelVersion, GprFile, GprSpot, IdatFile,
+};
 
 #[cfg(feature = "fetch")]
 pub use fetch::{

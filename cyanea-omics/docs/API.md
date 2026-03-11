@@ -361,6 +361,34 @@ BEDTools-style operations on genomic intervals.
 | `liftover(interval, chain_file) -> LiftoverResult` | Remap a single interval between assemblies |
 | `liftover_batch(intervals, chain_file) -> Vec<LiftoverResult>` | Batch liftover |
 
+### Microarray analysis (`microarray.rs`)
+
+| Type | Description |
+|------|-------------|
+| `DiffExprResult` | Differential expression result: gene name, log2 fold change, t-statistic, p-value, adjusted p-value |
+| `DiffMethResult` | Differential methylation result: probe ID, delta beta, t-statistic, p-value, adjusted p-value |
+| `MethylationProbe` | Methylation probe with beta values and design type |
+| `InfiniumType` | Enum: `TypeI`, `TypeII` (Illumina Infinium probe design) |
+
+**Expression microarray analysis:**
+
+| Function | Description |
+|----------|-------------|
+| `rma_normalize(probe_intensities) -> Result<Vec<Vec<f64>>>` | Full RMA pipeline: background correction + quantile normalization |
+| `quantile_normalize(data) -> Result<()>` | Quantile normalization across samples (in-place) |
+| `median_polish(probes, max_iter) -> Result<Vec<f64>>` | Tukey median polish for probe set summarization |
+| `limma_diff_expr(expression, gene_names, groups) -> Result<Vec<DiffExprResult>>` | Moderated t-test with empirical Bayes variance moderation and BH correction |
+
+**Methylation microarray analysis:**
+
+| Function | Description |
+|----------|-------------|
+| `compute_beta(m, u, offset) -> Result<Vec<f64>>` | Beta values from methylated (M) and unmethylated (U) signal intensities |
+| `beta_to_m_value(beta) -> Vec<f64>` | Convert beta values to M-values (log2(beta / (1 - beta))) |
+| `m_value_to_beta(m) -> Vec<f64>` | Convert M-values back to beta values |
+| `swan_normalize(beta_values, design_types) -> Result<Vec<Vec<f64>>>` | SWAN normalization for Infinium I/II probe design bias |
+| `diff_methylation(beta_values, probe_ids, groups) -> Result<Vec<DiffMethResult>>` | Differential methylation analysis using moderated t-test on M-values |
+
 ### Metadata columns (`single_cell.rs`)
 
 | Type | Description |
@@ -733,7 +761,7 @@ HLA typing for transplant matching, tumor mutational burden (TMB), and microsate
 
 ## Tests
 
-515 unit tests + 2 doc tests.
+525 unit tests + 2 doc tests.
 
 ## Source Files
 
@@ -772,4 +800,5 @@ HLA typing for transplant matching, tumor mutational burden (TMB), and microsate
 | `acmg.rs` | ACMG/AMP variant classification, ClinVar annotation matching |
 | `pharmacogenomics.rs` | Star allele calling, metabolizer phenotypes, drug-gene interactions |
 | `clinical.rs` | HLA typing, tumor mutational burden (TMB), microsatellite instability (MSI) |
+| `microarray.rs` | Microarray normalization (RMA, quantile, SWAN), differential expression (limma), methylation analysis |
 | `sc_integrate.rs` | Harmony, ComBat, MNN, kBET/LISI metrics |

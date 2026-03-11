@@ -37,6 +37,7 @@ cyanea-io
  +-- gfa.rs              [genbank] GFA v1 sequence graph
  +-- bigwig.rs           [bigwig] bigWig/bigBed Kent binary format
  +-- parquet.rs          [parquet] Apache Parquet via arrow/parquet crates
+ +-- microarray.rs       [microarray] Affymetrix CEL, GenePix GPR, Illumina IDAT
  +-- fetch.rs            [fetch] URL builders for NCBI/UniProt/KEGG/htsget/refget
 ```
 
@@ -116,3 +117,13 @@ noodles provides Rust-native BAM, CRAM, BCF, and tabix parsers. cyanea-io uses n
 - **Indexed VCF**: `noodles-vcf::io::IndexedReader` for tabix-backed random access.
 
 All noodles records are converted to cyanea-io's own types (`SamRecord`, `Variant`) at the boundary, keeping the public API independent of noodles version.
+
+### Microarray Format Parsing
+
+`microarray.rs` handles three major microarray platform formats:
+
+- **Affymetrix CEL v3**: A text-based format with sections delimited by bracketed headers (`[HEADER]`, `[INTENSITY]`, `[OUTLIERS]`, `[MASKS]`). The parser reads section-by-section, extracting probe-level intensity values, standard deviations, and pixel counts as parallel arrays. Outlier and masked probe coordinates are stored separately. The writer reproduces the same section structure for round-trip fidelity.
+
+- **GenePix GPR**: Uses the ATF (Axon Text File) format with a key-value header block followed by tab-delimited spot data. Each `GprSpot` carries dual-channel fluorescence measurements (635nm/Cy5 and 532nm/Cy3) with median foreground and background values. Helper methods compute background-corrected intensities (`corrected_635()` = F635 - B635) and flag status. The `ratio` and `log_ratio` fields provide pre-computed ratios from the scanner software.
+
+- **Illumina IDAT**: A binary format with a magic number, version byte, and a series of typed fields identified by numeric codes. The parser reads field entries (illumina IDs, mean intensities, bead counts, standard deviations, barcode, chip type, manifest path) by seeking to each field's offset. All multi-byte integers are little-endian.

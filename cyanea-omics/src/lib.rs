@@ -52,6 +52,7 @@ pub mod cnv;
 pub mod liftover;
 pub mod methylation;
 pub mod pharmacogenomics;
+pub mod microarray;
 #[cfg(feature = "h5ad")]
 pub mod h5ad;
 #[cfg(feature = "zarr")]
@@ -141,6 +142,13 @@ pub use acmg::{
 pub use clinical::{
     bethesda_markers, call_msi, compute_tmb, hla_compatibility, parse_hla_typing,
     HlaAllele, HlaTypingResult, MsiLocus, MsiResult, MsiStatus, TmbCategory, TmbResult,
+};
+
+// Re-export microarray analysis types
+pub use microarray::{
+    compute_beta, beta_to_m_value, diff_methylation, limma_diff_expr, m_value_to_beta,
+    median_polish, quantile_normalize, rma_normalize, swan_normalize,
+    DiffExprResult, DiffMethResult, InfiniumType, MethylationProbe,
 };
 
 // Re-export pharmacogenomics types

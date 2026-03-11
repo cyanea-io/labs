@@ -470,6 +470,87 @@ for e in enrichment.iter().filter(|e| e.p_value < 0.05) {
 }
 ```
 
+## Microarray Expression Analysis
+
+```rust
+use cyanea_omics::microarray::*;
+
+// Quantile normalization across samples
+let mut data = vec![
+    vec![5.0, 2.0, 3.0],   // sample 1
+    vec![4.0, 1.0, 4.0],   // sample 2
+    vec![3.0, 4.0, 6.0],   // sample 3
+];
+quantile_normalize(&mut data).unwrap();
+// Each sample now has identical rank distributions
+
+// Full RMA pipeline (background correction + quantile normalization)
+let probe_intensities = vec![
+    vec![100.0, 200.0, 150.0],  // probe set 1
+    vec![50.0, 80.0, 60.0],     // probe set 2
+];
+let normalized = rma_normalize(&probe_intensities).unwrap();
+
+// Median polish for probe set summarization
+let probes = vec![
+    vec![5.0, 6.0, 7.0],   // probe 1 across samples
+    vec![4.0, 5.0, 8.0],   // probe 2 across samples
+    vec![6.0, 7.0, 6.0],   // probe 3 across samples
+];
+let summary = median_polish(&probes, 100).unwrap();
+println!("Summarized expression: {:?}", summary);
+
+// Differential expression with limma (moderated t-test)
+let expression = vec![
+    vec![2.5, 3.1, 2.8, 5.2, 6.0, 5.5],   // gene 1
+    vec![1.0, 1.2, 0.9, 1.1, 1.0, 1.3],   // gene 2
+];
+let gene_names = vec!["BRCA1".into(), "GAPDH".into()];
+let groups = vec![0, 0, 0, 1, 1, 1]; // control vs. treatment
+let results = limma_diff_expr(&expression, &gene_names, &groups).unwrap();
+for r in &results {
+    println!("{}: log2FC={:.2}, p_adj={:.4}", r.gene_name, r.log2_fold_change, r.adjusted_p_value);
+}
+```
+
+## Methylation Microarray Analysis
+
+```rust
+use cyanea_omics::microarray::*;
+
+// Compute beta values from methylated (M) and unmethylated (U) signals
+let methylated = vec![1000.0, 5000.0, 200.0];
+let unmethylated = vec![4000.0, 500.0, 9800.0];
+let betas = compute_beta(&methylated, &unmethylated, 100.0).unwrap();
+// beta = M / (M + U + offset), range [0, 1]
+println!("Beta values: {:?}", betas);
+
+// Convert between beta values and M-values
+let m_values = beta_to_m_value(&betas);  // log2(beta / (1 - beta))
+let back_to_beta = m_value_to_beta(&m_values);
+
+// SWAN normalization to correct Infinium I/II probe design bias
+let beta_values = vec![
+    vec![0.2, 0.8, 0.5],   // sample 1
+    vec![0.3, 0.7, 0.6],   // sample 2
+];
+let design_types = vec![InfiniumType::TypeI, InfiniumType::TypeII, InfiniumType::TypeI];
+let swan_normalized = swan_normalize(&beta_values, &design_types).unwrap();
+
+// Differential methylation analysis
+let probe_ids = vec!["cg00001".into(), "cg00002".into(), "cg00003".into()];
+let groups = vec![0, 0, 0, 1, 1, 1];
+let beta_matrix = vec![
+    vec![0.1, 0.12, 0.11, 0.8, 0.85, 0.78],  // probe 1: hypermethylated in group 1
+    vec![0.5, 0.52, 0.48, 0.51, 0.49, 0.53],  // probe 2: no change
+    vec![0.9, 0.88, 0.91, 0.2, 0.22, 0.18],   // probe 3: hypomethylated in group 1
+];
+let dm_results = diff_methylation(&beta_matrix, &probe_ids, &groups).unwrap();
+for r in &dm_results {
+    println!("{}: delta_beta={:.2}, p_adj={:.4}", r.probe_id, r.delta_beta, r.adjusted_p_value);
+}
+```
+
 ## CNV Detection
 
 ```rust
