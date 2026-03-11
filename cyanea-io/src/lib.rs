@@ -111,6 +111,8 @@ pub mod fetch;
 
 pub mod microarray;
 
+pub mod fcs;
+
 // Re-exports for convenience.
 
 #[cfg(feature = "csv")]
@@ -254,6 +256,8 @@ pub use microarray::{
     parse_cel_v3, parse_gpr, parse_idat, write_cel_v3,
     CelFile, CelVersion, GprFile, GprSpot, IdatFile,
 };
+
+pub use fcs::{parse_fcs, write_fcs, fcs_stats, FcsFile, FcsParameter, FcsStats};
 
 #[cfg(feature = "fetch")]
 pub use fetch::{

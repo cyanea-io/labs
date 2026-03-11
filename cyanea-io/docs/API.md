@@ -381,6 +381,29 @@ Unified file format parsing for bioinformatics and tabular data. Each parser is 
 | `parse_idat(data) -> Result<IdatFile>` | Parse Illumina IDAT binary format |
 | `write_cel_v3(cel) -> String` | Write CEL v3 text format |
 
+### FCS (`fcs.rs`)
+
+| Type | Description |
+|------|-------------|
+| `FcsFile` | `version`, `text` (keyword map), `parameters`, `events` (event x param matrix) |
+| `FcsParameter` | `name` ($PnN), `stain` ($PnS), `bits` ($PnB), `range` ($PnR), `amplification` ($PnE) |
+| `FcsStats` | `version`, `n_events`, `n_parameters`, `parameter_names` |
+
+| Method | Description |
+|--------|-------------|
+| `FcsFile::n_events() -> usize` | Number of events |
+| `FcsFile::n_parameters() -> usize` | Number of parameters (channels) |
+| `FcsFile::stats() -> FcsStats` | Summary statistics |
+| `FcsFile::keyword(key) -> Option<&str>` | Look up TEXT segment keyword (case-insensitive) |
+| `FcsFile::parameter_data(idx) -> Option<Vec<f64>>` | All event values for parameter by index |
+| `FcsFile::parameter_data_by_name(name) -> Option<Vec<f64>>` | All event values for parameter by name |
+
+| Function | Description |
+|----------|-------------|
+| `parse_fcs(data: &[u8]) -> Result<FcsFile>` | Parse FCS 2.0/3.0/3.1 binary data |
+| `write_fcs(fcs: &FcsFile) -> Result<Vec<u8>>` | Write FCS 3.1 binary data (float32, little-endian) |
+| `fcs_stats(fcs: &FcsFile) -> FcsStats` | Compute summary statistics |
+
 ### Fetch helpers (`fetch.rs`, `fetch` feature)
 
 URL builders and response parsers for bioinformatics APIs. No HTTP client -- pure URL construction and text parsing.
@@ -429,4 +452,4 @@ URL builders and response parsers for bioinformatics APIs. No HTTP client -- pur
 
 ## Tests
 
-368 unit + 7 doc tests with all features enabled. Breakdown by module: CSV (3), VCF (25), VCF ops (32), BED (9), BEDPE (10), GFF3 (9), GTF (6), SAM (32), pileup (36), BAM (35), indexed BAM/VCF (8), BGZF (4), CRAM (7), Parquet (14), BCF (12), BCF write (included in BCF), variant calling (21), BLAST tabular (5), BLAST XML (5), MAF (5), GenBank (6), bigWig (6), Stockholm (6), Clustal (5), Phylip (5), EMBL (5), PIR (6), ABI (5), bedGraph (5), GFA (5), microarray (11), fetch (12).
+381 unit + 7 doc tests with all features enabled. Breakdown by module: CSV (3), VCF (25), VCF ops (32), BED (9), BEDPE (10), GFF3 (9), GTF (6), SAM (32), pileup (36), BAM (35), indexed BAM/VCF (8), BGZF (4), CRAM (7), Parquet (14), BCF (12), BCF write (included in BCF), variant calling (21), BLAST tabular (5), BLAST XML (5), MAF (5), GenBank (6), bigWig (6), Stockholm (6), Clustal (5), Phylip (5), EMBL (5), PIR (6), ABI (5), bedGraph (5), GFA (5), microarray (11), FCS (13), fetch (12).

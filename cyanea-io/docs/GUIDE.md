@@ -234,6 +234,42 @@ for i in 0..5.min(idat.illumina_ids.len()) {
 }
 ```
 
+## FCS Flow Cytometry Data
+
+```rust
+use cyanea_io::fcs::{parse_fcs, write_fcs, fcs_stats};
+
+// Parse FCS binary data (supports FCS 2.0/3.0/3.1)
+let fcs_bytes = std::fs::read("sample.fcs").unwrap();
+let fcs = parse_fcs(&fcs_bytes).unwrap();
+println!("{} (v{}): {} events, {} parameters",
+    fcs.keyword("$FIL").unwrap_or("unknown"),
+    fcs.version,
+    fcs.n_events(),
+    fcs.n_parameters());
+
+// Access parameter metadata
+for p in &fcs.parameters {
+    println!("  {} (stain: {:?}), {} bits, range: {}",
+        p.name, p.stain, p.bits, p.range);
+}
+
+// Extract a channel by name
+let fsc_values = fcs.parameter_data_by_name("FSC-A").unwrap();
+println!("FSC-A mean: {:.1}", fsc_values.iter().sum::<f64>() / fsc_values.len() as f64);
+
+// Or by index
+let channel_0 = fcs.parameter_data(0).unwrap();
+
+// Summary statistics
+let stats = fcs_stats(&fcs);
+println!("{} events, parameters: {:?}", stats.n_events, stats.parameter_names);
+
+// Write FCS 3.1 (round-trip)
+let written = write_fcs(&fcs).unwrap();
+std::fs::write("output.fcs", &written).unwrap();
+```
+
 ## Alignment Format I/O (Stockholm, Clustal, Phylip)
 
 ```rust

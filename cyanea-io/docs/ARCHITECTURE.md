@@ -38,6 +38,7 @@ cyanea-io
  +-- bigwig.rs           [bigwig] bigWig/bigBed Kent binary format
  +-- parquet.rs          [parquet] Apache Parquet via arrow/parquet crates
  +-- microarray.rs       [microarray] Affymetrix CEL, GenePix GPR, Illumina IDAT
+ +-- fcs.rs              FCS 2.0/3.0/3.1 flow cytometry standard
  +-- fetch.rs            [fetch] URL builders for NCBI/UniProt/KEGG/htsget/refget
 ```
 
@@ -127,3 +128,19 @@ All noodles records are converted to cyanea-io's own types (`SamRecord`, `Varian
 - **GenePix GPR**: Uses the ATF (Axon Text File) format with a key-value header block followed by tab-delimited spot data. Each `GprSpot` carries dual-channel fluorescence measurements (635nm/Cy5 and 532nm/Cy3) with median foreground and background values. Helper methods compute background-corrected intensities (`corrected_635()` = F635 - B635) and flag status. The `ratio` and `log_ratio` fields provide pre-computed ratios from the scanner software.
 
 - **Illumina IDAT**: A binary format with a magic number, version byte, and a series of typed fields identified by numeric codes. The parser reads field entries (illumina IDs, mean intensities, bead counts, standard deviations, barcode, chip type, manifest path) by seeking to each field's offset. All multi-byte integers are little-endian.
+
+### FCS Flow Cytometry Format
+
+`fcs.rs` parses FCS (Flow Cytometry Standard) files across versions 2.0, 3.0, and 3.1. The format has three segments:
+
+- **HEADER** (bytes 0-57): A fixed-size block containing the version string (bytes 0-5) and ASCII-encoded offsets to the TEXT and DATA segments. Each offset occupies an 8-byte right-justified field. For large files where offsets exceed 8 digits, the header fields are set to zero and the actual offsets are stored as TEXT keywords ($BEGINDATA/$ENDDATA).
+
+- **TEXT**: Key-value pairs delimited by a separator character (the first byte of the segment). All keys are uppercased on parse for case-insensitive lookup. Standard keywords define parameter metadata ($PnN name, $PnS stain, $PnB bit width, $PnR range, $PnE amplification), event count ($TOT), parameter count ($PAR), data type ($DATATYPE), and byte order ($BYTEORD).
+
+- **DATA**: Event data in one of four formats selected by $DATATYPE:
+  - **F** (float32): 4 bytes per value, most common in modern instruments.
+  - **D** (float64): 8 bytes per value, higher precision.
+  - **I** (integer): Per-parameter bit widths from $PnB, supporting 8/16/32-bit unsigned integers.
+  - **A** (ASCII): Whitespace-delimited text values, rarely used.
+
+Byte order is determined by $BYTEORD (`1,2,3,4` = little-endian, `4,3,2,1` = big-endian). The writer always produces FCS 3.1 with float32 little-endian data. The module has no feature flag since it has no external dependencies beyond `cyanea-core`.
