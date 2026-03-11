@@ -1,0 +1,25 @@
+[package]
+name = "cyanea-proteomics"
+description = "Proteomics and mass spectrometry analysis for the Cyanea bioinformatics ecosystem"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+keywords = ["bioinformatics", "proteomics", "mass-spectrometry", "peptide", "mzml"]
+categories = ["science"]
+
+[features]
+default = ["std"]
+std = []
+wasm = []
+serde = ["dep:serde", "cyanea-core/serde"]
+
+[dependencies]
+cyanea-core = { path = "../cyanea-core", version = "0.1.0", default-features = false }
+serde = { workspace = true, optional = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }

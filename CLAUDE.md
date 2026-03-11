@@ -1,6 +1,6 @@
 # Cyanea Labs
 
-Rust bioinformatics ecosystem — 13 crates, 3000+ tests, targeting native, WASM, Python, and Elixir NIFs.
+Rust bioinformatics ecosystem — 16 crates, 3800+ tests, targeting native, WASM, Python, and Elixir NIFs.
 
 ## Workspace
 
@@ -29,6 +29,9 @@ All crates are complete. Each has `docs/API.md` (full API reference), `docs/GUID
 | **cyanea-chem** | SMILES/SDF V2000/V3000, fingerprints, MACCS keys, properties, substructure, stereochemistry, canonical SMILES, 3D conformers (distance geometry/ETKDG), UFF/MMFF94 force fields, energy minimization, SMIRKS reactions, retrosynthesis, Gasteiger charges | 200 | cyanea-core, sha2 |
 | **cyanea-struct** | PDB, mmCIF, geometry, DSSP, Kabsch, contact maps, Ramachandran | 76 | cyanea-core, sha2 |
 | **cyanea-phylo** | Newick/NEXUS, distances, UPGMA/NJ, Fitch/Sankoff, ML likelihood (GTR+G), bootstrap, tree search (NNI/SPR/TBR), model selection (AIC/BIC), protein models (LG/WAG/JTT), Bayesian MCMC, species tree, UniFrac, simulation, consensus, dating, drawing | 225 | cyanea-core, cyanea-ml (optional) |
+| **cyanea-meta** | Metagenomics: taxonomy (k-mer LCA), profiling, alpha/beta diversity, compositional analysis (CLR/ILR, ALDEx2, ANCOM), functional annotation, binning (TNF + coverage), assembly QC | 117 | cyanea-core, cyanea-seq, cyanea-stats, cyanea-io |
+| **cyanea-epi** | Epigenomics: MACS2-style peak calling (narrow/broad), pileup/normalization, motif discovery/PWM scanning/MEME I/O, ChromHMM-like chromatin states, DESeq2-style differential binding, nucleosome positioning, ATAC-seq QC | 73 | cyanea-core |
+| **cyanea-proteomics** | Proteomics: MGF/mzML parsing, in-silico digestion (trypsin/LysC/chymotrypsin/AspN/GluC), fragment ions (b/y/a), modifications (CAM/oxidation/phospho/TMT/iTRAQ), PSM scoring (XCorr/hyperscore), parsimony protein inference, spectral counting/intensity/TMT quantification, target-decoy FDR, mzTab output | 86 | cyanea-core |
 | **cyanea-gpu** | Backend trait, CPU/CUDA/Metal/WebGPU backends, buffers, ops, k-mer counting, Smith-Waterman, MinHash, benchmarks | 62 | cyanea-core, metal-rs, cudarc, wgpu, criterion (bench) |
 | **cyanea-wasm** | JSON-based WASM bindings (seq, io, align, stats, ml, chem, struct, phylo, omics) | 223 | serde_json, wasm-bindgen |
 | **cyanea-py** | Python bindings via PyO3 (seq, align, stats, ml, chem, struct, phylo, io, omics) | — | pyo3 |
@@ -92,6 +95,9 @@ cyanea-core (foundation — no internal deps)
 ├── cyanea-chem (+ sha2)
 ├── cyanea-struct (+ sha2)
 ├── cyanea-phylo (+ optional cyanea-ml)
+├── cyanea-meta (+ cyanea-seq, cyanea-stats, cyanea-io)
+├── cyanea-epi
+├── cyanea-proteomics
 ├── cyanea-gpu
 ├── cyanea-io (+ cyanea-omics, csv, optional noodles)
 ├── cyanea-wasm (+ cyanea-seq/io/align/stats/ml/chem/struct/phylo/omics, serde_json, wasm-bindgen)

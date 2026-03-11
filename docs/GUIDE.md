@@ -448,3 +448,102 @@ fn epigenomics_pipeline(
     println!("{} differentially bound regions (FDR < 0.05)", significant.len());
 }
 ```
+
+## 9. Proteomics: MS/MS Database Search Pipeline
+
+Parse mass spectra, digest a protein database, search for peptide-spectrum matches, control FDR, infer proteins, and quantify.
+
+**Crates**: cyanea-proteomics
+
+**Cargo.toml**:
+
+```toml
+[dependencies]
+cyanea-proteomics = { path = "../cyanea-proteomics" }
+```
+
+```rust
+use cyanea_proteomics::mgf::parse_mgf;
+use cyanea_proteomics::peptide::{digest, DigestConfig, Protease};
+use cyanea_proteomics::search::{search_all, generate_decoys, SearchConfig};
+use cyanea_proteomics::fdr::{filter_fdr, fdr_summary};
+use cyanea_proteomics::protein::{infer_proteins, ProteinEntry};
+use cyanea_proteomics::quantification::{spectral_counting, quantify_tmt, TmtPlex, median_normalize};
+use cyanea_proteomics::mztab::write_mztab_proteins;
+
+fn main() {
+    // 1. Parse MGF spectra
+    let mgf_text = std::fs::read_to_string("experiment.mgf").unwrap();
+    let spectra = parse_mgf(&mgf_text).unwrap();
+    println!("{} spectra loaded", spectra.len());
+
+    // 2. In-silico digest of protein database
+    let protein_sequences = vec![
+        ("P12345", b"MAAAKPEPTIDEKSEQENCER".as_slice()),
+        ("Q67890", b"MDDDEKFFFFERGGGGK".as_slice()),
+    ];
+
+    let digest_config = DigestConfig {
+        protease: Protease::Trypsin,
+        max_missed_cleavages: 2,
+        min_length: 6,
+        max_length: 50,
+        min_mass: 400.0,
+        max_mass: 5000.0,
+    };
+
+    let mut all_peptides = Vec::new();
+    for (_, seq) in &protein_sequences {
+        all_peptides.extend(digest(seq, &digest_config).unwrap());
+    }
+    println!("{} target peptides", all_peptides.len());
+
+    // 3. Generate decoy database (reversed sequences)
+    let decoy_peptides = generate_decoys(&all_peptides);
+
+    // 4. Search spectra against target and decoy databases
+    let search_config = SearchConfig {
+        fragment_tolerance: 0.02,   // 20 mDa for high-res MS2
+        precursor_tolerance: 10.0,  // Da
+        max_fragment_charge: 2,
+        min_matched_ions: 4,
+    };
+
+    let target_psms = search_all(&spectra, &all_peptides, &search_config).unwrap();
+    let decoy_psms = search_all(&spectra, &decoy_peptides, &search_config).unwrap();
+    println!("{} target PSMs, {} decoy PSMs", target_psms.len(), decoy_psms.len());
+
+    // 5. FDR control at 1%
+    let summary = fdr_summary(&target_psms, &decoy_psms).unwrap();
+    println!("PSMs at 1% FDR: {}, at 5% FDR: {}", summary.passing_1pct, summary.passing_5pct);
+
+    let filtered_psms = filter_fdr(&target_psms, &decoy_psms, 0.01).unwrap();
+
+    // 6. Protein inference (parsimony)
+    let protein_db: Vec<ProteinEntry> = protein_sequences.iter()
+        .map(|(acc, seq)| ProteinEntry::new(*acc, *seq))
+        .collect();
+
+    let protein_groups = infer_proteins(&filtered_psms, &protein_db).unwrap();
+    for g in &protein_groups {
+        println!("Protein {:?}: {} unique peptides, {:.0}% coverage",
+            g.accessions, g.unique_peptides.len(), g.coverage * 100.0);
+    }
+
+    // 7. Label-free quantification (spectral counting)
+    let mut quants = spectral_counting(&protein_groups, &filtered_psms);
+    median_normalize(&mut quants);
+    for q in &quants {
+        println!("{}: raw={:.0}, normalized={:.3}",
+            q.accessions.join(","), q.raw_value, q.normalized_value);
+    }
+
+    // 8. TMT quantification (if using TMT labeling)
+    let tmt_quants = quantify_tmt(&spectra, TmtPlex::Tmt10, 0.01);
+    println!("{} spectra with TMT reporter ions", tmt_quants.len());
+
+    // 9. Export results in mzTab format
+    let mztab = write_mztab_proteins(&protein_groups, Some(&quants));
+    println!("{}", mztab);
+}
+```

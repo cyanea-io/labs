@@ -15,6 +15,7 @@ members = [
     "cyanea-wasm",
     "cyanea-py",
     "cyanea-epi",
+    "cyanea-proteomics",
     "benchmarks",
 ]
 resolver = "2"

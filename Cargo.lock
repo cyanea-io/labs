@@ -970,6 +970,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "cyanea-proteomics"
+version = "0.1.0"
+dependencies = [
+ "cyanea-core",
+ "proptest",
+ "serde",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "cyanea-py"
 version = "0.1.0"
 dependencies = [
