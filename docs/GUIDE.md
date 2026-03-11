@@ -318,3 +318,133 @@ fn microbiome_pipeline(
     println!("UniFrac distances computed: {}x{}", uf.len(), uf[0].len());
 }
 ```
+
+## 7. Shotgun Metagenomics Pipeline
+
+Build a taxonomy, classify reads, profile community composition, compute diversity, and perform differential abundance testing.
+
+**Crates**: cyanea-meta, cyanea-seq
+
+```toml
+[dependencies]
+cyanea-meta = "0.1"
+cyanea-seq = "0.1"
+```
+
+```rust
+use cyanea_meta::taxonomy::{TaxonomyDB, TaxonRank};
+use cyanea_meta::profile::{profile_from_classifications, normalize_profile, filter_profile};
+use cyanea_meta::diversity::{alpha_diversity, beta_diversity_matrix, rarefaction_curve};
+use cyanea_meta::composition::{clr_transform, differential_abundance};
+use cyanea_meta::assembly::assembly_stats;
+
+fn metagenomics_pipeline(
+    reads: &[&[u8]],
+    contigs: &[&[u8]],
+    sample1_counts: &[u64],
+    sample2_counts: &[u64],
+) {
+    // 1. Build taxonomy and classify reads
+    let mut db = TaxonomyDB::new(1);
+    db.add_node(2, 1, TaxonRank::Domain, "Bacteria").unwrap();
+    // ... add more nodes, index references ...
+
+    let mut classifications = Vec::new();
+    for read in reads {
+        if let Ok(Some(taxid)) = db.classify_sequence(read) {
+            classifications.push(taxid);
+        }
+    }
+
+    // 2. Build taxonomic profile
+    let profile = profile_from_classifications(&classifications).unwrap();
+    let normalized = normalize_profile(&profile).unwrap();
+    let filtered = filter_profile(&normalized, 0.001).unwrap(); // >0.1% abundance
+
+    // 3. Alpha diversity
+    let ad = alpha_diversity(sample1_counts).unwrap();
+    println!("Shannon: {:.3}, Chao1: {:.1}", ad.shannon, ad.chao1);
+
+    // 4. Beta diversity across samples
+    let beta = beta_diversity_matrix(&[sample1_counts, sample2_counts]).unwrap();
+    println!("Bray-Curtis: {:.3}", beta.get(0, 1));
+
+    // 5. Rarefaction curve
+    let steps = vec![100, 500, 1000, 5000];
+    let curve = rarefaction_curve(sample1_counts, &steps).unwrap();
+
+    // 6. Assembly QC
+    let stats = assembly_stats(contigs).unwrap();
+    println!("N50: {} bp, {} contigs, GC: {:.1}%",
+        stats.n50, stats.contig_count, stats.gc_content * 100.0);
+}
+```
+
+## 8. ChIP-seq / ATAC-seq Epigenomics Pipeline
+
+Build signal tracks, call peaks, discover motifs, learn chromatin states, and run differential binding analysis.
+
+**Crates**: cyanea-epi
+
+```toml
+[dependencies]
+cyanea-epi = "0.1"
+```
+
+```rust
+use cyanea_epi::pileup::{build_pileup, normalize_pileup, smooth_pileup, pileup_correlation};
+use cyanea_epi::peaks::{call_peaks, PeakCallParams, PeakSet};
+use cyanea_epi::motifs::{discover_motifs, scan_sequence, DiscoveryParams, write_meme};
+use cyanea_epi::chromatin::{learn_chromatin_states, segment_genome, ChromHMMParams};
+use cyanea_epi::differential::differential_peaks;
+use cyanea_epi::accessibility::{tss_enrichment, atacqc};
+
+fn epigenomics_pipeline(
+    chip_reads: &[(String, u64, u64)],
+    input_reads: &[(String, u64, u64)],
+    peak_sequences: &[&[u8]],
+) {
+    // 1. Build and normalize pileups
+    let treatment = build_pileup(chip_reads, 200);
+    let control = build_pileup(input_reads, 200);
+    let normalized = normalize_pileup(&treatment, "cpm").unwrap();
+    let smoothed = smooth_pileup(&normalized, 150.0);
+
+    // 2. Call peaks
+    let params = PeakCallParams::default();
+    let peaks = call_peaks(&treatment, &control, &params).unwrap();
+    let peak_set = PeakSet::new(peaks);
+    let stats = peak_set.stats();
+    println!("{} peaks, median width {} bp", stats.count, stats.median_width);
+
+    // 3. Motif discovery at peak summits
+    let disc_params = DiscoveryParams {
+        motif_width: 8,
+        n_motifs: 10,
+        ..Default::default()
+    };
+    let motifs = discover_motifs(peak_sequences, &disc_params).unwrap();
+    let meme_output = write_meme(&motifs);
+    println!("Discovered {} motifs", motifs.len());
+
+    // 4. Chromatin state learning (from multiple histone marks)
+    let marks = vec![
+        vec![true, true, false, false],   // active promoter bin
+        vec![false, false, true, false],   // repressed bin
+        // ...
+    ];
+    let hmm_params = ChromHMMParams { n_states: 5, ..Default::default() };
+    let model = learn_chromatin_states(&marks, &hmm_params).unwrap();
+    let segmentation = segment_genome(&model, &marks).unwrap();
+
+    // 5. Differential binding between conditions
+    let counts = vec![
+        vec![100.0, 110.0, 20.0, 25.0],
+        vec![50.0, 45.0, 55.0, 48.0],
+    ];
+    let conditions = vec!["treated", "treated", "control", "control"];
+    let diff = differential_peaks(&counts, &conditions, "wald").unwrap();
+    let significant: Vec<_> = diff.iter().filter(|d| d.q_value < 0.05).collect();
+    println!("{} differentially bound regions (FDR < 0.05)", significant.len());
+}
+```

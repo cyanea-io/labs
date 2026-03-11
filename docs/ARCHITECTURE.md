@@ -1,6 +1,6 @@
 # Architecture
 
-Cyanea Labs is a Rust bioinformatics ecosystem comprising 13 crates in a Cargo workspace. It provides sequence analysis, alignment, statistics, machine learning, cheminformatics, structural biology, phylogenetics, and GPU acceleration -- all from a single dependency tree rooted in `cyanea-core`. The workspace compiles to native Rust, WebAssembly, Python (via PyO3), and Elixir NIFs.
+Cyanea Labs is a Rust bioinformatics ecosystem comprising 15 crates in a Cargo workspace. It provides sequence analysis, alignment, statistics, machine learning, cheminformatics, structural biology, phylogenetics, metagenomics, epigenomics, and GPU acceleration -- all from a single dependency tree rooted in `cyanea-core`. The workspace compiles to native Rust, WebAssembly, Python (via PyO3), and Elixir NIFs.
 
 ## Dependency Graph
 
@@ -20,7 +20,7 @@ Cyanea Labs is a Rust bioinformatics ecosystem comprising 13 crates in a Cargo w
         +--------+--------+------+------+--------+--------+--------+
         |        |        |      |      |        |        |        |
         v        v        v      v      v        v        v        v
-     seq      align    omics   stats    ml     chem    struct   phylo
+     seq      align    omics   stats    ml     chem    struct   phylo   meta    epi
       |                  |                                |      |
       |                  |                                |      |
       |                  +------ io <---------(omics)-----+      |
@@ -49,6 +49,8 @@ Cyanea Labs is a Rust bioinformatics ecosystem comprising 13 crates in a Cargo w
 - `cyanea-io` depends on `cyanea-omics` for genomic types (`Variant`, `GenomicInterval`, `Gene`)
 - `cyanea-phylo` optionally depends on `cyanea-ml` (behind `ml` feature) for distance matrices and tree construction
 - `cyanea-io` optionally depends on `cyanea-stats` (behind `variant-calling` feature)
+- `cyanea-meta` depends on `cyanea-core` + `cyanea-seq` (for k-mer extraction in taxonomy)
+- `cyanea-epi` depends on `cyanea-core` only
 - Binding crates (`wasm`, `py`, NIF) aggregate multiple domain crates
 
 ## Feature Flag Architecture
@@ -255,15 +257,17 @@ CyaneaError
 | cyanea-seq | 474 | 26 | 500 |
 | cyanea-align | 321 | 8 | 329 |
 | cyanea-io | 357 | 7 | 364 |
-| cyanea-omics | 434 | 2 | 436 |
+| cyanea-omics | 463 | 3 | 466 |
 | cyanea-stats | 384 | 12 | 396 |
 | cyanea-ml | 269 | 4 | 273 |
 | cyanea-chem | 200 | 7 | 207 |
 | cyanea-struct | 76 | 2 | 78 |
 | cyanea-phylo | 225 | 5 | 230 |
 | cyanea-gpu | 62 | 2 | 64 |
+| cyanea-meta | 117 | -- | 117 |
+| cyanea-epi | 73 | 1 | 74 |
 | cyanea-wasm | 223 | 1 | 224 |
-| **Total** | | | **3,000+** |
+| **Total** | | | **3,700+** |
 
 Test data is always inline (strings, vecs) -- no external fixture files. Tests needing the filesystem use the `tempfile` crate.
 
@@ -281,6 +285,8 @@ Test data is always inline (strings, vecs) -- no external fixture files. Tests n
 | cyanea-chem | x | x | x | x | | | |
 | cyanea-struct | x | x | x | x | | | |
 | cyanea-phylo | x | x | x | x | | | |
+| cyanea-meta | x | x | | | | | |
+| cyanea-epi | x | x | | | | | |
 | cyanea-gpu | x | | | | x | x | x |
 
 ## Crate Roles
@@ -297,6 +303,8 @@ Test data is always inline (strings, vecs) -- no external fixture files. Tests n
 | **cyanea-chem** | Cheminformatics | SMILES/SDF V2000/V3000, SMARTS, Morgan/MACCS fingerprints, properties, descriptors, drug-likeness (Lipinski, Veber), substructure, stereochemistry, canonical SMILES, scaffolds (Murcko), 3D conformers (distance geometry/ETKDG), UFF/MMFF94 force fields, energy minimization, SMIRKS reactions, retrosynthesis, Gasteiger charges |
 | **cyanea-struct** | Structural biology | PDB/mmCIF, DSSP, Kabsch, contact maps, Ramachandran, B-factors |
 | **cyanea-phylo** | Phylogenetics | Newick/NEXUS, UPGMA/NJ, parsimony (Fitch/Sankoff), ML likelihood, bootstrap, consensus, dating, drawing, tree search (NNI/SPR/TBR), model selection (AIC/BIC), protein substitution models (WAG/LG/JTT), MCMC, species tree, UniFrac, simulation (sequence evolution, coalescent) |
+| **cyanea-meta** | Metagenomics | Taxonomy (k-mer LCA classification), taxonomic profiling, alpha/beta diversity (Shannon, Simpson, Chao1, Bray-Curtis), compositional analysis (CLR/ILR, ALDEx2, ANCOM), functional annotation, metagenomic binning (TNF + coverage), assembly QC (N50/auN) |
+| **cyanea-epi** | Epigenomics | MACS2-style peak calling (narrow + broad), signal pileup/normalization, PWM motif scanning/discovery, MEME I/O, ChromHMM-like chromatin state learning, DESeq2-style differential binding, nucleosome positioning, ATAC-seq QC (TSS enrichment, FRiP, NFR ratio) |
 | **cyanea-gpu** | GPU compute | Backend trait (CPU/CUDA/Metal/WebGPU), pairwise distances, k-mer counting, SW, MinHash |
 | **cyanea-wasm** | WASM bindings | JSON API for 10 domain modules, `@cyanea/bio` npm package |
 | **cyanea-py** | Python bindings | PyO3 classes for 11 submodules, NumPy interop, `pip install cyanea` |

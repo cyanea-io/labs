@@ -1,0 +1,29 @@
+[package]
+name = "cyanea-epi"
+description = "Epigenomics analysis for the Cyanea bioinformatics ecosystem"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+keywords = ["bioinformatics", "epigenomics", "chip-seq", "atac-seq", "chromatin"]
+categories = ["science"]
+
+[features]
+default = ["std"]
+std = []
+wasm = []
+serde = ["dep:serde", "cyanea-core/serde"]
+
+[dependencies]
+cyanea-core = { path = "../cyanea-core", version = "0.1.0", default-features = false }
+cyanea-seq = { path = "../cyanea-seq", version = "0.1.0", default-features = false }
+cyanea-stats = { path = "../cyanea-stats", version = "0.1.0", default-features = false }
+cyanea-io = { path = "../cyanea-io", version = "0.1.0", default-features = false }
+serde = { workspace = true, optional = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+proptest = { workspace = true }

@@ -32,9 +32,9 @@
 
 ---
 
-Cyanea Labs is a Cargo workspace of 13 crates covering the core primitives of computational biology — sequence analysis, alignment, genomic intervals, statistics, machine learning, cheminformatics, structural biology, and phylogenetics. Everything compiles to native, WebAssembly, and Python (via PyO3), with an Elixir NIF bridge for the Cyanea platform.
+Cyanea Labs is a Cargo workspace of 15 crates covering the core primitives of computational biology — sequence analysis, alignment, genomic intervals, statistics, machine learning, cheminformatics, structural biology, phylogenetics, metagenomics, and epigenomics. Everything compiles to native, WebAssembly, and Python (via PyO3), with an Elixir NIF bridge for the Cyanea platform.
 
-3,000+ tests. Zero `unsafe`. No heavyweight C/C++ dependencies in the core path.
+3,700+ tests. Zero `unsafe`. No heavyweight C/C++ dependencies in the core path.
 
 ## Quick Start
 
@@ -105,13 +105,15 @@ const desc = stats.describe([1, 2, 3, 4, 5]);
 | **[cyanea-core](cyanea-core/)** | Error types, traits, SHA-256, zstd/gzip, mmap, log-space probability, rank/select bitvectors, wavelet matrix, Fenwick tree | 58 |
 | **[cyanea-seq](cyanea-seq/)** | DNA/RNA/protein sequences, FASTA/FASTQ, k-mers, 2-bit encoding, suffix array, FM-index, BWT, FMD-index, MinHash, pattern matching (KMP, Boyer-Moore, Myers bit-parallel), PSSM/motif scanning, ORF finder, codon tables, sequence masking, RNA secondary structure, protein properties, read simulation, de Bruijn graphs, assembly QC | 474 |
 | **[cyanea-align](cyanea-align/)** | Needleman-Wunsch, Smith-Waterman, semi-global, banded, MSA, seed-and-extend, minimizers, WFA, POA, LCSk++, pair HMM, profile HMM, X-drop/Z-drop, spliced alignment, CIGAR utilities, substitution matrices (BLOSUM/PAM), SIMD (NEON/SSE4.1/AVX2), GPU dispatch | 321 |
-| **[cyanea-omics](cyanea-omics/)** | Genomic coordinates, interval sets/trees, genome arithmetic, expression matrices, sparse matrices, variants, gene annotations, coordinate liftover, AnnData/h5ad/zarr, variant annotation/VEP, CNV/CBS, methylation, spatial transcriptomics, single-cell (HVG, normalize, Leiden/Louvain, diffusion map, DPT, PAGA, markers, Harmony/ComBat/MNN) | 434 |
+| **[cyanea-omics](cyanea-omics/)** | Genomic coordinates, interval sets/trees, genome arithmetic, expression matrices, sparse matrices, variants, gene annotations, coordinate liftover, AnnData/h5ad/zarr, variant annotation/VEP, CNV/CBS, methylation, spatial transcriptomics, single-cell (HVG, normalize, Leiden/Louvain, diffusion map, DPT, PAGA, markers, Harmony/ComBat/MNN, MTX/CSC, RNA velocity, batch correction metrics) | 463 |
 | **[cyanea-io](cyanea-io/)** | CSV, VCF, BED, BEDPE, GFF3, GTF, SAM, BAM, CRAM, BCF, Parquet, BLAST, BLAST XML, MAF, GenBank, bigWig, Stockholm, Clustal, Phylip, EMBL, PIR, ABI, bedGraph, GFA, indexed BAM/VCF, BAM ops, VCF ops, variant calling, fetch clients | 357 |
 | **[cyanea-stats](cyanea-stats/)** | Descriptive stats, correlation, hypothesis tests (t, chi-squared, Mann-Whitney, Fisher, KS), distributions, PCA, effect sizes, Bayesian conjugate priors, combinatorics, population genetics (Fst, Tajima's D, LD), differential expression, enrichment (GSEA, ORA), ordination (PCoA, NMDS), multivariate tests (PERMANOVA, ANOSIM), survival analysis, ecological diversity | 384 |
 | **[cyanea-ml](cyanea-ml/)** | K-means, DBSCAN, hierarchical clustering, pairwise distances, KNN, PCA, t-SNE, UMAP, random forest, GBDT, feature selection, HMM, classification metrics, cross-validation | 269 |
 | **[cyanea-chem](cyanea-chem/)** | SMILES/SDF V2000/V3000, SMARTS, molecular fingerprints (Morgan, MACCS), substructure search, stereochemistry, canonical SMILES, 200+ descriptors, drug-likeness (Lipinski, QED, PAINS), scaffolds (Murcko, MCS), 3D conformers (ETKDG), force fields (UFF, MMFF94), Gasteiger charges, chemical reactions (SMIRKS), standardization | 200 |
 | **[cyanea-struct](cyanea-struct/)** | PDB/mmCIF parsing, 3D geometry, DSSP secondary structure, Kabsch superposition, contact maps, Ramachandran analysis | 76 |
 | **[cyanea-phylo](cyanea-phylo/)** | Newick/NEXUS parsing, distance matrices, UPGMA/NJ, Fitch/Sankoff parsimony, ML likelihood (GTR+G), bootstrap, tree search (NNI/SPR/TBR), model selection (AIC/BIC), protein models (LG/WAG/JTT), Bayesian MCMC, species tree (ASTRAL), UniFrac, simulation, consensus, dating, drawing | 225 |
+| **[cyanea-meta](cyanea-meta/)** | Metagenomics: taxonomy (k-mer LCA classification), taxonomic profiling, alpha/beta diversity, compositional analysis (CLR/ILR, ALDEx2, ANCOM), functional annotation, metagenomic binning (TNF + coverage), assembly QC (N50/auN) | 117 |
+| **[cyanea-epi](cyanea-epi/)** | Epigenomics: MACS2-style peak calling (narrow + broad), signal pileup/normalization, motif discovery/PWM scanning/MEME I/O, ChromHMM-like chromatin state learning, differential binding (DESeq2-style), nucleosome positioning, ATAC-seq QC (TSS enrichment, FRiP) | 73 |
 | **[cyanea-gpu](cyanea-gpu/)** | Backend trait with CPU, CUDA, Metal, and WebGPU implementations, GPU buffer management, k-mer counting, Smith-Waterman, MinHash, benchmarks | 62 |
 | **[cyanea-wasm](cyanea-wasm/)** | WebAssembly bindings via wasm-bindgen (seq, io, align, stats, ml, chem, struct_bio, phylo, omics, core) | 223 |
 | **[cyanea-py](cyanea-py/)** | Python bindings via PyO3 (seq, align, stats, ml, chem, struct_bio, phylo, io, omics, sc) with optional NumPy support | &mdash; |
@@ -124,13 +126,15 @@ const desc = stats.describe([1, 2, 3, 4, 5]);
 cyanea-core (foundation)
 ├── cyanea-seq          Sequences, indexing, k-mers
 ├── cyanea-align        Pairwise & multiple alignment
-├── cyanea-omics        Genomic intervals, matrices, variants
+├── cyanea-omics        Genomic intervals, matrices, variants, single-cell
 ├── cyanea-io           File format I/O
 ├── cyanea-stats        Statistics & distributions
 ├── cyanea-ml           Machine learning & clustering
 ├── cyanea-chem         Chemical structure & fingerprints
 ├── cyanea-struct       Protein structure & geometry
 ├── cyanea-phylo        Phylogenetics (optional: cyanea-ml)
+├── cyanea-meta         Metagenomics & microbiome analysis
+├── cyanea-epi          Epigenomics (ChIP-seq, ATAC-seq)
 ├── cyanea-gpu          GPU compute backends
 ├── cyanea-wasm         → WebAssembly (@cyanea/bio on npm)
 └── cyanea-py           → Python (PyO3 + maturin)

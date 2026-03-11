@@ -6,6 +6,7 @@ members = [
     "cyanea-align",
     "cyanea-omics",
     "cyanea-stats",
+    "cyanea-meta",
     "cyanea-ml",
     "cyanea-chem",
     "cyanea-struct",
@@ -13,6 +14,7 @@ members = [
     "cyanea-gpu",
     "cyanea-wasm",
     "cyanea-py",
+    "cyanea-epi",
     "benchmarks",
 ]
 resolver = "2"

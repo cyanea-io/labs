@@ -58,6 +58,12 @@ pub mod sc_trajectory;
 pub mod sc_markers;
 #[cfg(feature = "single-cell")]
 pub mod sc_integrate;
+#[cfg(feature = "single-cell")]
+pub mod sc_mtx;
+#[cfg(feature = "single-cell")]
+pub mod sc_velocity;
+#[cfg(feature = "single-cell")]
+pub mod sc_batch;
 
 pub use cnv::{
     BafSegment, CbsConfig, CnvSegment, SvBreakpoint, SvType,
