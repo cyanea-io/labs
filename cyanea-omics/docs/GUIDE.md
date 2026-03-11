@@ -1,6 +1,6 @@
 # cyanea-omics Usage Guide
 
-Practical examples for working with genomic data structures, single-cell analysis, variant annotation, spatial transcriptomics (including platform-specific containers, segmentation, domain detection, cell-cell communication, and deconvolution), Hi-C / 3D genome analysis, ACMG variant classification, pharmacogenomics, and clinical genomics.
+Practical examples for working with genomic data structures, single-cell analysis, variant annotation, spatial transcriptomics (including platform-specific containers, segmentation, domain detection, cell-cell communication, and deconvolution), Hi-C / 3D genome analysis, ACMG variant classification, pharmacogenomics, clinical genomics, and CRISPR analysis.
 
 ## Genomic Intervals and Interval Sets
 
@@ -842,5 +842,87 @@ match liftover(&interval, &chain) {
     LiftoverResult::Unmapped => {
         println!("Could not map interval");
     }
+}
+```
+
+## CRISPR Guide RNA Scoring and Off-Target Search
+
+```rust
+use cyanea_omics::{score_guide_rs2, cfd_score, count_mismatches, find_off_targets};
+
+// Score a guide in its 30-nt context (4nt upstream + 20nt spacer + NGG PAM + 3nt downstream)
+let context = b"ACGTGCATGCTAGCTAGCTAGCAGNNGGATT";
+let score = score_guide_rs2(context).unwrap();
+println!("On-target score: {:.3}", score);
+
+// CFD score: compare guide to a potential off-target site
+let guide     = b"ACGTACGTACGTACGTACGT";
+let off_site  = b"ACGTACGTACATACGTACGT"; // 1 mismatch at position 11
+let cfd = cfd_score(guide, off_site).unwrap();
+println!("CFD score: {:.3} (1.0 = perfect match)", cfd);
+
+// Count mismatches
+let mm = count_mismatches(guide, off_site);
+println!("{} mismatches", mm);
+
+// Search a genome sequence for off-target sites (both strands, NGG PAM)
+let genome = b"NNNNNNNNNNACGTACGTACATACGTACGTNGGNNNNNNNNNN";
+let off_targets = find_off_targets(guide, genome, "chr1", 3).unwrap();
+for ot in &off_targets {
+    println!("{}:{} ({}) {} mm, CFD={:.3}",
+        ot.chrom, ot.position, ot.strand, ot.mismatches, ot.cfd_score);
+}
+```
+
+## CRISPR Screen Analysis (MAGeCK-Style)
+
+```rust
+use cyanea_omics::analyze_screen;
+
+// Guide-level log2 fold-changes: (guide_name, gene, lfc)
+let guide_data: Vec<(String, String, f64)> = vec![
+    // Essential gene — guides strongly depleted
+    ("g1".into(), "TP53".into(), -3.5),
+    ("g2".into(), "TP53".into(), -2.8),
+    ("g3".into(), "TP53".into(), -4.1),
+    ("g4".into(), "TP53".into(), -3.0),
+    // Non-essential control
+    ("g5".into(), "GFP".into(), 0.1),
+    ("g6".into(), "GFP".into(), -0.2),
+    ("g7".into(), "GFP".into(), 0.3),
+    ("g8".into(), "GFP".into(), -0.1),
+];
+
+// Negative selection: test for gene essentiality (depletion)
+let results = analyze_screen(&guide_data, true);
+for r in &results {
+    println!("{}: median_lfc={:.2}, RRA={:.4}, FDR={:.4} [{}]",
+        r.gene, r.median_lfc, r.rra_score, r.fdr, r.classification);
+}
+
+// Positive selection: test for enrichment (e.g., resistance screen)
+let enrichment_results = analyze_screen(&guide_data, false);
+```
+
+## Base Editing Outcome Prediction
+
+```rust
+use cyanea_omics::{predict_editing, BaseEditor};
+
+// Predict CBE (C→T) editing outcomes for a 20-nt spacer
+let spacer = b"AAGCACGTACGTACGTACGT";
+let cbe_outcomes = predict_editing(BaseEditor::Cbe, spacer).unwrap();
+for o in &cbe_outcomes {
+    println!("pos {}: {}→{} eff={:.3} {}",
+        o.position, o.ref_base, o.alt_base, o.efficiency,
+        if o.in_window { "(in window)" } else { "(bystander)" });
+}
+
+// Predict ABE (A→G) editing outcomes
+let abe_outcomes = predict_editing(BaseEditor::Abe, spacer).unwrap();
+for o in &abe_outcomes {
+    println!("pos {}: {}→{} eff={:.3} {}",
+        o.position, o.ref_base, o.alt_base, o.efficiency,
+        if o.in_window { "(in window)" } else { "(bystander)" });
 }
 ```

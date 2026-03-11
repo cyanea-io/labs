@@ -54,6 +54,7 @@ pub mod methylation;
 pub mod pharmacogenomics;
 pub mod microarray;
 pub mod hic;
+pub mod crispr;
 #[cfg(feature = "h5ad")]
 pub mod h5ad;
 #[cfg(feature = "zarr")]
@@ -165,6 +166,12 @@ pub use pharmacogenomics::{
     activity_to_phenotype, call_star_alleles, demo_cyp2d6_database, lookup_drug_interactions,
     AlleleFunction, DrugGeneInteraction, MetabolizerPhenotype, PgxDatabase, StarAllele,
     StarAlleleCall,
+};
+
+// Re-export CRISPR analysis types
+pub use crispr::{
+    analyze_screen, cfd_score, count_mismatches, find_off_targets, predict_editing,
+    score_guide_rs2, BaseEditor, EditingOutcome, GuideRna, OffTarget, ScreenGeneResult,
 };
 
 #[cfg(feature = "h5ad")]

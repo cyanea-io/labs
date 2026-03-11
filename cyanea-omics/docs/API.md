@@ -1,10 +1,10 @@
 # cyanea-omics
 
-Data structures for genomics, transcriptomics, and variant analysis. Provides the core types used across the Cyanea ecosystem for representing biological coordinates, expression data, variants, gene annotations, single-cell analysis, spatial transcriptomics, copy number variation, methylation, Hi-C / 3D genome analysis, and genome arithmetic.
+Data structures for genomics, transcriptomics, and variant analysis. Provides the core types used across the Cyanea ecosystem for representing biological coordinates, expression data, variants, gene annotations, single-cell analysis, spatial transcriptomics, copy number variation, methylation, Hi-C / 3D genome analysis, CRISPR guide RNA design and screen analysis, and genome arithmetic.
 
 ## Status: Complete
 
-All omics data structures are implemented including genomic coordinates, interval operations, interval trees, coverage vectors, expression matrices, sparse matrices, variant types, variant annotation, gene annotations, an AnnData-like single-cell container, genome arithmetic, liftover, copy number analysis, methylation analysis, spatial transcriptomics (core analysis, platform-specific containers for Visium/MERFISH/Slide-seq, cell segmentation, spatial domain detection, cell-cell communication, deconvolution), Hi-C / 3D genome analysis (contact matrices, TAD calling, A/B compartments, loop calling, .cool and 4DN pairs format I/O), HDF5-backed `.h5ad` file I/O, Zarr I/O, a full single-cell pipeline (preprocessing, clustering, trajectory, markers, integration), ACMG/AMP variant classification with ClinVar annotation, pharmacogenomics (star allele calling, drug-gene interactions), and clinical genomics (HLA typing, TMB, MSI).
+All omics data structures are implemented including genomic coordinates, interval operations, interval trees, coverage vectors, expression matrices, sparse matrices, variant types, variant annotation, gene annotations, an AnnData-like single-cell container, genome arithmetic, liftover, copy number analysis, methylation analysis, spatial transcriptomics (core analysis, platform-specific containers for Visium/MERFISH/Slide-seq, cell segmentation, spatial domain detection, cell-cell communication, deconvolution), Hi-C / 3D genome analysis (contact matrices, TAD calling, A/B compartments, loop calling, .cool and 4DN pairs format I/O), HDF5-backed `.h5ad` file I/O, Zarr I/O, a full single-cell pipeline (preprocessing, clustering, trajectory, markers, integration), ACMG/AMP variant classification with ClinVar annotation, pharmacogenomics (star allele calling, drug-gene interactions), clinical genomics (HLA typing, TMB, MSI), and CRISPR analysis (guide RNA scoring, off-target prediction, screen analysis, base editing).
 
 ## Public API
 
@@ -782,6 +782,29 @@ HLA typing for transplant matching, tumor mutational burden (TMB), and microsate
 | `bethesda_markers() -> Vec<MsiLocus>` | Standard 5 Bethesda markers (BAT25, BAT26, NR21, NR24, MONO27) |
 | `call_msi(observed_counts, markers, shift_threshold) -> MsiResult` | Call MSI status from observed repeat counts vs. reference |
 
+### CRISPR analysis (`crispr.rs`)
+
+Guide RNA on-target scoring (Rule Set 2), CFD off-target scoring, off-target site search, MAGeCK-style CRISPR screen analysis with robust rank aggregation, and base editing outcome prediction.
+
+| Type | Description |
+|------|-------------|
+| `GuideRna` | Guide RNA with scoring: `spacer` (20-nt), `pam`, `chrom`, `start`, `strand`, `on_target_score`, `off_target_count`, `specificity_score` |
+| `OffTarget` | Off-target site: `sequence` (20-nt), `chrom`, `position`, `strand`, `mismatches`, `cfd_score` |
+| `ScreenGeneResult` | Screen result per gene: `gene`, `n_guides`, `median_lfc`, `rra_score`, `fdr` (BH-corrected), `classification` (essential/enriched/neutral) |
+| `EditingOutcome` | Base editing prediction: `position` (1-indexed from PAM-distal), `ref_base`, `alt_base`, `efficiency`, `in_window` |
+| `BaseEditor` | Editor type: `Cbe` (C→T), `Abe` (A→G) |
+
+**Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `score_guide_rs2(context_30) -> Result<f64>` | Score 30-nt context (4nt upstream + 20nt spacer + 3nt PAM + 3nt downstream) using simplified Rule Set 2; returns 0-1 |
+| `cfd_score(guide, off_target) -> Result<f64>` | Cutting frequency determination score between 20-nt guide and 20-nt off-target site; 1.0 = perfect match, lower = less likely cutting |
+| `count_mismatches(guide, target) -> u32` | Count positional mismatches between two sequences |
+| `find_off_targets(guide, genome, chrom, max_mismatches) -> Result<Vec<OffTarget>>` | Search genome for NGG/NAG PAM sites with up to `max_mismatches` mismatches on both strands; results sorted by CFD score descending |
+| `analyze_screen(guide_lfc, negative) -> Vec<ScreenGeneResult>` | MAGeCK-style robust rank aggregation on guide log2 fold-changes; `negative=true` for essentiality (depletion), `false` for enrichment; BH-corrected FDR with monotonicity enforcement |
+| `predict_editing(editor, spacer) -> Result<Vec<EditingOutcome>>` | Predict base editing outcomes for a 20-nt spacer; CBE window positions 4-8, ABE window positions 4-7; Gaussian efficiency falloff from window center |
+
 ## Feature Flags
 
 | Flag | Default | Description |
@@ -805,7 +828,7 @@ HLA typing for transplant matching, tumor mutational burden (TMB), and microsate
 
 ## Tests
 
-541 unit tests + 2 doc tests.
+556 unit tests + 2 doc tests.
 
 ## Source Files
 
@@ -846,4 +869,5 @@ HLA typing for transplant matching, tumor mutational burden (TMB), and microsate
 | `clinical.rs` | HLA typing, tumor mutational burden (TMB), microsatellite instability (MSI) |
 | `microarray.rs` | Microarray normalization (RMA, quantile, SWAN), differential expression (limma), methylation analysis |
 | `hic.rs` | Hi-C contact matrices, TAD calling, A/B compartments, loop calling, .cool/.pairs I/O |
+| `crispr.rs` | Guide RNA scoring (Rule Set 2), CFD off-target scoring, off-target search, MAGeCK-style screen analysis (RRA), base editing prediction (CBE/ABE) |
 | `sc_integrate.rs` | Harmony, ComBat, MNN, kBET/LISI metrics |

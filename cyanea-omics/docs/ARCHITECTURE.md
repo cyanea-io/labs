@@ -1,6 +1,6 @@
 # cyanea-omics Architecture
 
-Internal design of the omics data structures and analysis modules.
+Internal design of the omics data structures, analysis modules, and CRISPR tools.
 
 ## Coordinate System
 
@@ -258,3 +258,55 @@ Three clinical assays commonly used in oncology and transplant medicine:
 ### Microsatellite Instability
 
 MSI analysis compares observed repeat counts at microsatellite loci against reference values. `bethesda_markers()` provides the standard 5 mononucleotide markers (BAT25, BAT26, NR21, NR24, MONO27) with their genomic coordinates and reference repeat counts. `call_msi` determines instability at each locus by checking whether the observed count differs from reference by more than a configurable shift threshold (typically 2-3 repeats). The final status follows standard criteria: MSS (0 unstable), MSI-Low (1 unstable), MSI-High (>=2 unstable or >=30% unstable fraction).
+
+## CRISPR Analysis
+
+`crispr.rs` provides guide RNA design scoring, off-target prediction, CRISPR screen analysis, and base editing outcome prediction.
+
+### On-Target Scoring (Rule Set 2)
+
+`score_guide_rs2` implements a simplified version of the Doench et al. 2016 Rule Set 2 model. The input is a 30-nt context: 4 nt upstream + 20-nt spacer + 3 nt PAM (NGG) + 3 nt downstream. Scoring combines several position-dependent nucleotide preferences with a 0.5 baseline:
+
+- **GC content**: The spacer GC fraction is penalized outside the optimal 40-70% range (moderate penalty for <30% or >80%).
+- **Poly-T filter**: Runs of 4+ T's in the spacer are penalized, as TTTT acts as a Pol III terminator signal.
+- **Position-specific preferences**: Nucleotide identity at specific spacer positions (G at position 1, C/G at position 20, A at position 19) and in the upstream context (C at position -1) contribute small additive bonuses.
+
+The final score is clamped to [0, 1].
+
+### CFD Off-Target Scoring
+
+`cfd_score` computes the Cutting Frequency Determination score (Doench et al. 2016) between a 20-nt guide and a 20-nt off-target site. The score starts at 1.0 (perfect match) and is multiplicatively penalized per mismatch:
+
+- **Position-dependent penalties**: Mismatches are binned by distance from the PAM. Positions 1-4 from the PAM (critical seed) reduce the score to 0 for that position. Positions 5-8 (near-seed) retain only 10%, 9-12 (mid-guide) retain 30%, 13-16 (PAM-distal) retain 60%, and 17-20 (very distal) retain 80%.
+- **Mismatch type modifiers**: Purine-purine mismatches (G:A) are penalized slightly more (1.2x divisor), and pyrimidine-pyrimidine mismatches (C:T) slightly more (1.1x), reflecting differential tolerance from rG:dT wobble pairing.
+
+The multiplicative model means multiple mismatches compound: two seed-region mismatches drive the score to near zero.
+
+### Off-Target Search
+
+`find_off_targets` performs a linear scan of a genome sequence for potential off-target sites. For each position, it checks for NGG PAM motifs (forward strand) or CCN motifs (reverse strand, corresponding to NGG on the reverse complement). When a PAM is found, the adjacent 20-nt region is compared to the guide (or its reverse complement for the minus strand). Sites with 1 to `max_mismatches` mismatches are retained (exact matches are excluded as they represent the on-target site). Each hit is scored with `cfd_score` and results are sorted by CFD score in descending order. The `reverse_complement` helper performs standard Watson-Crick complementation with reversal, mapping unknown bases to N.
+
+### CRISPR Screen Analysis (MAGeCK-Style RRA)
+
+`analyze_screen` implements robust rank aggregation following the MAGeCK approach (Li et al. 2014):
+
+1. **Global ranking**: All guide log2 fold-changes are ranked globally. For negative selection (essentiality), guides are ranked by ascending LFC (most depleted = rank 1). For positive selection, guides are ranked by descending LFC.
+
+2. **Per-gene RRA**: For each gene, its guides' percentile ranks are collected and sorted. The alpha-RRA algorithm (alpha = 0.25) computes, for each guide rank `r_k` at position `k`, the uniform order statistic p-value `P(U_(k) <= r_k) ≈ r_k^(k+1) * C(n, k+1)`. The minimum across all guides with rank <= alpha is the gene's RRA score.
+
+3. **FDR correction**: Genes are sorted by RRA score, and Benjamini-Hochberg correction is applied: `FDR_i = RRA_i * n_genes / rank_i`, capped at 1.0. Monotonicity is enforced with a reverse pass so that FDR values are non-decreasing.
+
+4. **Classification**: Genes with FDR < 0.05 are classified as "essential" (negative selection) or "enriched" (positive selection); others are "neutral".
+
+The `choose` helper computes binomial coefficients iteratively to avoid overflow.
+
+### Base Editing Outcome Prediction
+
+`predict_editing` predicts editing outcomes for cytosine base editors (CBE, C→T) and adenine base editors (ABE, A→G) across a 20-nt spacer. The editing window (positions where the deaminase domain is active) is positions 4-8 for CBE and 4-7 for ABE, counted from the PAM-distal end (1-indexed).
+
+For each target base (C for CBE, A for ABE) in the spacer:
+
+- **In-window efficiency**: A Gaussian-like model centered at the middle of the editing window. The base efficiency is 0.7, scaled by `exp(-0.5 * (d / d_max)^2)` where `d` is the distance from the window center and `d_max` is the half-width.
+- **Bystander efficiency**: Positions outside the window receive a low efficiency of `0.05 * exp(-distance_to_window)`, representing off-window bystander editing that decays exponentially with distance.
+
+Each outcome records the position, reference and edited bases, efficiency, and whether the position falls within the primary editing window.
