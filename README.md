@@ -32,9 +32,9 @@
 
 ---
 
-Cyanea Labs is a Cargo workspace of 17 crates covering the core primitives of computational biology — sequence analysis, alignment, genomic intervals, statistics, machine learning, cheminformatics, structural biology, phylogenetics, metagenomics, epigenomics, proteomics, and network/pathway biology. Everything compiles to native, WebAssembly, and Python (via PyO3), with an Elixir NIF bridge for the Cyanea platform.
+Cyanea Labs is a Cargo workspace of 18 crates covering the core primitives of computational biology — sequence analysis, alignment, genomic intervals, statistics, machine learning, cheminformatics, structural biology, phylogenetics, metagenomics, epigenomics, proteomics, and network/pathway biology. Everything compiles to native, WebAssembly, and Python (via PyO3), with an Elixir NIF bridge for the Cyanea platform.
 
-3,970+ tests. Zero `unsafe`. No heavyweight C/C++ dependencies in the core path.
+4,010+ tests. Zero `unsafe`. No heavyweight C/C++ dependencies in the core path.
 
 ## Quick Start
 
@@ -117,6 +117,7 @@ const desc = stats.describe([1, 2, 3, 4, 5]);
 | **[cyanea-proteomics](cyanea-proteomics/)** | Proteomics: MGF/mzML parsing, in-silico digestion (trypsin/LysC/chymotrypsin), fragment ions (b/y/a), database search (XCorr/hyperscore), protein inference (parsimony), label-free & TMT quantification, target-decoy FDR, mzTab output | 86 |
 | **[cyanea-network](cyanea-network/)** | Network/pathway biology: graph types, centrality, community detection (Louvain/LP), PPI analysis, GRN inference (correlation/MI/CLR), pathway topology scoring, crosstalk, GMT/GraphML/SIF/GEXF I/O | 87 |
 | **[cyanea-gpu](cyanea-gpu/)** | Backend trait with CPU, CUDA, Metal, and WebGPU implementations, GPU buffer management, k-mer counting, Smith-Waterman, MinHash, benchmarks | 62 |
+| **[cyanea-datasets](cyanea-datasets/)** | Bundled sample datasets: genomics, alignment, epigenomics, single-cell, chemistry, phylogenetics, metagenomics, structural biology | 45 |
 | **[cyanea-wasm](cyanea-wasm/)** | WebAssembly bindings via wasm-bindgen (seq, io, align, stats, ml, chem, struct_bio, phylo, omics, core) | 223 |
 | **[cyanea-py](cyanea-py/)** | Python bindings via PyO3 (seq, align, stats, ml, chem, struct_bio, phylo, io, omics, sc) with optional NumPy support | &mdash; |
 
@@ -140,6 +141,7 @@ cyanea-core (foundation)
 ├── cyanea-proteomics   Proteomics & mass spectrometry
 ├── cyanea-network      Network/pathway biology
 ├── cyanea-gpu          GPU compute backends
+├── cyanea-datasets     Bundled sample datasets
 ├── cyanea-wasm         → WebAssembly (@cyanea/bio on npm)
 └── cyanea-py           → Python (PyO3 + maturin)
 ```

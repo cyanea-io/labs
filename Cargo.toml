@@ -17,6 +17,7 @@ members = [
     "cyanea-epi",
     "cyanea-proteomics",
     "cyanea-network",
+    "cyanea-datasets",
     "benchmarks",
 ]
 resolver = "2"

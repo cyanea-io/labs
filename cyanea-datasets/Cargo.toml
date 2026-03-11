@@ -1,0 +1,21 @@
+[package]
+name = "cyanea-datasets"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+rust-version.workspace = true
+description = "Bundled sample datasets for the Cyanea bioinformatics ecosystem"
+keywords = ["bioinformatics", "datasets", "demo", "tutorial"]
+categories = ["science"]
+
+[dependencies]
+cyanea-core = { path = "../cyanea-core" }
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[features]
+default = ["std"]
+std = []

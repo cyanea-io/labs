@@ -733,7 +733,58 @@ fn longread_pipeline(
 }
 ```
 
-## 12. Clinical Genomics Pipeline
+## 12. Using Sample Datasets
+
+Use `cyanea-datasets` to get pre-built sample data for prototyping and testing. All data is generated in-memory -- no external files needed.
+
+**Crates**: cyanea-datasets
+
+```toml
+[dependencies]
+cyanea-datasets = "0.1"
+```
+
+```rust
+use cyanea_datasets::genomics;
+use cyanea_datasets::alignment;
+use cyanea_datasets::epigenomics;
+use cyanea_datasets::single_cell;
+use cyanea_datasets::chemistry;
+use cyanea_datasets::phylogenetics;
+use cyanea_datasets::metagenomics;
+use cyanea_datasets::structural_biology;
+
+fn explore_sample_data() {
+    // Genomics: sample sequences, FASTA/FASTQ data, k-mer sets
+    let seqs = genomics::sample_sequences();
+    let fastq = genomics::sample_fastq();
+
+    // Alignment: pre-aligned sequence pairs, scoring matrices
+    let pair = alignment::sample_alignment_pair();
+    let msa = alignment::sample_msa();
+
+    // Epigenomics: ChIP-seq peaks, signal tracks
+    let peaks = epigenomics::sample_peaks();
+
+    // Single-cell: count matrices, cell metadata
+    let counts = single_cell::sample_count_matrix();
+    let metadata = single_cell::sample_cell_metadata();
+
+    // Chemistry: SMILES strings, molecular structures
+    let molecules = chemistry::sample_molecules();
+
+    // Phylogenetics: Newick trees, distance matrices
+    let tree = phylogenetics::sample_newick_tree();
+
+    // Metagenomics: OTU tables, taxonomy
+    let otu = metagenomics::sample_otu_table();
+
+    // Structural biology: PDB coordinates, contact maps
+    let structure = structural_biology::sample_pdb();
+}
+```
+
+## 13. Clinical Genomics Pipeline
 
 Classify variants using ACMG/AMP guidelines, match against ClinVar, call pharmacogenomics star alleles, determine metabolizer phenotypes, check drug-gene interactions, type HLA alleles, and compute tumor biomarkers (TMB, MSI).
 

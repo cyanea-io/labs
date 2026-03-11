@@ -865,6 +865,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "cyanea-datasets"
+version = "0.1.0"
+dependencies = [
+ "cyanea-core",
+ "tempfile",
+]
+
+[[package]]
 name = "cyanea-epi"
 version = "0.1.0"
 dependencies = [

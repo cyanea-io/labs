@@ -1,6 +1,6 @@
 # Cyanea Labs
 
-Rust bioinformatics ecosystem — 17 crates, 3970+ tests, targeting native, WASM, Python, and Elixir NIFs.
+Rust bioinformatics ecosystem — 18 crates, 4010+ tests, targeting native, WASM, Python, and Elixir NIFs.
 
 ## Workspace
 
@@ -35,6 +35,7 @@ All crates are complete. Each has `docs/API.md` (full API reference), `docs/GUID
 | **cyanea-network** | Network/pathway biology: graph types, centrality, community detection (Louvain/LP), PPI analysis, GRN inference (correlation/MI/CLR), pathway topology scoring, crosstalk, GMT/GraphML/SIF/GEXF I/O | 87 | cyanea-core |
 | **cyanea-gpu** | Backend trait, CPU/CUDA/Metal/WebGPU backends, buffers, ops, k-mer counting, Smith-Waterman, MinHash, benchmarks | 62 | cyanea-core, metal-rs, cudarc, wgpu, criterion (bench) |
 | **cyanea-wasm** | JSON-based WASM bindings (seq, io, align, stats, ml, chem, struct, phylo, omics) | 223 | serde_json, wasm-bindgen |
+| **cyanea-datasets** | Bundled sample datasets: genomics, alignment, epigenomics, single-cell, chemistry, phylogenetics, metagenomics, structural biology | 45 | cyanea-core |
 | **cyanea-py** | Python bindings via PyO3 (seq, align, stats, ml, chem, struct, phylo, io, omics) | — | pyo3 |
 
 ## Conventions
@@ -101,6 +102,7 @@ cyanea-core (foundation — no internal deps)
 ├── cyanea-proteomics
 ├── cyanea-network
 ├── cyanea-gpu
+├── cyanea-datasets
 ├── cyanea-io (+ cyanea-omics, csv, optional noodles)
 ├── cyanea-wasm (+ cyanea-seq/io/align/stats/ml/chem/struct/phylo/omics, serde_json, wasm-bindgen)
 └── cyanea-py (+ cyanea-seq/io/align/stats/ml/chem/struct/phylo/omics, pyo3)

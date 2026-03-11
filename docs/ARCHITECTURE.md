@@ -1,6 +1,6 @@
 # Architecture
 
-Cyanea Labs is a Rust bioinformatics ecosystem comprising 17 crates in a Cargo workspace. It provides sequence analysis, alignment, statistics, machine learning, cheminformatics, structural biology, phylogenetics, metagenomics, epigenomics, proteomics, network/pathway biology, and GPU acceleration -- all from a single dependency tree rooted in `cyanea-core`. The workspace compiles to native Rust, WebAssembly, Python (via PyO3), and Elixir NIFs.
+Cyanea Labs is a Rust bioinformatics ecosystem comprising 18 crates in a Cargo workspace. It provides sequence analysis, alignment, statistics, machine learning, cheminformatics, structural biology, phylogenetics, metagenomics, epigenomics, proteomics, network/pathway biology, and GPU acceleration -- all from a single dependency tree rooted in `cyanea-core`. The workspace compiles to native Rust, WebAssembly, Python (via PyO3), and Elixir NIFs.
 
 ## Dependency Graph
 
@@ -20,7 +20,7 @@ Cyanea Labs is a Rust bioinformatics ecosystem comprising 17 crates in a Cargo w
         +--------+--------+------+------+--------+--------+--------+
         |        |        |      |      |        |        |        |
         v        v        v      v      v        v        v        v
-     seq      align    omics   stats    ml     chem    struct   phylo   meta    epi   proteomics  network
+     seq      align    omics   stats    ml     chem    struct   phylo   meta    epi   proteomics  network  datasets
       |                  |                                |      |
       |                  |                                |      |
       |                  +------ io <---------(omics)-----+      |
@@ -53,6 +53,7 @@ Cyanea Labs is a Rust bioinformatics ecosystem comprising 17 crates in a Cargo w
 - `cyanea-epi` depends on `cyanea-core` only
 - `cyanea-proteomics` depends on `cyanea-core` only
 - `cyanea-network` depends on `cyanea-core` only
+- `cyanea-datasets` depends on `cyanea-core` only (generates all sample data in-memory)
 - Binding crates (`wasm`, `py`, NIF) aggregate multiple domain crates
 
 ## Feature Flag Architecture
@@ -271,7 +272,8 @@ CyaneaError
 | cyanea-proteomics | 86 | -- | 86 |
 | cyanea-network | 87 | 2 | 89 |
 | cyanea-wasm | 223 | 1 | 224 |
-| **Total** | | | **3,970+** |
+| cyanea-datasets | 44 | 1 | 45 |
+| **Total** | | | **4,010+** |
 
 Test data is always inline (strings, vecs) -- no external fixture files. Tests needing the filesystem use the `tempfile` crate.
 
@@ -293,6 +295,7 @@ Test data is always inline (strings, vecs) -- no external fixture files. Tests n
 | cyanea-epi | x | x | | | | | |
 | cyanea-proteomics | x | x | | | | | |
 | cyanea-network | x | x | | | | | |
+| cyanea-datasets | x | x | | | | | |
 | cyanea-gpu | x | | | | x | x | x |
 
 ## Crate Roles
@@ -313,6 +316,7 @@ Test data is always inline (strings, vecs) -- no external fixture files. Tests n
 | **cyanea-epi** | Epigenomics | MACS2-style peak calling (narrow + broad), signal pileup/normalization, PWM motif scanning/discovery, MEME I/O, ChromHMM-like chromatin state learning, DESeq2-style differential binding, nucleosome positioning, ATAC-seq QC (TSS enrichment, FRiP, NFR ratio) |
 | **cyanea-proteomics** | Proteomics | MGF/mzML parsing, amino acid masses, in-silico digestion (trypsin/LysC/chymotrypsin/AspN/GluC), fragment ions (b/y/a), modifications (CAM/oxidation/phospho/TMT/iTRAQ), XCorr/hyperscore PSM scoring, parsimony protein inference, spectral counting, intensity-based/Top3 quantification, TMT reporter ion extraction, target-decoy FDR, q-values, mzTab 1.0 output |
 | **cyanea-network** | Network/pathway biology | Graph types (directed/undirected/weighted), centrality (degree, betweenness, closeness, PageRank), community detection (Louvain, label propagation), PPI analysis, GRN inference (correlation, mutual information, CLR), pathway topology scoring, crosstalk analysis, GMT/GraphML/SIF/GEXF I/O |
+| **cyanea-datasets** | Sample datasets | Bundled in-memory sample data for all domains: genomics, alignment, epigenomics, single-cell, chemistry, phylogenetics, metagenomics, structural biology |
 | **cyanea-gpu** | GPU compute | Backend trait (CPU/CUDA/Metal/WebGPU), pairwise distances, k-mer counting, SW, MinHash |
 | **cyanea-wasm** | WASM bindings | JSON API for 10 domain modules, `@cyanea/bio` npm package |
 | **cyanea-py** | Python bindings | PyO3 classes for 11 submodules, NumPy interop, `pip install cyanea` |
