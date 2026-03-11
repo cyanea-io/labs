@@ -548,7 +548,86 @@ fn main() {
 }
 ```
 
-## 10. Long-Read Sequencing Analysis
+## 10. Network and Pathway Biology
+
+Build biological networks, compute centrality and community structure, infer gene regulatory networks, score pathway topology, and analyze pathway crosstalk.
+
+**Crates**: cyanea-network
+
+```toml
+[dependencies]
+cyanea-network = "0.1"
+```
+
+```rust
+use cyanea_network::graph::{Graph, EdgeWeight};
+use cyanea_network::centrality::{degree_centrality, betweenness_centrality, pagerank};
+use cyanea_network::community::{louvain, label_propagation};
+use cyanea_network::ppi::{build_ppi_network, hub_proteins, ppi_enrichment};
+use cyanea_network::grn::{correlation_network, mutual_information_network, clr_network};
+use cyanea_network::pathway::{score_topology, pathway_crosstalk};
+use cyanea_network::io::{parse_graphml, write_gexf, parse_gmt, write_sif};
+
+fn network_pipeline(
+    interactions: &[(String, String, f64)],
+    expression_matrix: &[Vec<f64>],
+    gene_names: &[&str],
+    gmt_data: &str,
+) {
+    // 1. Build a PPI network from interaction data
+    let ppi = build_ppi_network(interactions).unwrap();
+    println!("{} nodes, {} edges", ppi.node_count(), ppi.edge_count());
+
+    // 2. Centrality analysis — find hub proteins
+    let degree = degree_centrality(&ppi).unwrap();
+    let betweenness = betweenness_centrality(&ppi).unwrap();
+    let pr = pagerank(&ppi, 0.85, 100).unwrap();
+    let hubs = hub_proteins(&ppi, &degree, 0.95).unwrap();
+    println!("{} hub proteins (top 5% degree)", hubs.len());
+
+    // 3. Community detection (Louvain modularity optimization)
+    let communities = louvain(&ppi, 1.0).unwrap();
+    println!("{} communities, modularity={:.3}",
+        communities.n_communities, communities.modularity);
+
+    // 4. Label propagation (faster alternative)
+    let lp = label_propagation(&ppi, 100).unwrap();
+    println!("{} communities via LP", lp.n_communities);
+
+    // 5. Gene regulatory network inference from expression data
+    let corr_net = correlation_network(expression_matrix, gene_names, 0.7).unwrap();
+    let mi_net = mutual_information_network(expression_matrix, gene_names, 0.5).unwrap();
+    let clr_net = clr_network(expression_matrix, gene_names).unwrap();
+    println!("CLR network: {} edges", clr_net.edge_count());
+
+    // 6. Pathway topology scoring
+    let gene_sets = parse_gmt(gmt_data).unwrap();
+    for gs in &gene_sets {
+        let score = score_topology(&ppi, &gs.genes).unwrap();
+        println!("Pathway '{}': topology score={:.3}", gs.name, score);
+    }
+
+    // 7. Pathway crosstalk analysis
+    let crosstalk = pathway_crosstalk(&ppi, &gene_sets).unwrap();
+    for ct in crosstalk.iter().take(10) {
+        println!("{} <-> {}: {} shared edges, score={:.3}",
+            ct.pathway_a, ct.pathway_b, ct.shared_edges, ct.score);
+    }
+
+    // 8. PPI enrichment test (are input genes more connected than expected?)
+    let test_genes: Vec<&str> = gene_names[..20].to_vec();
+    let enrich = ppi_enrichment(&ppi, &test_genes, 1000).unwrap();
+    println!("PPI enrichment p={:.4}", enrich.p_value);
+
+    // 9. I/O — read/write network formats
+    let graphml_data = std::fs::read_to_string("network.graphml").unwrap();
+    let imported = parse_graphml(&graphml_data).unwrap();
+    let gexf_output = write_gexf(&ppi).unwrap();
+    let sif_output = write_sif(&ppi).unwrap();
+}
+```
+
+## 11. Long-Read Sequencing Analysis
 
 Analyze PacBio HiFi and Oxford Nanopore long reads: compute read statistics, self-correct reads, call structural variants from split alignments, run nanopore-specific QC, and detect CpG methylation.
 

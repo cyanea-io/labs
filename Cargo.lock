@@ -944,6 +944,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "cyanea-network"
+version = "0.1.0"
+dependencies = [
+ "cyanea-core",
+ "serde",
+ "tempfile",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "cyanea-omics"
 version = "0.1.0"
 dependencies = [

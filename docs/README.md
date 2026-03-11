@@ -42,6 +42,7 @@ Each crate has three documents in its `docs/` directory:
 | **cyanea-meta** | Metagenomics: taxonomy, profiling, diversity, composition, binning | [API.md](../cyanea-meta/docs/API.md) | [GUIDE.md](../cyanea-meta/docs/GUIDE.md) | [ARCHITECTURE.md](../cyanea-meta/docs/ARCHITECTURE.md) |
 | **cyanea-epi** | Epigenomics: peak calling, motifs, chromatin states, ATAC-seq QC | [API.md](../cyanea-epi/docs/API.md) | [GUIDE.md](../cyanea-epi/docs/GUIDE.md) | [ARCHITECTURE.md](../cyanea-epi/docs/ARCHITECTURE.md) |
 | **cyanea-proteomics** | Proteomics: MGF/mzML, digestion, search, protein inference, TMT, FDR | [API.md](../cyanea-proteomics/docs/API.md) | [GUIDE.md](../cyanea-proteomics/docs/GUIDE.md) | [ARCHITECTURE.md](../cyanea-proteomics/docs/ARCHITECTURE.md) |
+| **cyanea-network** | Network/pathway biology: graphs, centrality, community detection, GRN, PPI | [API.md](../cyanea-network/docs/API.md) | [GUIDE.md](../cyanea-network/docs/GUIDE.md) | [ARCHITECTURE.md](../cyanea-network/docs/ARCHITECTURE.md) |
 | **cyanea-gpu** | CPU/CUDA/Metal/WebGPU backends | [API.md](../cyanea-gpu/docs/API.md) | [GUIDE.md](../cyanea-gpu/docs/GUIDE.md) | [ARCHITECTURE.md](../cyanea-gpu/docs/ARCHITECTURE.md) |
 
 ### Binding Crates
